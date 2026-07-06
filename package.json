@@ -9,6 +9,27 @@
     "init-project": "bin/init-project.js",
     "create-memory-nest-kit": "bin/create-memory-nest-kit.js"
   },
+  "files": [
+    "bin/",
+    "lib/",
+    "scripts/",
+    "prompts/",
+    "boilerplates/",
+    "design-md/",
+    "memory/",
+    "docs/",
+    "specs/",
+    ".claude/agents/",
+    ".claude/settings.json",
+    ".gemini-instructions.md",
+    ".openai-instructions.md",
+    ".github/copilot-instructions.md",
+    ".memoryrc.json",
+    "AGENTS.md",
+    "DOC-MAP.md",
+    "CHANGELOG.md",
+    "CONTRIBUTING.md"
+  ],
   "scripts": {
     "forja": "node bin/forja.mjs",
     "sync:universal": "node bin/forja.mjs sync:universal",
