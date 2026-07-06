@@ -1,0 +1,17 @@
+{
+  "schemaVersion": "1.0",
+  "type": "design-reference",
+  "name": "together.ai",
+  "title": "Together AI Inspired Design System",
+  "path": "design-md/together.ai",
+  "readme": "design-md/together.ai/README.md",
+  "surfaces": [],
+  "traits": [
+    "ai"
+  ],
+  "tokenHints": {
+    "density": "medium",
+    "useWhen": "Escolha quando a superficie e o tom baterem com MATRIX.md.",
+    "avoidWhen": "Evite copiar identidade proprietaria ou carregar README inteiro sem necessidade."
+  }
+}

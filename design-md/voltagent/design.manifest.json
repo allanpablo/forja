@@ -1,0 +1,18 @@
+{
+  "schemaVersion": "1.0",
+  "type": "design-reference",
+  "name": "voltagent",
+  "title": "VoltAgent Inspired Design System",
+  "path": "design-md/voltagent",
+  "readme": "design-md/voltagent/README.md",
+  "surfaces": [],
+  "traits": [
+    "ai",
+    "agent"
+  ],
+  "tokenHints": {
+    "density": "medium",
+    "useWhen": "Escolha quando a superficie e o tom baterem com MATRIX.md.",
+    "avoidWhen": "Evite copiar identidade proprietaria ou carregar README inteiro sem necessidade."
+  }
+}

@@ -1,0 +1,20 @@
+{
+  "schemaVersion": "1.0",
+  "type": "design-reference",
+  "name": "claude",
+  "title": "Claude Inspired Design System",
+  "path": "design-md/claude",
+  "readme": "design-md/claude/README.md",
+  "surfaces": [
+    "agent-console",
+    "ops"
+  ],
+  "traits": [
+    "ai"
+  ],
+  "tokenHints": {
+    "density": "medium",
+    "useWhen": "Escolha quando a superficie e o tom baterem com MATRIX.md.",
+    "avoidWhen": "Evite copiar identidade proprietaria ou carregar README inteiro sem necessidade."
+  }
+}

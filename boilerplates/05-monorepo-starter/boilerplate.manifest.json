@@ -1,0 +1,43 @@
+{
+  "schemaVersion": "1.0",
+  "type": "boilerplate",
+  "name": "05-monorepo-starter",
+  "title": "Monorepo Starter",
+  "path": "boilerplates/05-monorepo-starter",
+  "readme": "boilerplates/05-monorepo-starter/README.md",
+  "stack": [
+    "NestJS",
+    "Next.js",
+    "React",
+    "Docker",
+    "Turborepo",
+    "JWT",
+    "Postgres"
+  ],
+  "useCases": [
+    "Monorepo",
+    "Dashboard",
+    "Auth"
+  ],
+  "commands": [
+    "npm install",
+    "docker compose up -d",
+    "npm test"
+  ],
+  "gates": [
+    "npm run spec:check",
+    "npm test",
+    "npm run project:check"
+  ],
+  "tokenPolicy": {
+    "firstRead": [
+      "boilerplate.manifest.json",
+      "README.md"
+    ],
+    "avoidLoadingByDefault": [
+      "node_modules",
+      "dist",
+      "coverage"
+    ]
+  }
+}

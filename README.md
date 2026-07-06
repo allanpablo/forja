@@ -1,0 +1,214 @@
+<h1 align="center">🔨 Forja</h1>
+
+<p align="center">
+  <strong>Transforme IA de codificação em uma equipe de engenharia com processo e memória:<br>todo projeto nasce com spec, toda decisão vira ADR, e nada se perde entre sessões.</strong>
+</p>
+
+<p align="center">
+  <img src="https://github.com/allanpablo/forja/actions/workflows/ci.yml/badge.svg" alt="CI">
+  <img src="https://img.shields.io/badge/operação-CLI--first-3553ff?style=flat-square" alt="CLI-first">
+  <img src="https://img.shields.io/badge/agentes-6_papéis-orange?style=flat-square" alt="6 agentes">
+  <img src="https://img.shields.io/badge/pipeline-SDD_+_GSD-teal?style=flat-square" alt="SDD+GSD">
+  <img src="https://img.shields.io/badge/memória-SQLite_FTS5-green?style=flat-square" alt="Memória">
+  <img src="https://img.shields.io/badge/license-MIT-1a1a1a?style=flat-square" alt="MIT">
+</p>
+
+---
+
+## Por que a Forja existe
+
+Agentes de IA são **amnésicos e indisciplinados**: cada sessão recomeça do zero, decisões
+de arquitetura evaporam, o código diverge da intenção — e quem opera vários produtos ao
+mesmo tempo paga esse imposto multiplicado por N.
+
+A **Forja** é o estúdio em volta da IA. Ela coordena **6 papéis de agentes** num pipeline
+**Spec-Driven (SDD)** + **Get-Stuff-Done (GSD)**, mantém uma **memória hierárquica**
+indexada em SQLite que sobrevive entre sessões, e amarra tudo num **core CLI único com
+gates e trilha de auditoria** (`forja`, ADR-0020). Multi-IA por design (Claude, Copilot,
+Gemini, Codex) — o dashboard web é apenas uma visão opcional read-only.
+
+**Para quem**: o dev solo ou time pequeno que opera múltiplos produtos com IA como
+principal força de trabalho — e precisa da disciplina de um time grande sem ter esse time.
+
+## Os 3 pilares
+
+| Pilar | O que entrega | Prova |
+|---|---|---|
+| **Memória que sobrevive** | contexto hierárquico, buscável, compartilhado entre sessões e IAs | SQLite FTS5, smart-context (ADR-0003) |
+| **Processo que governa** | nada vira código sem spec; nada estrutural sem ADR; comandos auditados | SDD+GSD, handoffs 7 campos (ADR-0005), core `forja` (ADR-0020) |
+| **Fábrica, não projeto único** | workspace multi-produto, times de agentes por projeto | ADR-0019, harness, codegraph (ADR-0017) |
+
+> Este repositório é o **motor (framework)** — não hospeda aplicações em produção.
+> Os produtos do usuário vivem no **workspace Forja** (`~/forja-workspace` por padrão), fora deste repo.
+> Veja ADR-0019 para a rationale.
+
+## Capacidades-chave
+
+- **Core CLI único** — todo comando de processo passa por `forja <comando>`: registry declarativo, gates transversais (workspace) e auditoria append-only em `.context/forja-runs.jsonl` (ADR-0020).
+- **Orquestração multiagente** — 6 papéis (orchestrator, context-engineer, sdd-architect, product, marketing, governance) com handoffs rastreados (7 campos, ADR-0005).
+- **Memória hierárquica** — global → domínio → tarefa → resumo, com busca FTS5 e *smart-context* em 3 modos (ADR-0003).
+- **Pipeline SDD + GSD** — `spec → plan → tasks → check`, decisões registradas como ADRs.
+- **Geração de projetos** — `project:new` cria scaffold completo no workspace (memória, agentes, instruções multi-IA, backend NestJS como boilerplate padrão) e registra a ficha do projeto automaticamente.
+- **3 capacidades integradas** (ADR-0016): **codegraph** (análise de código via MCP), **harness** (desenho de times de agentes), **ai-engineering** (base de conhecimento).
+
+## ⚡ Quick start
+
+```bash
+# Preparar o workspace de produção (canto fixo dos projetos)
+npm run workspace:init
+
+# Criar um projeto novo (gera em ~/forja-workspace/projects/<nome>)
+npm run project:new meu-projeto -- --ai claude,copilot
+
+# Entrar no ciclo SDD/GSD da primeira feature
+npm run spec:new -- minha-feature
+npm run spec:plan -- minha-feature
+npm run spec:tasks -- minha-feature
+npm run spec:check -- minha-feature
+```
+
+Passo a passo de **criar vs atualizar** projeto: [`docs/processo-projeto.md`](docs/processo-projeto.md).
+
+## Como funciona — o processo
+
+```
+💡 Demanda
+   ├─ projeto NÃO existe ─► init:project + boilerplate + harness (desenha o time)
+   └─ projeto JÁ existe ──► overlay --only-memory + codegraph init (entende o código)
+                                              │
+                                              ▼
+   CICLO CLI-first (docs/fluxo.md):
+   1·Entender → 2·Especificar → 3·Arquitetar → 4·Decompor → 5·Implementar → 6·Governar → ✅
+```
+
+| Etapa | Papel | Capacidade |
+|-------|-------|------------|
+| 1 Entender | context-engineer | codegraph · ai-engineering |
+| 2 Especificar | product | — |
+| 3 Arquitetar | sdd-architect | harness · ADR |
+| 4 Decompor | sdd-architect | — |
+| 5 Implementar | orchestrator + worker | codegraph (MCP) |
+| 6 Governar | governance | codegraph (`affected`) |
+
+Mapa completo do ciclo: [`docs/fluxo.md`](docs/fluxo.md).
+
+## As 3 capacidades integradas
+
+| Capacidade | Papel | Como usar |
+|---|---|---|
+| **codegraph** | análise de código (MCP local) | `npm run code:index` · `codegraph explore "<área>"` · ferramentas MCP `codegraph_explore`/`codegraph_node` |
+| **harness** | desenho de times de agentes (plugin) | na sessão Claude Code: _"build a harness for this project"_ → gera `.claude/agents` + `.claude/skills` |
+| **ai-engineering** | base de conhecimento (referência) | `projects/ai-engineering-from-scratch-main/` (ROADMAP, phases, glossary) |
+
+Detalhes e reinstalação: [`docs/capacidades-externas.md`](docs/capacidades-externas.md) · [ADR-0016](memory/90-decisions/0016-integracao-capacidades-externas.md).
+
+## O core `forja`
+
+Todos os comandos de processo passam por um único ponto de entrada (ADR-0020):
+
+```bash
+node bin/forja.mjs                 # help agrupado por domínio
+node bin/forja.mjs <comando>       # ou, com o pacote linkado: forja <comando>
+```
+
+O core aplica **gates** antes de executar (ex.: comandos de produto falham cedo sem
+workspace) e grava **auditoria** de cada execução (comando, args, exit code, duração)
+em `<workspace>/.context/forja-runs.jsonl` — a trilha que a governança usa no review.
+Os scripts npm abaixo são aliases finos que roteiam pelo core.
+
+## Comandos essenciais
+
+```bash
+# Workspace & projetos
+npm run workspace:init                            # cria ~/forja-workspace
+npm run project:new <nome> -- --ai claude,copilot # cria projeto no workspace
+npm run project:list                              # lista projetos do workspace
+npm run project:check <nome>                      # valida padrões no projeto
+
+# Pipeline SDD
+npm run spec:new|plan|tasks|check -- <slug>
+
+# Sprint & handoffs (GSD)
+npm run sprint:start | sprint:status | sprint:complete
+npm run gsd:handoff -- <intent> <slug>            # handoff entre papéis (ADR-0005)
+
+# Análise de código (codegraph)
+npm run code:index | code:sync | code:status
+npm run code:query "<termo>"
+
+# Memória & contexto (workspace)
+npm run sync:universal                            # reindexa SQLite FTS5 do workspace
+npm run query:universal "<query>"
+npm run context:smart                             # smart-context
+
+# Qualidade & visão
+npm run project:check                             # standards do framework
+npm run dashboard                                 # front opcional (http://127.0.0.1:7777)
+```
+
+## Separação framework × workspace
+
+O Forja é dividido em duas partes:
+
+1. **Framework** (este repositório): motor, convenções, scripts e memória do próprio framework.
+2. **Workspace** (`~/forja-workspace` por padrão): "canto fixo" onde vivem os projetos de produto, a memória universal deles e as specs de produto.
+
+O caminho do workspace é resolvido por prioridade:
+
+1. Variável de ambiente `FORJA_WORKSPACE`
+2. Campo `workspaceRoot` em `~/.forjarc.json`
+3. Padrão: `~/forja-workspace`
+
+Veja ADR-0019 para a decisão arquitetural.
+
+## Estrutura do repositório (framework)
+
+```
+bin/          CLIs (init-project, create-memory-nest-kit)
+lib/          Módulos reutilizáveis (workspace, generators, validators, context-builder)
+scripts/      Automação (sprint-manager, agent-router, sync-universal-memory, …)
+specs/        Pipeline SDD do próprio framework (spec → plan → tasks)
+boilerplates/ Templates de stack (api-rest, saas, ecommerce, microservices, monorepo)
+memory/       Memória do framework (00-global … 90-decisions/ADRs)
+docs/         Documentação por persona e por tópico (ver DOC-MAP.md)
+prompts/      Prompts portáteis dos 6 papéis
+.claude/      Sub-agents e settings do Claude Code
+projects/     LEGADO — não usar; projetos vivem no workspace externo
+```
+
+## Estrutura do workspace
+
+```
+~/forja-workspace/
+  projects/              # produtos gerados
+  memory/
+    sqlite/universal.db  # SQLite FTS5 dos produtos
+    30-projects/         # fichas dos projetos
+  specs/                 # specs de produto
+  .context/              # runbooks GSD de produto
+  README.md
+```
+
+## Documentação
+
+- [`DOC-MAP.md`](DOC-MAP.md) — mapa por papel e por tópico (comece aqui)
+- [`docs/processo-projeto.md`](docs/processo-projeto.md) — criar vs atualizar projeto
+- [`docs/fluxo.md`](docs/fluxo.md) — mapa do ciclo CLI-first
+- [`AGENTS.md`](AGENTS.md) — os 6 papéis e a topologia
+- [`memory/90-decisions/`](memory/90-decisions/) — ADRs com rationale
+- [`CHANGELOG.md`](CHANGELOG.md) — histórico
+
+## Convenções
+
+- **CLI-first** — sprints, SDD, GSD, handoffs e governança por comando; o front nunca é gate.
+- **ADRs** — toda decisão estrutural vira `memory/90-decisions/NNNN-titulo.md`.
+- **Handoffs** — 7 campos obrigatórios (ADR-0005), gravados no SQLite (ADR-0008).
+- **pt-BR** — comunicação e documentação em português.
+
+## English summary
+
+**Forja** turns coding AI into an engineering team with process and memory: every project starts from a spec, every structural decision becomes an ADR, and nothing is lost between sessions. It orchestrates 6 agent roles through a Spec-Driven + GSD pipeline, keeps hierarchical memory indexed in SQLite FTS5, routes every command through a single audited core CLI (`forja`), and works with Claude, Copilot, Gemini and Codex by design. Documentation is in Brazilian Portuguese — that's part of the project's identity; the CLI and the code are readable regardless.
+
+---
+
+<p align="center"><sub>Forja · MIT License · <a href="CONTRIBUTING.md">Contribuindo</a></sub></p>

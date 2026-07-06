@@ -1,0 +1,42 @@
+{
+  "schemaVersion": "1.0",
+  "type": "boilerplate",
+  "name": "02-saas-starter",
+  "title": "SaaS Starter - Multi-Tenant Platform Boilerplate",
+  "path": "boilerplates/02-saas-starter",
+  "readme": "boilerplates/02-saas-starter/README.md",
+  "stack": [
+    "NestJS",
+    "Docker",
+    "JWT",
+    "Postgres"
+  ],
+  "useCases": [
+    "SaaS",
+    "Admin",
+    "Billing",
+    "Auth"
+  ],
+  "commands": [
+    "npm install",
+    "npm run start:dev",
+    "docker compose up -d",
+    "npm test"
+  ],
+  "gates": [
+    "npm run spec:check",
+    "npm test",
+    "npm run project:check"
+  ],
+  "tokenPolicy": {
+    "firstRead": [
+      "boilerplate.manifest.json",
+      "README.md"
+    ],
+    "avoidLoadingByDefault": [
+      "node_modules",
+      "dist",
+      "coverage"
+    ]
+  }
+}

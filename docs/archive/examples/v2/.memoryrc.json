@@ -1,0 +1,8 @@
+{
+  "strategy": "hierarchical",
+  "maxContextHint": "1M+ por segmentacao e resumo incremental",
+  "handoffDir": "memory/50-orchestration/handoffs",
+  "summaryDir": "memory/70-summaries",
+  "language": "pt-BR",
+  "backendDefault": "nestjs"
+}

@@ -1,0 +1,17 @@
+{
+  "schemaVersion": "1.0",
+  "type": "design-reference",
+  "name": "x.ai",
+  "title": "xAI Inspired Design System",
+  "path": "design-md/x.ai",
+  "readme": "design-md/x.ai/README.md",
+  "surfaces": [],
+  "traits": [
+    "ai"
+  ],
+  "tokenHints": {
+    "density": "medium",
+    "useWhen": "Escolha quando a superficie e o tom baterem com MATRIX.md.",
+    "avoidWhen": "Evite copiar identidade proprietaria ou carregar README inteiro sem necessidade."
+  }
+}

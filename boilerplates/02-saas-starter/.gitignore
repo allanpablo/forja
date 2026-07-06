@@ -1,0 +1,16 @@
+node_modules/
+dist/
+coverage/
+*.log
+.env
+.env.local
+.DS_Store
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.npm
+.eslintcache
+.DS_Store
+*.pem

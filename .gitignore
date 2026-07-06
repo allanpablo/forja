@@ -1,0 +1,56 @@
+node_modules
+.DS_Store
+*.tgz
+npm-debug.log*
+.env
+.env.local
+.env.*.local
+*.db
+*.db-shm
+*.db-wal
+
+# ============================================================================
+# WORKSPACE EXTERNO (ADR-0019)
+# Projetos de produto vivem fora deste repositório, no workspace Forja
+# (padrão ~/forja-workspace). Nada de projeto deve ser commitado aqui.
+# ============================================================================
+
+# Generated projects (legado — mantido para segurança de workspaces antigos)
+projects/
+projects/**
+
+# Projetos de exemplo/teste que possam ter sido criados antes da separação
+teste-*/
+exemplo-v*/
+exemplo-projeto/
+
+# Dashboard
+dashboard/node_modules/
+dashboard/web/dist/
+dashboard/web/node_modules/
+
+# codegraph (índice local — ver ADR-0016 / docs/capacidades-externas.md)
+.codegraph/
+
+# Specs de produtos/clientes são privadas (como projects/).
+# Por padrão tudo em specs/ é ignorado; só as specs do PRÓPRIO framework
+# entram no allow-list abaixo. Specs de produto novas são ignoradas sozinhas.
+/specs/*
+!/specs/README.md
+!/specs/_templates
+!/specs/pipeline-sdd-e-orquestracao
+!/specs/cli-first-operacao
+!/specs/harness-codegraph
+!/specs/agent-dashboard
+!/specs/dev-token-assets-db
+!/specs/reestruturacao-forja-v2
+!/specs/forja-core
+
+# Runbooks GSD e context packs são gerados/efêmeros e podem carregar dados de
+# produto. São regeneráveis (gsd:plan, context:build), então ficam fora do git.
+.context/
+
+# Fichas de projetos de produto são privadas (como projects/ e specs/).
+# O diretório é mantido versionado apenas pelo README que documenta a convenção.
+/memory/30-projects/*
+!/memory/30-projects/README.md

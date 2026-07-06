@@ -1,0 +1,34 @@
+{
+  "version": 1,
+  "assignments": {
+    "orchestrator": {
+      "provider": "codex",
+      "model": "gpt-5.3-codex",
+      "command": "/home/apk/.npm-global/bin/codex",
+      "taskTypes": [
+        "orchestration",
+        "handoffs",
+        "coordination"
+      ],
+      "notes": "Codex autenticado localmente; bom padrão para coordenação e mudanças no repo."
+    },
+    "ceo": {
+      "provider": "codex",
+      "model": "gpt-5.5",
+      "command": "/home/apk/.npm-global/bin/codex",
+      "taskTypes": [
+        "strategy",
+        "product",
+        "review"
+      ],
+      "notes": "Papel executivo para decisões de prioridade."
+    },
+    "sdd-architect": {
+      "provider": "copilot",
+      "model": "default",
+      "command": "gh copilot",
+      "taskTypes": [],
+      "notes": ""
+    }
+  }
+}

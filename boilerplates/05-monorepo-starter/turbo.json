@@ -1,0 +1,35 @@
+{
+  "version": 1,
+  "tasks": {
+    "dev": {
+      "cache": false,
+      "persistent": true
+    },
+    "build": {
+      "outputs": ["dist/**", "build/**", ".next/**"],
+      "cache": true,
+      "dependsOn": ["^build"]
+    },
+    "test": {
+      "outputs": ["coverage/**"],
+      "cache": true,
+      "dependsOn": ["^build"]
+    },
+    "test:watch": {
+      "cache": false,
+      "persistent": true
+    },
+    "lint": {
+      "cache": false,
+      "outputs": []
+    },
+    "type-check": {
+      "cache": true,
+      "outputs": []
+    },
+    "clean": {
+      "cache": false
+    }
+  },
+  "globalDependencies": ["**/.env.local", "**/.env"]
+}

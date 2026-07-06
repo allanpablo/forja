@@ -1,0 +1,21 @@
+{
+  "schemaVersion": "1.0",
+  "type": "design-reference",
+  "name": "raycast",
+  "title": "Raycast Inspired Design System",
+  "path": "design-md/raycast",
+  "readme": "design-md/raycast/README.md",
+  "surfaces": [
+    "agent-console",
+    "ops",
+    "tool"
+  ],
+  "traits": [
+    "ai"
+  ],
+  "tokenHints": {
+    "density": "medium",
+    "useWhen": "Escolha quando a superficie e o tom baterem com MATRIX.md.",
+    "avoidWhen": "Evite copiar identidade proprietaria ou carregar README inteiro sem necessidade."
+  }
+}

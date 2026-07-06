@@ -1,0 +1,41 @@
+{
+  "schemaVersion": "1.0",
+  "type": "boilerplate",
+  "name": "01-api-rest",
+  "title": "🔌 API REST Boilerplate",
+  "path": "boilerplates/01-api-rest",
+  "readme": "boilerplates/01-api-rest/README.md",
+  "stack": [
+    "NestJS",
+    "Docker",
+    "JWT",
+    "Postgres"
+  ],
+  "useCases": [
+    "API REST",
+    "Microserviços",
+    "Auth"
+  ],
+  "commands": [
+    "npm install",
+    "npm run start:dev",
+    "docker compose up -d",
+    "npm test"
+  ],
+  "gates": [
+    "npm run spec:check",
+    "npm test",
+    "npm run project:check"
+  ],
+  "tokenPolicy": {
+    "firstRead": [
+      "boilerplate.manifest.json",
+      "README.md"
+    ],
+    "avoidLoadingByDefault": [
+      "node_modules",
+      "dist",
+      "coverage"
+    ]
+  }
+}

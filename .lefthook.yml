@@ -1,0 +1,12 @@
+# Pre-commit opcional (ADR-0018). Ative com: lefthook install
+# Requer lefthook no PATH (npm i -g lefthook). Sem ele, nada roda — o repo
+# nao depende deste arquivo. Veja: npm run tools:doctor
+pre-commit:
+  parallel: true
+  commands:
+    project-check:
+      run: npm run project:check
+    spec-check:
+      run: npm run spec:check
+    code-check:
+      run: npm run code:check

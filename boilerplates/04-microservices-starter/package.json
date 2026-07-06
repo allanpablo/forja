@@ -1,0 +1,21 @@
+{
+  "name": "microservices-starter",
+  "version": "0.1.0",
+  "description": "Root package for microservices starter kit",
+  "private": true,
+  "workspaces": [
+    "backend/services/*",
+    "backend/api-gateway",
+    "backend/shared"
+  ],
+  "scripts": {
+    "install-all": "npm install",
+    "build": "npm run build --workspaces",
+    "start": "docker-compose up",
+    "start:dev": "docker-compose -f docker-compose.yml -f docker-compose.dev.yml up",
+    "stop": "docker-compose down",
+    "logs": "docker-compose logs -f",
+    "test": "npm test --workspaces",
+    "lint": "npm run lint --workspaces"
+  }
+}

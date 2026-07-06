@@ -1,0 +1,19 @@
+{
+  "schemaVersion": "1.0",
+  "type": "design-reference",
+  "name": "kraken",
+  "title": "Kraken Inspired Design System",
+  "path": "design-md/kraken",
+  "readme": "design-md/kraken/README.md",
+  "surfaces": [
+    "fintech"
+  ],
+  "traits": [
+    "ai"
+  ],
+  "tokenHints": {
+    "density": "medium",
+    "useWhen": "Escolha quando a superficie e o tom baterem com MATRIX.md.",
+    "avoidWhen": "Evite copiar identidade proprietaria ou carregar README inteiro sem necessidade."
+  }
+}

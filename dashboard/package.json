@@ -1,0 +1,18 @@
+{
+  "name": "agent-dashboard",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Dashboard local para monitorar specs, handoffs e tokens do framework. Bind 127.0.0.1.",
+  "scripts": {
+    "start": "node server/index.mjs",
+    "dev": "node --watch server/index.mjs",
+    "test": "node --test server/**/*.test.mjs"
+  },
+  "dependencies": {
+    "fastify": "^5.0.0",
+    "@fastify/static": "^8.0.0",
+    "@fastify/cors": "^10.0.0",
+    "better-sqlite3": "^11.8.1"
+  }
+}

@@ -1,0 +1,23 @@
+# Exemplos
+exemplo-projeto/
+exemplo-v2/
+exemplo-v3/
+
+# Projetos de teste
+teste-completo/
+teste-local/
+ai-medico/
+bpo-financeiro/
+test-init-demo/
+
+# Dependências
+node_modules
+.DS_Store
+*.log
+*.tgz
+
+# Configuração e documentação local
+.env
+.env.local
+.env.*.local
+docs/

@@ -1,0 +1,21 @@
+{
+  "schemaVersion": "1.0",
+  "type": "design-reference",
+  "name": "linear.app",
+  "title": "Linear Inspired Design System",
+  "path": "design-md/linear.app",
+  "readme": "design-md/linear.app/README.md",
+  "surfaces": [
+    "agent-console",
+    "ops",
+    "dashboard"
+  ],
+  "traits": [
+    "ai"
+  ],
+  "tokenHints": {
+    "density": "medium",
+    "useWhen": "Escolha quando a superficie e o tom baterem com MATRIX.md.",
+    "avoidWhen": "Evite copiar identidade proprietaria ou carregar README inteiro sem necessidade."
+  }
+}

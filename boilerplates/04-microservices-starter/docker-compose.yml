@@ -1,0 +1,164 @@
+version: '3.9'
+
+services:
+  # API Gateway - Entry point
+  api-gateway:
+    build:
+      context: ./backend/api-gateway
+      dockerfile: Dockerfile
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=development
+      - PORT=3000
+    depends_on:
+      - auth-service
+      - user-service
+      - notification-service
+    networks:
+      - app-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/gateway/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
+  # Auth Service
+  auth-service:
+    build:
+      context: ./backend/services/auth-service
+      dockerfile: Dockerfile
+    ports:
+      - "3001:3001"
+    environment:
+      - NODE_ENV=development
+      - PORT=3001
+      - JWT_SECRET=super-secret-key-change-in-production
+    networks:
+      - app-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3001/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
+  # User Service
+  user-service:
+    build:
+      context: ./backend/services/user-service
+      dockerfile: Dockerfile
+    ports:
+      - "3002:3002"
+    environment:
+      - NODE_ENV=development
+      - PORT=3002
+    networks:
+      - app-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3002/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
+  # Notification Service
+  notification-service:
+    build:
+      context: ./backend/services/notification-service
+      dockerfile: Dockerfile
+    ports:
+      - "3003:3003"
+    environment:
+      - NODE_ENV=development
+      - PORT=3003
+    depends_on:
+      - rabbitmq
+      - redis
+    networks:
+      - app-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3003/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
+  # PostgreSQL for Auth Service
+  postgres-auth:
+    image: postgres:16-alpine
+    ports:
+      - "5432:5432"
+    environment:
+      - POSTGRES_DB=auth_db
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=password
+    volumes:
+      - postgres-auth-data:/var/lib/postgresql/data
+    networks:
+      - app-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
+  # PostgreSQL for User Service
+  postgres-user:
+    image: postgres:16-alpine
+    ports:
+      - "5433:5432"
+    environment:
+      - POSTGRES_DB=users_db
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=password
+    volumes:
+      - postgres-user-data:/var/lib/postgresql/data
+    networks:
+      - app-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
+  # RabbitMQ - Message Queue
+  rabbitmq:
+    image: rabbitmq:3.12-management-alpine
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    environment:
+      - RABBITMQ_DEFAULT_USER=guest
+      - RABBITMQ_DEFAULT_PASS=guest
+    volumes:
+      - rabbitmq-data:/var/lib/rabbitmq
+    networks:
+      - app-network
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
+  # Redis - Cache
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+    networks:
+      - app-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
+networks:
+  app-network:
+    driver: bridge
+
+volumes:
+  postgres-auth-data:
+  postgres-user-data:
+  rabbitmq-data:
+  redis-data:

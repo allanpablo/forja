@@ -1,0 +1,104 @@
+{
+  "$schema": "https://example.com/memoryrc.schema.json",
+  "version": "1.0.0",
+  "description": "Global configuration for memory management, token economy, and context optimization",
+
+  "context": {
+    "description": "Smart context building & caching",
+    "maxCacheSize": 50,
+    "maxContextLength": 100000,
+    "modes": {
+      "global": {
+        "description": "Only mission, standards, recent ADRs",
+        "priority": ["mission.md", "standards.md", "ADR-*"],
+        "maxFiles": 10
+      },
+      "domain": {
+        "description": "Project vision, design, rules + globals",
+        "priority": ["vision.md", "design-md/", "rules.md", "summary.md"],
+        "maxFiles": 20
+      },
+      "task": {
+        "description": "Task-specific context via FTS5 + domain + globals (most compact)",
+        "priority": ["keyword-search", "design-md/INDEX.md"],
+        "maxFiles": 30
+      }
+    },
+    "cache": {
+      "enabled": true,
+      "ttl": 604800000,
+      "location": ".context/cache",
+      "strategy": "lru"
+    }
+  },
+
+  "compression": {
+    "description": "Memory vacuum settings for .memory/sqlite/",
+    "archiveAge": 30,
+    "maxDbSize": 50,
+    "cacheTtl": 7,
+    "vacuumInterval": 86400000,
+    "archiveLocation": ".memory/archive"
+  },
+
+  "indexing": {
+    "description": "Full-text search (FTS5) configuration",
+    "enabled": true,
+    "contentFields": ["title", "content", "path"],
+    "rebuildOnModified": true,
+    "rebuildInterval": 3600000
+  },
+
+  "logging": {
+    "description": "Execution logging for audit trail",
+    "enabled": true,
+    "location": ".memory/runs",
+    "level": "info",
+    "retentionDays": 30
+  },
+
+  "tokenLimits": {
+    "description": "Hard limits per context mode (estimation: 1KB ≈ 250 tokens)",
+    "global": 2000,
+    "domain": 5000,
+    "task": 8000,
+    "buffer": 500
+  },
+
+  "optimization": {
+    "description": "Token economy strategies",
+    "strategies": [
+      "deduplication",
+      "priority-weighting",
+      "time-decay",
+      "relevance-ranking"
+    ],
+    "enableSmartContext": true,
+    "enableCompression": true,
+    "enableCaching": true,
+    "targetReduction": 0.5
+  },
+
+  "handoff": {
+    "description": "Agent handoff protocol settings (ADR-0005 + ADR-0008)",
+    "storage": "sqlite",
+    "table": ".memory/sqlite/universal.db::handoffs",
+    "legacyLocation": "memory/50-orchestration/handoffs",
+    "requiredFields": ["from", "to", "intent", "context", "acceptance", "constraints", "return"]
+  },
+
+  "hooks": {
+    "description": "Claude Code hook config (.claude/settings.json points here for caps)",
+    "userPromptCap": 4000,
+    "sessionStartCap": 2000,
+    "triggerKeywordsHint": "implement|refactor|criar feature|spec:|plan:|tasks:|arquitet",
+    "injectOptIn": "Set FRAMEWORK_HOOK_INJECT=1 to enable UserPromptSubmit injection"
+  },
+
+  "metadata": {
+    "description": "Project metadata stored in universal.db",
+    "projectId": "auto",
+    "createdAt": "auto",
+    "version": "1.0.0"
+  }
+}

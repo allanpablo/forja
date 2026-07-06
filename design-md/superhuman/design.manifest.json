@@ -1,0 +1,17 @@
+{
+  "schemaVersion": "1.0",
+  "type": "design-reference",
+  "name": "superhuman",
+  "title": "Superhuman Inspired Design System",
+  "path": "design-md/superhuman",
+  "readme": "design-md/superhuman/README.md",
+  "surfaces": [],
+  "traits": [
+    "ai"
+  ],
+  "tokenHints": {
+    "density": "medium",
+    "useWhen": "Escolha quando a superficie e o tom baterem com MATRIX.md.",
+    "avoidWhen": "Evite copiar identidade proprietaria ou carregar README inteiro sem necessidade."
+  }
+}

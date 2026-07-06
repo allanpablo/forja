@@ -1,0 +1,21 @@
+{
+  "schemaVersion": "1.0",
+  "type": "design-reference",
+  "name": "posthog",
+  "title": "Posthog Inspired Design System",
+  "path": "design-md/posthog",
+  "readme": "design-md/posthog/README.md",
+  "surfaces": [
+    "agent-console",
+    "ops",
+    "dashboard"
+  ],
+  "traits": [
+    "ai"
+  ],
+  "tokenHints": {
+    "density": "medium",
+    "useWhen": "Escolha quando a superficie e o tom baterem com MATRIX.md.",
+    "avoidWhen": "Evite copiar identidade proprietaria ou carregar README inteiro sem necessidade."
+  }
+}

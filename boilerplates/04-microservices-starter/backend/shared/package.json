@@ -1,0 +1,15 @@
+{
+  "name": "shared",
+  "version": "0.1.0",
+  "description": "Shared types and interfaces for microservices",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch"
+  },
+  "dependencies": {},
+  "devDependencies": {
+    "typescript": "^5.3.3"
+  }
+}

@@ -1,0 +1,16 @@
+# Config gitleaks (ADR-0018). Gate de varredura de segredos da Governanca.
+# Allowlist: boilerplates, exemplos e archive contem tokens ILUSTRATIVOS em
+# docs de template (curl -H "Authorization: Bearer ...", chaves de exemplo),
+# nao segredos reais. O gate deve sinalizar segredos de verdade, nao ruido.
+title = "Forja gitleaks"
+
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Exemplos e boilerplates contem tokens ilustrativos, nao segredos reais"
+paths = [
+  '''boilerplates/.*''',
+  '''exemplo-v.*''',
+  '''docs/archive/.*''',
+]
