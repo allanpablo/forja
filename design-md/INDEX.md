@@ -1,108 +1,35 @@
 # Biblioteca de Design (design-md)
 
-Bem-vindo à biblioteca de referências de design do projeto. Esta pasta contém diretrizes de design, componentes e padrões de UX inspirados em empresas líderes do setor.
+Camada operacional de design do fluxo GSD: garante que toda feature com impacto
+visual passe por **referência escolhida → brief preenchido → gate validado**,
+em vez de "faz uma UI aí".
 
-## Como Usar
+## Como funciona
 
-Estas referências servem como base para os agentes de frontend e produto ao criarem interfaces e experiências de usuário. Cada pasta contém um `README.md` com detalhes específicos e links para o sistema de design original.
-
-Antes de implementar uma interface relevante, use a camada operacional local:
-
-- [PLAYBOOK.md](./PLAYBOOK.md) - regras de uso por agentes e checklist de handoff visual.
-- [MATRIX.md](./MATRIX.md) - escolha de referências por superfície.
-- [BRIEF-TEMPLATE.md](./BRIEF-TEMPLATE.md) - template obrigatório para features com impacto visual.
-
-Comandos úteis:
+1. **Escolha a referência** por superfície: [MATRIX.md](./MATRIX.md) mapeia
+   superfícies (agent console, dashboard, docs, landing…) para nomes de
+   referência (`linear.app`, `stripe`, `vercel`…). Os nomes são **vocabulário
+   compartilhado** entre agentes — apontam para produtos publicamente
+   conhecidos, não para cópias locais.
+2. **Preencha o brief**: [BRIEF-TEMPLATE.md](./BRIEF-TEMPLATE.md) é obrigatório
+   para features com impacto visual (9 campos, incluindo estados e critérios
+   de aceite visual).
+3. **Valide antes do handoff**: `forja design:check <brief.md>` reprova brief
+   incompleto; `gsd:check` puxa esse gate quando há brief.
 
 ```bash
-npm run design:select -- agent-console tecnico
-npm run design:check -- design-md/BRIEF-TEMPLATE.md
+npm run design:select -- agent-console tecnico   # sugere referências pela MATRIX
+npm run design:check -- <caminho-do-brief.md>    # gate de completude
 ```
 
----
+Regras de uso por agentes e checklist de handoff visual: [PLAYBOOK.md](./PLAYBOOK.md).
+Exemplo de brief preenchido: [examples/agent-console-brief.md](./examples/agent-console-brief.md).
 
-## Referências Disponíveis
+## Cache local de referências (opcional)
 
-| Empresa | Descrição | Link Local |
-|---------|-----------|------------|
-| **Airbnb** | Foco em hospitalidade e clareza | [Airbnb Reference](./airbnb/README.md) |
-| **Apple** | Design minimalista e premium | [Apple Reference](./apple/README.md) |
-| **Stripe** | Referência em docs e checkout | [Stripe Reference](./stripe/README.md) |
-| **Linear** | Alta performance e produtividade | [Linear Reference](./linear.app/README.md) |
-| **Vercel** | Moderno, focado em desenvolvedores | [Vercel Reference](./vercel/README.md) |
-| **Supabase** | Open-source e funcional | [Supabase Reference](./supabase/README.md) |
-| **Notion** | Flexibilidade e organização | [Notion Reference](./notion/README.md) |
-| **Figma** | Ferramentas de colaboração | [Figma Reference](./figma/README.md) |
-| **Claude** | Interfaces limpas para IA | [Claude Reference](./claude/README.md) |
+Detalhes de cada sistema de design (tokens, componentes, padrões) podem ser
+mantidos como cache local em `design-md/<nome>/README.md` + `design.manifest.json`.
+O harness degrada graciosamente sem eles: `design:select` indica "sem cache
+local" e o agente usa o conhecimento público da referência.
 
-*(E mais de 50 outras referências disponíveis na pasta `design-md/`)*
-
----
-
-## 📂 Lista Completa de Marcas
-
-Abaixo está a lista completa de referências incluídas:
-
-- [airbnb](./airbnb/)
-- [airtable](./airtable/)
-- [apple](./apple/)
-- [bmw](./bmw/)
-- [cal](./cal/)
-- [claude](./claude/)
-- [clay](./clay/)
-- [clickhouse](./clickhouse/)
-- [cohere](./cohere/)
-- [coinbase](./coinbase/)
-- [composio](./composio/)
-- [cursor](./cursor/)
-- [elevenlabs](./elevenlabs/)
-- [expo](./expo/)
-- [ferrari](./ferrari/)
-- [figma](./figma/)
-- [framer](./framer/)
-- [hashicorp](./hashicorp/)
-- [ibm](./ibm/)
-- [intercom](./intercom/)
-- [kraken](./kraken/)
-- [lamborghini](./lamborghini/)
-- [linear.app](./linear.app/)
-- [lovable](./lovable/)
-- [minimax](./minimax/)
-- [mintlify](./mintlify/)
-- [miro](./miro/)
-- [mistral.ai](./mistral.ai/)
-- [mongodb](./mongodb/)
-- [notion](./notion/)
-- [nvidia](./nvidia/)
-- [ollama](./ollama/)
-- [opencode.ai](./opencode.ai/)
-- [pinterest](./pinterest/)
-- [posthog](./posthog/)
-- [raycast](./raycast/)
-- [renault](./renault/)
-- [replicate](./replicate/)
-- [resend](./resend/)
-- [revolut](./revolut/)
-- [runwayml](./runwayml/)
-- [sanity](./sanity/)
-- [semrush](./semrush/)
-- [sentry](./sentry/)
-- [spacex](./spacex/)
-- [spotify](./spotify/)
-- [stripe](./stripe/)
-- [supabase](./supabase/)
-- [superhuman](./superhuman/)
-- [tesla](./tesla/)
-- [together.ai](./together.ai/)
-- [uber](./uber/)
-- [vercel](./vercel/)
-- [voltagent](./voltagent/)
-- [warp](./warp/)
-- [webflow](./webflow/)
-- [wise](./wise/)
-- [x.ai](./x.ai/)
-- [zapier](./zapier/)
-
----
-
-**Dica para Agentes**: Ao projetar um novo componente, consulte estas referências para garantir consistência e qualidade visual de nível mundial.
+> Nunca copie identidade visual proprietária — referência é direção, não clone.

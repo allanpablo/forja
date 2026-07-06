@@ -236,7 +236,7 @@ function cmdDesignSelect([surface = 'agent-console', tone = 'tecnico']) {
   console.log('\nReferencias recomendadas:');
   refs.forEach((name, index) => {
     const file = path.join(root, 'design-md', name, 'README.md');
-    const status = fs.existsSync(file) ? rel(file) : 'referencia local ausente';
+    const status = fs.existsSync(file) ? rel(file) : 'sem cache local (use o conhecimento publico da referencia)';
     console.log(`${index + 1}. ${name} - ${status}`);
   });
   console.log('\nProximo passo: preencher design-md/BRIEF-TEMPLATE.md com uma referencia primaria.');
