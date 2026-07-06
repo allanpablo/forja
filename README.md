@@ -5,6 +5,7 @@
 </p>
 
 <p align="center">
+  <a href="https://www.npmjs.com/package/forjajs"><img src="https://img.shields.io/npm/v/forjajs?style=flat-square&color=cb3837&logo=npm" alt="npm"></a>
   <img src="https://github.com/allanpablo/forja/actions/workflows/ci.yml/badge.svg" alt="CI">
   <img src="https://img.shields.io/badge/operação-CLI--first-3553ff?style=flat-square" alt="CLI-first">
   <img src="https://img.shields.io/badge/agentes-6_papéis-orange?style=flat-square" alt="6 agentes">
@@ -84,6 +85,14 @@ E cada comando acima ficou gravado em `.context/forja-runs.jsonl` — quando a g
 - **3 capacidades integradas** (ADR-0016): **codegraph** (análise de código via MCP), **harness** (desenho de times de agentes), **ai-engineering** (base de conhecimento).
 
 ## ⚡ Quick start
+
+```bash
+# Instalar (o pacote é forjajs; o comando é forja)
+npm install -g forjajs
+forja                    # help agrupado por domínio
+```
+
+Ou clonando o repo:
 
 ```bash
 # Preparar o workspace de produção (canto fixo dos projetos)
