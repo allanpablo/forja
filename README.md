@@ -10,7 +10,9 @@
   <img src="https://img.shields.io/badge/agentes-6_papéis-orange?style=flat-square" alt="6 agentes">
   <img src="https://img.shields.io/badge/pipeline-SDD_+_GSD-teal?style=flat-square" alt="SDD+GSD">
   <img src="https://img.shields.io/badge/memória-SQLite_FTS5-green?style=flat-square" alt="Memória">
+  <img src="https://img.shields.io/badge/node-%E2%89%A520-339933?style=flat-square&logo=node.js&logoColor=white" alt="Node >= 20">
   <img src="https://img.shields.io/badge/license-MIT-1a1a1a?style=flat-square" alt="MIT">
+  <img src="https://img.shields.io/badge/PRs-welcome-8957e5?style=flat-square" alt="PRs welcome">
 </p>
 
 ---
@@ -41,6 +43,36 @@ principal força de trabalho — e precisa da disciplina de um time grande sem t
 > Este repositório é o **motor (framework)** — não hospeda aplicações em produção.
 > Os produtos do usuário vivem no **workspace Forja** (`~/forja-workspace` por padrão), fora deste repo.
 > Veja ADR-0019 para a rationale.
+
+## 60 segundos de Forja
+
+```console
+$ forja spec:new pagamentos-pix
+✓ Spec criada: specs/pagamentos-pix/spec.md          # nada vira código sem isso
+
+$ forja gsd:handoff -- plan pagamentos-pix
+Handoff registrado: product → sdd-architect          # 7 campos, auditável (ADR-0005)
+
+$ forja code:impact -- processPayment
+Mapa de impacto: processPayment (profundidade 2)     # blast radius ANTES de editar
+--- Chamadores diretos ---
+BillingController.charge · RetryWorker.run
+
+$ forja gsd:check -- pagamentos-pix
+OK   GSD runbook      OK   Spec directory
+OK   SDD spec check   OK   Codegraph
+Resultado: gates básicos prontos.                    # governança executável, não checklist
+```
+
+E cada comando acima ficou gravado em `.context/forja-runs.jsonl` — quando a governança pergunta "o processo foi seguido?", a resposta é um arquivo, não uma promessa.
+
+## Por que não só…?
+
+| Alternativa | Onde ela para | O que a Forja acrescenta |
+|---|---|---|
+| **Claude Code / Copilot puros** | brilhantes na sessão, amnésicos entre sessões | memória FTS5 + processo + auditoria em volta da IA |
+| **LangGraph / CrewAI** | infraestrutura para *construir* agentes | a camada de cima: opera o time de agentes no dia a dia |
+| **Templates & spec kits** | param quando a spec está escrita | pipeline completo até a governança, com gates que executam |
 
 ## Capacidades-chave
 
@@ -205,10 +237,24 @@ projects/     LEGADO — não usar; projetos vivem no workspace externo
 - **Handoffs** — 7 campos obrigatórios (ADR-0005), gravados no SQLite (ADR-0008).
 - **pt-BR** — comunicação e documentação em português.
 
+## Roadmap
+
+- [ ] **Core fase 2** — CLI `forja` embutida nos projetos gerados (hoje herdam harness + instruções)
+- [ ] **Auditoria no SQLite** — promover `forja-runs.jsonl` a tabela consultável via FTS5
+- [ ] **Boilerplates além de NestJS** — o processo é agnóstico de stack; os templates vão atrás
+- [ ] **Docs em inglês** — pt-BR continua sendo a língua do projeto
+
+Sugestões? Abra uma issue — feature não-trivial aqui começa por spec, inclusive as suas.
+
 ## English summary
 
 **Forja** turns coding AI into an engineering team with process and memory: every project starts from a spec, every structural decision becomes an ADR, and nothing is lost between sessions. It orchestrates 6 agent roles through a Spec-Driven + GSD pipeline, keeps hierarchical memory indexed in SQLite FTS5, routes every command through a single audited core CLI (`forja`), and works with Claude, Copilot, Gemini and Codex by design. Documentation is in Brazilian Portuguese — that's part of the project's identity; the CLI and the code are readable regardless.
 
 ---
 
-<p align="center"><sub>Forja · MIT License · <a href="CONTRIBUTING.md">Contribuindo</a></sub></p>
+<p align="center">
+  <strong>A Forja te ajudou a domar seus agentes?</strong><br>
+  Uma ⭐ é o que faz o projeto chegar a mais devs que estão pagando o imposto da IA amnésica.
+</p>
+
+<p align="center"><sub>Forja (npm: <code>forjajs</code>) · MIT License · <a href="CONTRIBUTING.md">Contribuindo</a></sub></p>
