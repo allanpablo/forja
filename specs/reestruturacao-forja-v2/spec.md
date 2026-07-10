@@ -1,11 +1,11 @@
 # Spec: reestruturacao-forja-v2
 
 - **ID**: SPEC-028
-- **Status**: approved
+- **Status**: done
 - **Owner**: apk
 - **Criado em**: 2026-07-01
 - **Sprint alvo**: <S?>
-- **ADRs relacionadas**: <links para memory/90-decisions/>
+- **ADRs relacionadas**: ADR-0019 (workspace separado), ADR-0020 (core CLI única)
 
 ## 1. Problema
 O Forja hoje mistura o **framework** (motor) com os **produtos gerados** dentro do mesmo repositório. A pasta `projects/` é gitignored, a memória universal dos produtos (`memory/30-projects/`, `.memory/sqlite/universal.db`) fica no repo do framework e não há um "canto fixo" claro onde os projetos vão parar. Isso causa:
@@ -23,16 +23,20 @@ Separar o framework Forja do workspace de produção em um diretório fixo (`~/f
 - **Como** arquiteto, **quero** um comando `forja workspace:init` e `forja project:new`, **para que** o harness GSD seja operado de forma unificada.
 
 ## 4. Critérios de aceite (Definition of Done)
-- [ ] AC-1: Workspace padrão `~/forja-workspace` é criado e configurado automaticamente na primeira operação.
-- [ ] AC-2: `init-project` cria projetos obrigatoriamente dentro de `~/forja-workspace/projects/<nome>` (não mais dentro do repo do framework).
-- [ ] AC-3: Memória universal (SQLite) e `memory/30-projects/` dos produtos são movidos/criados no workspace, não no repo do framework.
-- [ ] AC-4: Scripts `sync:universal`, `query:universal`, `context:smart` e `build-smart-context` passam a operar sobre o workspace.
-- [ ] AC-5: Novo módulo `lib/workspace.mjs` centraliza a descoberta do workspace (env `FORJA_WORKSPACE` > `.forjarc.json` > default `~/forja-workspace`).
-- [ ] AC-6: Comando `npm run dev -- workspace:init` cria a estrutura base do workspace.
-- [ ] AC-7: Comando `npm run dev -- project:new <nome>` substitui/encapsula `init-project` com workspace fixo.
-- [ ] AC-8: AGENTS.md, README.md, .gitignore, docs/ e ADRs são atualizados para refletir a separação framework/workspace.
-- [ ] AC-9: `project:check` continua passando no framework e passa a aceitar projeto alvo pelo path absoluto/relativo ao workspace.
-- [ ] AC-10: Teste de fumaça: criar um projeto de exemplo no workspace e rodar `project:check` sobre ele.
+
+> Verificados em 2026-07-09. A spec estava `approved` com o trabalho já concluído — os checkboxes
+> nunca foram marcados. Auditoria confirmou os 10 critérios contra o código.
+
+- [x] AC-1: Workspace padrão `~/forja-workspace` é criado e configurado automaticamente na primeira operação.
+- [x] AC-2: `init-project` cria projetos obrigatoriamente dentro de `~/forja-workspace/projects/<nome>` (não mais dentro do repo do framework).
+- [x] AC-3: Memória universal (SQLite) e `memory/30-projects/` dos produtos são movidos/criados no workspace, não no repo do framework.
+- [x] AC-4: Scripts `sync:universal`, `query:universal`, `context:smart` e `build-smart-context` passam a operar sobre o workspace. — `query-universal-memory.js` não referencia o workspace diretamente; delega a `getDbPath()` de `memory-schema.mjs`, que resolve para `~/forja-workspace/memory/sqlite/universal.db`.
+- [x] AC-5: Novo módulo `lib/workspace.mjs` centraliza a descoberta do workspace (env `FORJA_WORKSPACE` > `.forjarc.json` > default `~/forja-workspace`).
+- [x] AC-6: ~~`npm run dev -- workspace:init`~~ → **interface mudou** para `node bin/forja.mjs workspace:init` (ADR-0020, core CLI única). Comando presente no registry.
+- [x] AC-7: ~~`npm run dev -- project:new <nome>`~~ → **interface mudou** para `node bin/forja.mjs project:new`. Presente no registry, junto de `project:list` e `workspace:project:check`.
+- [x] AC-8: AGENTS.md, README.md, .gitignore, docs/ e ADRs são atualizados para refletir a separação framework/workspace. — ADR-0019 documenta a decisão.
+- [x] AC-9: `project:check` continua passando no framework e passa a aceitar projeto alvo pelo path absoluto/relativo ao workspace.
+- [x] AC-10: Teste de fumaça: criar um projeto de exemplo no workspace e rodar `project:check` sobre ele. — `~/forja-workspace/projects/forja-smoke-test`.
 
 ## 5. Escopo
 **Dentro**:

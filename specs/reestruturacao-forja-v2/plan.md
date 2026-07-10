@@ -1,7 +1,7 @@
 # Plan: reestruturacao-forja-v2
 
 - **Spec**: ./spec.md
-- **Status**: approved
+- **Status**: done
 - **Criado em**: 2026-07-01
 
 > Como vamos construir o que a spec define. Sem código aqui — só estrutura e decisões.
