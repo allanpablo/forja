@@ -4,6 +4,27 @@ Histórico consolidado das mudanças estruturais do framework. Para decisões ar
 
 ---
 
+## [Unreleased] — Dashboard congelado
+
+SPEC-002 (`specs/agent-dashboard/`) passa a `abandoned`. O código permanece em `dashboard/`,
+versionado e com os 68 testes verdes, mas deixa de ser superfície pública. Ver
+ADR-0022 (`memory/90-decisions/0022-congelar-dashboard-web.md`) para rationale e condições de retomada.
+
+### Corrigido
+- **Bug de release**: `docs/dashboard.md` e o script `npm run dashboard` eram publicados no npm,
+  mas a pasta `dashboard/` nunca esteve no `files[]`. Quem instalava o pacote recebia a documentação
+  e o comando, sem o código. Ambos saíram do tarball.
+- `README.md` descrevia o dashboard como "visão opcional read-only"; ele expõe rotas que executam
+  processos (`POST /api/workflow/:project/run/:role`). Descrição corrigida.
+- `scripts/spec-cli.mjs` — `abandoned` é status válido, mas o `check` o rejeitava como incoerente
+  quando havia `plan.md`/`tasks.md`, derrubando o gate com exit 1. Agora é tratado como terminal,
+  junto de `done`.
+
+### Removido
+- Scripts `dashboard`, `dashboard:dev`, `dashboard:install`, `dashboard:web:dev` e
+  `dashboard:web:build` do `package.json` do root.
+- `docs/dashboard.md` e `specs/agent-dashboard/` do `files[]` do pacote npm.
+
 ## [Unreleased] — Workspace separado
 
 SPEC-028 (`specs/reestruturacao-forja-v2/`): separação do framework Forja do workspace de produção.

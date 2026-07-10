@@ -27,7 +27,7 @@ Ponto de entrada por papel. Para histórico de fases ver `CHANGELOG.md`; para de
 - `docs/examples.md` — snippets prontos
 - `docs/dev-workflow.md`
 - `docs/init-project.md` — como gerar novo projeto
-- `docs/dashboard.md` — painel web local (`npm run dashboard`)
+- `docs/dashboard.md` — painel web local (**congelado**, ver ADR-0021; não distribuído no pacote npm)
 
 ### QA
 - `docs/personas/qa/README.md`
@@ -56,7 +56,7 @@ Ponto de entrada por papel. Para histórico de fases ver `CHANGELOG.md`; para de
 | Publicação npm | `docs/publishing.md` |
 | Estrutura gerada | `docs/structure.md` |
 | Exemplos de código | `docs/examples.md` |
-| Dashboard web | `docs/dashboard.md` |
+| Dashboard web (congelado) | `docs/dashboard.md` |
 
 ---
 

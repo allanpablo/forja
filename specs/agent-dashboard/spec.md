@@ -1,11 +1,16 @@
 # Spec: agent-dashboard
 
 - **ID**: SPEC-002
-- **Status**: implementing
+- **Status**: abandoned
 - **Owner**: apk
 - **Criado em**: 2026-05-11
 - **Sprint alvo**: refator-2026-05 (próximo após SPEC-001)
-- **ADRs relacionadas**: ADR-0002 (SQLite/FTS5), ADR-0005 (handoff 7 campos), ADR-0008 (sub-agents)
+- **ADRs relacionadas**: ADR-0002 (SQLite/FTS5), ADR-0005 (handoff 7 campos), ADR-0008 (sub-agents), **ADR-0022 (congelamento)**
+
+> **⚠️ Congelada em 2026-07-09.** Implementada por inteiro (15 rotas, 12 telas, 68 testes verdes),
+> mas nunca teve um usuário: nasceu no commit de release público e não recebeu uma única iteração.
+> O código permanece em `dashboard/`; deixou de ser superfície pública. O rationale completo e as
+> condições de retomada estão em [ADR-0022](../../memory/90-decisions/0022-congelar-dashboard-web.md).
 
 ## 1. Problema
 

@@ -29,7 +29,9 @@
     "AGENTS.md",
     "DOC-MAP.md",
     "CHANGELOG.md",
-    "CONTRIBUTING.md"
+    "CONTRIBUTING.md",
+    "!docs/dashboard.md",
+    "!specs/agent-dashboard/"
   ],
   "scripts": {
     "forja": "node bin/forja.mjs",
@@ -72,11 +74,6 @@
     "ops:handoff": "node bin/forja.mjs gsd:handoff",
     "ops:check": "node bin/forja.mjs gsd:check",
     "ops:sprint": "node bin/forja.mjs sprint:status",
-    "dashboard": "cd dashboard && npm start",
-    "dashboard:dev": "cd dashboard && npm run dev",
-    "dashboard:install": "cd dashboard && npm install && cd web && npm install",
-    "dashboard:web:dev": "cd dashboard/web && npm run dev",
-    "dashboard:web:build": "cd dashboard/web && npm run build",
     "code:index": "node bin/forja.mjs code:index",
     "code:sync": "node bin/forja.mjs code:sync",
     "code:status": "node bin/forja.mjs code:status",

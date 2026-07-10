@@ -1,5 +1,10 @@
 # Dashboard
 
+> **⚠️ Congelado em 2026-07-09 — ver [ADR-0022](../memory/90-decisions/0022-congelar-dashboard-web.md).**
+> Não é superfície pública do Forja e não é distribuído no pacote npm. Os scripts `npm run dashboard*`
+> foram removidos do root: suba manualmente com `cd dashboard && npm install && npm start`.
+> Este documento descreve o estado congelado, para quem for retomá-lo. Ver também `dashboard/README.md`.
+
 Painel web local para monitorar specs, handoffs e tokens do framework, e disparar comandos da CLI canônica.
 
 - **Localização**: `dashboard/`
@@ -10,13 +15,13 @@ Painel web local para monitorar specs, handoffs e tokens do framework, e dispara
 
 ```bash
 # Primeira vez — instala backend + frontend
-npm run dashboard:install
+cd dashboard && npm install && cd web && npm install && cd ../..
 
 # Build do frontend
-npm run dashboard:web:build
+cd dashboard/web && npm run build && cd ../..
 
 # Sobe servidor (serve SPA + API)
-npm run dashboard
+cd dashboard && npm start
 # → http://127.0.0.1:7777
 ```
 
@@ -24,9 +29,9 @@ Modo dev (HMR no frontend, backend separado):
 
 ```bash
 # terminal 1 — API
-npm run dashboard
+cd dashboard && npm run dev
 # terminal 2 — Vite com proxy /api → 7777
-npm run dashboard:web:dev
+cd dashboard/web && npm run dev
 # → http://127.0.0.1:5173
 ```
 
@@ -75,11 +80,11 @@ POST /api/briefing                   body { brief, slug, projectHint? }
 
 ## Troubleshooting
 
-**`EADDRINUSE: 7777`** — outra instância já está rodando. Mate com `lsof -ti:7777 | xargs kill` ou use `DASHBOARD_PORT=7778 npm run dashboard`.
+**`EADDRINUSE: 7777`** — outra instância já está rodando. Mate com `lsof -ti:7777 | xargs kill` ou use `DASHBOARD_PORT=7778 npm start` de dentro de `dashboard/`.
 
 **`/api/handoffs` retorna `[]` no primeiro acesso** — `universal.db` ainda não foi criado. Rode `node scripts/agent-router.mjs schema` ou abra qualquer handoff via `agent-router append`.
 
-**SPA mostra placeholder em vez das telas** — `dashboard/web/dist/` não existe. Rode `npm run dashboard:web:build`.
+**SPA mostra placeholder em vez das telas** — `dashboard/web/dist/` não existe. Rode `npm run build` de dentro de `dashboard/web/`.
 
 **Briefing recusa slug** — kebab-case, 2-64 caracteres, começando com letra/dígito. Use o auto-slug do form.
 

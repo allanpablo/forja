@@ -28,7 +28,7 @@ A **Forja** é o estúdio em volta da IA. Ela coordena **6 papéis de agentes** 
 **Spec-Driven (SDD)** + **Get-Stuff-Done (GSD)**, mantém uma **memória hierárquica**
 indexada em SQLite que sobrevive entre sessões, e amarra tudo num **core CLI único com
 gates e trilha de auditoria** (`forja`, ADR-0020). Multi-IA por design (Claude, Copilot,
-Gemini, Codex) — o dashboard web é apenas uma visão opcional read-only.
+Gemini, Codex). A operação é inteiramente via CLI.
 
 **Para quem**: o dev solo ou time pequeno que opera múltiplos produtos com IA como
 principal força de trabalho — e precisa da disciplina de um time grande sem ter esse time.
@@ -184,7 +184,7 @@ npm run context:smart                             # smart-context
 
 # Qualidade & visão
 npm run project:check                             # standards do framework
-npm run dashboard                                 # front opcional (http://127.0.0.1:7777)
+npm run project:dashboard                         # relatório estático de status
 ```
 
 ## Separação framework × workspace

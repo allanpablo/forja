@@ -1,7 +1,7 @@
 # Plan: agent-dashboard
 
 - **Spec**: ./spec.md
-- **Status**: approved
+- **Status**: abandoned
 - **Criado em**: 2026-05-11
 
 ## 1. Abordagem técnica
