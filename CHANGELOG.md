@@ -4,7 +4,7 @@ Histórico consolidado das mudanças estruturais do framework. Para decisões ar
 
 ---
 
-## [Unreleased] — Dashboard congelado
+## [1.1.3] — 2026-07-09 — Dashboard congelado
 
 SPEC-002 (`specs/agent-dashboard/`) passa a `abandoned`. O código permanece em `dashboard/`,
 versionado e com os 68 testes verdes, mas deixa de ser superfície pública. Ver
