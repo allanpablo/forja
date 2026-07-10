@@ -20,6 +20,7 @@
     "docs/",
     "specs/",
     ".claude/agents/",
+    ".claude/skills/",
     ".claude/settings.json",
     ".gemini-instructions.md",
     ".openai-instructions.md",
@@ -101,7 +102,7 @@
   },
   "author": "Allan Pablo",
   "license": "MIT",
-  "devDependencies": {
+  "dependencies": {
     "better-sqlite3": "^12.11.1"
   }
 }
