@@ -79,10 +79,15 @@ const db = new Database(dbPath);
 db.exec(schema);
 
 const upsertProject = db.prepare('INSERT INTO projects (name, path, created_at) VALUES (?, ?, ?) ON CONFLICT(name) DO UPDATE SET path=excluded.path');
-const upsertNode = db.prepare('INSERT INTO memory_nodes (project_id, path, kind, title, content, content_hash, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?) ON CONFLICT(path) DO UPDATE SET content=excluded.content, content_hash=excluded.content_hash, updated_at=excluded.updated_at');
+// RETURNING id devolve a linha realmente afetada, inserida ou atualizada.
+// Sem ele restaria `lastInsertRowid`, que num upsert-que-atualizou guarda o id do
+// último INSERT da conexão — um id alheio, e o FTS acabava indexando o conteúdo de
+// um documento sob o node_id de outro (ADR-0021).
+const upsertNode = db.prepare('INSERT INTO memory_nodes (project_id, path, kind, title, content, content_hash, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?) ON CONFLICT(path) DO UPDATE SET title=excluded.title, content=excluded.content, content_hash=excluded.content_hash, updated_at=excluded.updated_at RETURNING id');
 const getProjectId = db.prepare('SELECT id FROM projects WHERE name = ?');
 const deleteFts = db.prepare('DELETE FROM search_idx WHERE node_id = ?');
 const insertFts = db.prepare('INSERT INTO search_idx (node_id, title, content) VALUES (?, ?, ?)');
+const purgeFtsOrphans = db.prepare('DELETE FROM search_idx WHERE node_id NOT IN (SELECT id FROM memory_nodes)');
 const upsertSpecSummary = db.prepare(`
   INSERT INTO spec_summaries (slug, status, title, summary, source_path, updated_at)
   VALUES (?, ?, ?, ?, ?, ?)
@@ -219,9 +224,8 @@ function syncFiles(files, projectId = null) {
     const title = titleMatch ? titleMatch[1].trim() : path.basename(rel, '.md');
 
     try {
-      const result = upsertNode.run(projectId, rel, getKind(rel), title, raw, hash, now);
-      const nodeId = result.lastInsertRowid || db.prepare('SELECT id FROM memory_nodes WHERE path = ?').get(rel).id;
-      
+      const { id: nodeId } = upsertNode.get(projectId, rel, getKind(rel), title, raw, hash, now);
+
       deleteFts.run(nodeId);
       insertFts.run(nodeId, title, raw);
     } catch (e) {
@@ -273,6 +277,10 @@ if (fs.existsSync(workspaceProjectsMemoryDir)) {
   const fichaFiles = walk(workspaceProjectsMemoryDir);
   syncFiles(fichaFiles);
 }
+
+// Nós removidos deixam linhas órfãs no FTS: matches que apontam para nada.
+const orphans = purgeFtsOrphans.run().changes;
+if (orphans) log(`Índice FTS: ${orphans} linhas órfãs removidas`, 'info');
 
 db.close();
 log('Sincronização Universal Concluída!', 'success');
