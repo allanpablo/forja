@@ -3,12 +3,7 @@
     "codegraph": {
       "type": "stdio",
       "command": "codegraph",
-      "args": [
-        "serve",
-        "--mcp",
-        "-p",
-        "/home/apk/Documentos/GitHub/Projetos/2-Projeto-Agents/projects/forja"
-      ],
+      "args": ["serve", "--mcp"],
       "env": {}
     }
   }

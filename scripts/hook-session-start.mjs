@@ -4,12 +4,15 @@
  *
  * Roda uma vez por sessão. Lê specs em aberto + handoffs pendentes do universal.db.
  * Output vai para additionalContext (carregado pelo Claude no system).
+ *
+ * Regra de ouro: este hook nunca pode derrubar a sessão. Todo acesso a SQLite é
+ * lazy e envolto em try/catch — sem `node_modules`, degrada para o modo só-specs
+ * em vez de abortar (ADR-0021).
  */
 
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { getDbPath, ensureSchema } from './memory-schema.mjs';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -31,10 +34,18 @@ function listSpecs() {
   return out;
 }
 
-async function openHandoffs() {
-  ensureSchema({ silent: true });
-  const dbPath = getDbPath();
-  if (!fs.existsSync(dbPath)) return [];
+/** Lazy: sem better-sqlite3 instalado, devolve null em vez de estourar. */
+async function resolveDbPath() {
+  try {
+    const { getDbPath, ensureSchema } = await import('./memory-schema.mjs');
+    ensureSchema({ silent: true });
+    const dbPath = getDbPath();
+    return fs.existsSync(dbPath) ? dbPath : null;
+  } catch { return null; }
+}
+
+async function openHandoffs(dbPath) {
+  if (!dbPath) return [];
   try {
     const { default: Database } = await import('better-sqlite3');
     const db = new Database(dbPath, { readonly: true });
@@ -44,11 +55,44 @@ async function openHandoffs() {
   } catch { return []; }
 }
 
+/** mtime do arquivo .md mais recente sob memory/, ignorando o que é arquivado. */
+function newestMemoryMtime(dir = path.join(root, 'memory'), acc = { t: 0 }) {
+  for (const entry of safeReadDir(dir)) {
+    if (entry.startsWith('.') || entry === 'archive') continue;
+    const p = path.join(dir, entry);
+    let st;
+    try { st = fs.statSync(p); } catch { continue; }
+    if (st.isDirectory()) newestMemoryMtime(p, acc);
+    else if (entry.endsWith('.md') && st.mtimeMs > acc.t) acc.t = st.mtimeMs;
+  }
+  return acc.t;
+}
+
+/**
+ * Índice defasado = `query:universal` responde sobre memória velha, calado.
+ * É a falha mais cara do framework: erra sem avisar. Então avisamos.
+ */
+function staleIndex(dbPath) {
+  if (!dbPath) return false;
+  try {
+    const dbMtime = fs.statSync(dbPath).mtimeMs;
+    return newestMemoryMtime() > dbMtime;
+  } catch { return false; }
+}
+
 (async function main() {
   const specs = listSpecs();
-  const handoffs = await openHandoffs();
+  const dbPath = await resolveDbPath();
+  const handoffs = await openHandoffs(dbPath);
   const lines = ['<framework-status>'];
-  lines.push(`Framework: 2-projeto-agents (SDD + orquestração)`);
+  lines.push(`Framework: forja (SDD + orquestração)`);
+
+  if (!dbPath) {
+    lines.push('\n⚠ Memória indisponível: universal.db não abriu. Rode `npm install` e `npm run sync:universal`.');
+  } else if (staleIndex(dbPath)) {
+    lines.push('\n⚠ Índice defasado: memory/ mudou depois do último sync. `query:universal` vai responder sobre memória velha — rode `npm run sync:universal`.');
+  }
+
   if (specs.length) {
     lines.push('\nSpecs ativas:');
     for (const s of specs) lines.push(`  - ${s.slug} [${s.status}]`);

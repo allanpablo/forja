@@ -22,10 +22,35 @@
           }
         ]
       }
+    ],
+    "PreToolUse": [
+      {
+        "matcher": "Edit|Write|NotebookEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node $CLAUDE_PROJECT_DIR/scripts/hook-guard-paths.mjs",
+            "timeout": 5000
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node $CLAUDE_PROJECT_DIR/scripts/hook-post-edit.mjs",
+            "timeout": 60000
+          }
+        ]
+      }
     ]
   },
   "permissions": {
     "allow": [
+      "Bash(node bin/forja.mjs *)",
       "Bash(node scripts/spec-cli.mjs *)",
       "Bash(node scripts/agent-router.mjs *)",
       "Bash(npm run spec:*)",
@@ -33,6 +58,16 @@
       "Bash(npm run sprint:*)",
       "Bash(npm run project:*)",
       "Bash(npm run context:*)",
+      "Bash(npm run code:*)",
+      "Bash(npm run design:*)",
+      "Bash(npm run gsd:*)",
+      "Bash(npm run ops:*)",
+      "Bash(npm run agent:*)",
+      "Bash(npm run catalog:*)",
+      "Bash(npm run workspace:*)",
+      "Bash(npm run hermes:handoff *)",
+      "Bash(npm run token:benchmark)",
+      "Bash(npm run tools:doctor)",
       "Bash(npm run sync:universal)",
       "Bash(npm run query:universal *)",
       "Bash(npm test)"
