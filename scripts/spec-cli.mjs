@@ -123,15 +123,18 @@ function checkFeature(slug) {
     result.stages[stage] = status;
   }
   // Regras
+  // `abandoned` é terminal: uma feature pode ter avançado até plan/tasks antes de parar,
+  // e isso não é incoerência — é história. Ver ADR-0022.
+  const ALLOWS_NEXT_STAGE = ['approved', 'implementing', 'done', 'abandoned'];
   if (!result.stages.spec) {
     result.ok = false;
     result.errors.push('spec.md ausente');
   }
-  if (result.stages.plan && !['approved', 'implementing', 'done'].includes(result.stages.spec)) {
+  if (result.stages.plan && !ALLOWS_NEXT_STAGE.includes(result.stages.spec)) {
     result.ok = false;
     result.errors.push(`plan.md existe mas spec status = ${result.stages.spec}`);
   }
-  if (result.stages.tasks && !['approved', 'implementing', 'done'].includes(result.stages.plan)) {
+  if (result.stages.tasks && !ALLOWS_NEXT_STAGE.includes(result.stages.plan)) {
     result.ok = false;
     result.errors.push(`tasks.md existe mas plan status = ${result.stages.plan}`);
   }
