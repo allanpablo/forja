@@ -10,17 +10,36 @@ instala?**
 
 O repositório mente sobre isso. No repo, tudo resolve: `node_modules` existe com devDeps,
 todos os arquivos estão presentes, o `cwd` é a raiz do projeto. Nada disso vale para quem
-roda `npm i -g forjajs`. Duas classes de bug vivem exatamente nessa lacuna e só aparecem
+roda `npm i -g forjajs`. Quatro classes de bug vivem exatamente nessa lacuna e só aparecem
 em produção:
 
 1. **Arquivo fora do `files[]`** — o `package.json` lista os paths publicados à mão. Um
    `import` para um arquivo não listado quebra só depois do publish.
 2. **Dependência de runtime declarada como `devDependency`** — não é instalada pelo
    usuário. O comando estoura com `ERR_MODULE_NOT_FOUND`.
+3. **Dependência declarada e nunca importada** — não quebra nada, mas todo mundo que
+   instala baixa peso morto.
+4. **Árvore suja no momento do publish** — `npm publish` empacota o **disco**, não o commit.
+   Qualquer arquivo alterado e não commitado entra no tarball, e o que foi publicado deixa
+   de corresponder à tag de release.
 
-Grep e leitura de código não provam ausência dessas falhas. Instalação prova.
+Grep e leitura de código não provam ausência das três primeiras. Instalação prova.
+A quarta nenhuma instalação pega: só o `git status` pega, e só se rodado no instante certo.
 
 ## Procedimento
+
+0. **Exija árvore limpa, antes de tudo.** Se houver qualquer modificação não commitada,
+   reprove imediatamente e pare — não adianta auditar um tarball que não é o que será
+   publicado.
+
+   ```bash
+   git status --short          # qualquer saída = reprovado
+   git describe --tags --exact-match   # HEAD deve estar na tag de release
+   ```
+
+   Um `npm install` casual entre a auditoria e o `npm publish` já basta para reescrever o
+   `package.json` do disco. Foi assim que `otplib` e `qrcode` entraram na v1.1.1 publicada
+   sem jamais existirem no git (ADR-0021).
 
 1. **Empacote e instale de verdade**, num diretório temporário fora do repo:
 
@@ -46,13 +65,22 @@ Grep e leitura de código não provam ausência dessas falhas. Instalação prov
    transitivamente e confirme que todo path resolvido cai sob um prefixo listado em
    `files[]`. Reporte os que não caem.
 
-4. **Confira a fronteira deps/devDeps.** Todo pacote importado por código sob `files[]`
-   precisa estar em `dependencies`. `devDependencies` só pode ser importado por `test/`
-   e por scripts que não são publicados.
+4. **Confira a fronteira deps/devDeps, nos dois sentidos.** Todo pacote importado por código
+   sob `files[]` precisa estar em `dependencies`; `devDependencies` só pode ser importado por
+   `test/` e por scripts não publicados. E toda entrada de `dependencies` precisa ser
+   importada por alguém — declarada e nunca usada é peso morto no tarball de todo usuário.
 
    ```bash
-   grep -rn "from 'better-sqlite3'\|require('better-sqlite3')" bin/ lib/ scripts/
+   # para cada dep declarada, prove que alguém a importa
+   node -e "console.log(Object.keys(require('./package.json').dependencies||{}).join('\n'))" |
+     while read dep; do
+       grep -rqE "from '$dep'|require\('$dep'\)" bin/ lib/ scripts/ ||
+         echo "REPROVADO: '$dep' está em dependencies e ninguém a importa"
+     done
    ```
+
+5. **Reconfirme a árvore limpa ao final.** A auditoria só vale para o disco no instante em
+   que rodou. Se algo mudou desde o passo 0, o resultado está vencido: recomece.
 
 ## Regras
 
@@ -60,5 +88,9 @@ Grep e leitura de código não provam ausência dessas falhas. Instalação prov
 - Nunca rode `npm publish`. Você audita; publicar é decisão do usuário.
 - Nunca aprove com base em leitura de código. Se você não instalou o tarball e rodou
   um comando real, você não sabe — diga que não sabe.
+- Sua aprovação é **perecível**: vale para aquele disco, naquele instante. Ao aprovar,
+  diga explicitamente que qualquer `npm install`, `npm uninstall` ou edição posterior
+  invalida o parecer e exige nova auditoria.
 - Limpe `/tmp/forja-audit` ao final.
-- Se reprovar, aponte a linha exata: o import ofensor ou a entrada faltante no `files[]`.
+- Se reprovar, aponte a linha exata: o import ofensor, a entrada faltante no `files[]`,
+  ou o arquivo sujo no `git status`.

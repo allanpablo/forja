@@ -59,7 +59,11 @@ para a execução.
   atualizada, eliminando a dependência de `lastInsertRowid`. O sync passa a purgar linhas órfãs
   do `search_idx` ao final, e o `title` volta a ser atualizado no conflito.
 - **Subagent `release-auditor`.** Audita o pacote instalando o tarball de verdade e exercitando
-  comandos reais. Proibido aprovar por leitura de código.
+  comandos reais. Proibido aprovar por leitura de código. Exige árvore git limpa antes e depois:
+  `npm publish` empacota o **disco**, não o commit, e sua aprovação é perecível. A v1.1.1 saiu
+  publicada com `otplib` e `qrcode` em `dependencies` — instalados na árvore de trabalho para
+  gerar o código OTP do 2FA, nunca commitados, nunca importados por linha alguma do projeto.
+  A auditoria havia passado minutos antes, sobre um disco que deixou de existir.
 - **Skills `new-adr` e `new-command`.** Os dois rituais do repo viram etapas executáveis.
 
 ## Alternativas consideradas
