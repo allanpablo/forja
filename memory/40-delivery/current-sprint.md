@@ -1,16 +1,22 @@
 # Sprint Atual
 
 ## Projeto
-framework-root
+framework-root (o repo do Forja — produtos vivem no workspace, ADR-0019)
 
 ## Objetivos
-- Completar itens P0/P1 do backlog com handoffs GSD registrados.
+- Fechar a classe de falha "erra sem avisar" (ADR-0021) com gates executáveis, não correções pontuais.
 
 ## Itens da Sprint
-- [ ] P0: Inventario multiempresa + CRUD de ativos (RICE 24.0)
-- [ ] P0: Monitoramento de disponibilidade + status (RICE 15.8)
-- [ ] P1: Alertas (regras + notificacao) (RICE 14.0)
-- [ ] P1: Storage/NAS (capacidade/uso) (RICE 3.0)
+- [x] SPEC-009 — Doctor do núcleo (`specs/doctor-do-nucleo/`, ADR-0023)
+      `tools:doctor` deixa de auditar só ferramentas opcionais e passa a ser gate do núcleo:
+      ABI nativa, memória, workspace, deps de runtime, `.mcp.json`. Exit 1 no que trava o fluxo.
+- [x] `spec:new` mantém a allow-list do `.gitignore` — spec nova do framework nascia invisível ao git.
+
+## Próximos candidatos (sem spec ainda)
+- `release-auditor` consumindo `lib/core/health.mjs` em vez de heurística própria — é a terceira
+  superfície prevista no ADR-0023 e a única que ainda não migrou.
+- Checks de núcleo no CI (`tools:doctor` como step), fechando o ciclo: hoje o CI roda os testes,
+  mas não o gate.
 
 ## Ritual CLI
 - Planejar: npm run gsd:plan -- <slug> "<objetivo>"
@@ -18,4 +24,4 @@ framework-root
 - Handoff plan: npm run gsd:handoff -- plan <slug>
 - Handoff implement: npm run gsd:handoff -- implement <slug>
 - Validar: npm run gsd:check -- <slug>
-- Governanca: npm run project:check
+- Governança: npm run project:check && npm run tools:doctor
