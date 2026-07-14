@@ -84,13 +84,40 @@ Regras operacionais:
 - **Gate de Governanca**: `code:check` reprova (bloqueante) se o indice pertence a outro worktree; e nao-bloqueante se o codegraph simplesmente nao esta instalado.
 - `gsd:check` ja inclui o gate codegraph automaticamente.
 
-## Tools Doctor (ferramentas de processo)
-
-`tools:doctor` (ADR-0018) e o raio-x das ferramentas opcionais que potencializam o processo. Detecta sem impor:
+## Doctor (nucleo + ferramentas de processo)
 
 ```bash
 npm run tools:doctor
 ```
+
+Duas secoes, dois contratos:
+
+### Nucleo — o que impede o framework de trabalhar (ADR-0023)
+
+Falha critica aqui **reprova com exit 1**. Cada falha vem com o comando que a corrige.
+
+| Check | O que verifica | Severidade |
+|---|---|---|
+| `native-abi` | better-sqlite3 carrega no Node em uso | critica |
+| `memory-db` | `universal.db` existe e abre | critica |
+| `memory-fresh` | indice em dia com `memory/` | aviso |
+| `workspace` | workspace resolvido (e por qual origem) | aviso |
+| `node-engines` | Node dentro do `engines` declarado | aviso |
+| `runtime-deps` | script publicado nao importa devDependency (ADR-0021) | critica |
+| `mcp-json` | `.mcp.json` sem path absoluto versionado (ADR-0021) | critica |
+
+O caso que motivou o gate: com o `better-sqlite3` compilado para outra major do Node, a memoria
+universal morre inteira — e o doctor antigo reportava "2/5 ferramentas disponiveis", exit 0. A
+correcao e `npm rebuild better-sqlite3`; `npm install` **nao** recompila binario nativo.
+
+O doctor diagnostica e prescreve; nao conserta. Nao existe `--fix`.
+
+Os checks `runtime-deps` e `mcp-json` so rodam dentro do repo do framework — numa instalacao
+`npm i -g forjajs` nao ha devDependencies nem `.mcp.json`, e eles dariam falso positivo.
+
+### Ferramentas de processo — opcionais (ADR-0018)
+
+Detecta sem impor. Ausencia **nunca** trava o fluxo: apenas desativa o gate correspondente.
 
 | Ferramenta | Papel | Gate |
 |---|---|---|

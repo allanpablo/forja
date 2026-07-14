@@ -66,7 +66,7 @@ npm run project:dashboard
 # Code intelligence + ferramentas de processo (ADR-0017, ADR-0018)
 npm run code:check               # índice codegraph confiável (worktree + freshness)
 npm run code:impact -- <símbolo> # chamadores + blast radius antes de editar
-npm run tools:doctor             # raio-x: codegraph, gitleaks, ast-grep, lefthook, markdownlint
+npm run tools:doctor             # raio-x do núcleo (ABI, memória, workspace) + ferramentas. Exit 1 se o núcleo quebrou
 ```
 
 ## Convenções

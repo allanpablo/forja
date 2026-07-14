@@ -4,6 +4,36 @@ Histórico consolidado das mudanças estruturais do framework. Para decisões ar
 
 ---
 
+## [Unreleased] — Doctor do núcleo
+
+SPEC-009 (`specs/doctor-do-nucleo/`) — ADR-0023. O `tools:doctor` auditava cinco ferramentas
+*opcionais* (sobre as quais ele mesmo dizia "o fluxo nunca trava por elas") e era cego para tudo
+que trava. Com o `better-sqlite3` compilado contra outra major do Node, a memória universal morria
+inteira e o doctor reportava "2/5 ferramentas disponíveis", exit 0 — enquanto o `SessionStart`
+prescrevia `npm install`, que **não** recompila binário nativo. Quinta ocorrência da classe de
+falha do ADR-0021: erra sem avisar.
+
+### Adicionado
+- `lib/core/health.mjs` — saúde do núcleo como **dados** (`CHECKS[]`) + runner. Fonte única
+  consumida por `tools:doctor` e pelo hook `SessionStart`; nenhuma superfície mantém heurística
+  própria.
+- Sete checks: `native-abi`, `memory-db`, `memory-fresh`, `workspace`, `node-engines`,
+  `runtime-deps`, `mcp-json`. Os dois últimos convertem em gate executável invariantes que o
+  ADR-0021 corrigiu à mão e que podiam reincidir sem que nada percebesse.
+- Cascata via `dependsOn`: check cuja dependência falhou é `skipped`, não `fail` — uma causa, uma
+  linha vermelha, em vez de três erros escondendo a raiz.
+- `test/health.test.js` — 36 testes; cada check nos dois estados (são e quebrado).
+
+### Modificado
+- `tools:doctor` agora tem duas seções (Núcleo e Ferramentas) e **exit 1** quando um check crítico
+  do núcleo falha. Ferramenta opcional ausente segue `exit 0` — contrato do ADR-0018 preservado.
+- `scripts/hook-session-start.mjs` — `resolveDbPath()` e `staleIndex()` removidos. O
+  `catch { return null }` que colapsava "sem node_modules", "ABI incompatível" e "banco ausente"
+  num único `null` era a raiz da prescrição errada. O hook continua sempre com `exit 0`: reporta,
+  nunca trava a sessão.
+- `spec:new` mantém a allow-list de `/specs/*` no `.gitignore`. Toda spec nova do framework nascia
+  invisível ao git — criada, aprovada pelo `spec:check` e descartada em silêncio.
+
 ## [1.1.3] — 2026-07-09 — Dashboard congelado
 
 SPEC-002 (`specs/agent-dashboard/`) passa a `abandoned`. O código permanece em `dashboard/`,

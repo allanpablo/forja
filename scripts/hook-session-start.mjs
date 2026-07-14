@@ -8,11 +8,18 @@
  * Regra de ouro: este hook nunca pode derrubar a sessão. Todo acesso a SQLite é
  * lazy e envolto em try/catch — sem `node_modules`, degrada para o modo só-specs
  * em vez de abortar (ADR-0021).
+ *
+ * A saúde do núcleo vem de `lib/core/health.mjs` — zero heurística local (SPEC-009). O hook tinha
+ * a sua, e ela mentia: um `catch { return null }` colapsava "sem node_modules", "ABI incompatível"
+ * e "banco ausente" no mesmo `null`, e então prescrevia `npm install` — que não recompila binário
+ * nativo. Quem seguisse o conselho do próprio framework não consertava nada.
  */
 
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+
+import { runChecks } from '../lib/core/health.mjs';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -34,63 +41,46 @@ function listSpecs() {
   return out;
 }
 
-/** Lazy: sem better-sqlite3 instalado, devolve null em vez de estourar. */
-async function resolveDbPath() {
+/** Handoffs só fazem sentido com a memória de pé — daí o `memoriaOk` do caller. */
+async function openHandoffs() {
   try {
-    const { getDbPath, ensureSchema } = await import('./memory-schema.mjs');
-    ensureSchema({ silent: true });
-    const dbPath = getDbPath();
-    return fs.existsSync(dbPath) ? dbPath : null;
-  } catch { return null; }
-}
-
-async function openHandoffs(dbPath) {
-  if (!dbPath) return [];
-  try {
+    const { getWorkspaceDbPath } = await import('../lib/workspace.mjs');
     const { default: Database } = await import('better-sqlite3');
-    const db = new Database(dbPath, { readonly: true });
+    const db = new Database(getWorkspaceDbPath(), { readonly: true });
     const rows = db.prepare(`SELECT id, from_agent, to_agent, intent, spec_slug FROM handoffs WHERE status='open' ORDER BY id DESC LIMIT 10`).all();
     db.close();
     return rows;
   } catch { return []; }
 }
 
-/** mtime do arquivo .md mais recente sob memory/, ignorando o que é arquivado. */
-function newestMemoryMtime(dir = path.join(root, 'memory'), acc = { t: 0 }) {
-  for (const entry of safeReadDir(dir)) {
-    if (entry.startsWith('.') || entry === 'archive') continue;
-    const p = path.join(dir, entry);
-    let st;
-    try { st = fs.statSync(p); } catch { continue; }
-    if (st.isDirectory()) newestMemoryMtime(p, acc);
-    else if (entry.endsWith('.md') && st.mtimeMs > acc.t) acc.t = st.mtimeMs;
-  }
-  return acc.t;
-}
-
 /**
- * Índice defasado = `query:universal` responde sobre memória velha, calado.
- * É a falha mais cara do framework: erra sem avisar. Então avisamos.
+ * Nunca lança e nunca trava a sessão: o hook reporta, o `tools:doctor` é que é gate. Se a própria
+ * lib de health não carregar, seguimos com o resto do briefing em vez de abortar (ADR-0021).
  */
-function staleIndex(dbPath) {
-  if (!dbPath) return false;
+async function coreHealth() {
   try {
-    const dbMtime = fs.statSync(dbPath).mtimeMs;
-    return newestMemoryMtime() > dbMtime;
-  } catch { return false; }
+    return await runChecks({ scope: 'runtime' });
+  } catch { return []; }
 }
 
 (async function main() {
   const specs = listSpecs();
-  const dbPath = await resolveDbPath();
-  const handoffs = await openHandoffs(dbPath);
+  const health = await coreHealth();
+  const problemas = health.filter((c) => c.status === 'fail' || c.status === 'warn');
+  const memoriaOk = !health.some((c) => c.status === 'fail');
+  const handoffs = memoriaOk ? await openHandoffs() : [];
+
   const lines = ['<framework-status>'];
   lines.push(`Framework: forja (SDD + orquestração)`);
 
-  if (!dbPath) {
-    lines.push('\n⚠ Memória indisponível: universal.db não abriu. Rode `npm install` e `npm run sync:universal`.');
-  } else if (staleIndex(dbPath)) {
-    lines.push('\n⚠ Índice defasado: memory/ mudou depois do último sync. `query:universal` vai responder sobre memória velha — rode `npm run sync:universal`.');
+  if (problemas.length) {
+    lines.push('');
+    for (const p of problemas) {
+      const icone = p.status === 'fail' ? '✖' : '⚠';
+      lines.push(`${icone} ${p.title}: ${p.detail}`);
+      if (p.fix) lines.push(`  corrigir: ${p.fix}`);
+    }
+    lines.push('  raio-x completo: `npm run tools:doctor`');
   }
 
   if (specs.length) {

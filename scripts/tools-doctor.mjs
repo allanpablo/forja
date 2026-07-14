@@ -1,15 +1,26 @@
 #!/usr/bin/env node
 /**
- * tools-doctor — raio-x das ferramentas de processo (ADR-0018).
+ * tools-doctor — raio-x do núcleo (SPEC-009) e das ferramentas de processo (ADR-0018).
  *
- * Detecta binarios opcionais que potencializam o harness. Nunca impoe:
- * reporta instalado/ausente + como instalar. Governanca decide quais gates
- * ativar conforme disponibilidade.
+ * Duas seções, dois contratos distintos:
+ *
+ *   Núcleo       O que impede o framework de trabalhar. Falha crítica → exit 1.
+ *   Ferramentas  Binários opcionais que potencializam o harness. Ausência nunca trava.
+ *
+ * A separação é o ponto. Este comando auditava só as ferramentas — sobre as quais ele mesmo
+ * dizia "o fluxo nunca trava por elas" — e era cego para tudo que trava. Quando o better-sqlite3
+ * ficou com ABI de outra major do Node e a memória universal morreu inteira, o doctor reportou
+ * "2/5 ferramentas disponíveis" e saiu com 0.
+ *
+ * Diagnostica e prescreve; não conserta. Rodar `npm rebuild` sem consentimento é a classe de
+ * risco oposta à que este comando existe para fechar.
  *
  * Uso: node scripts/tools-doctor.mjs
  */
 
 import { spawnSync } from 'node:child_process';
+
+import { runChecks, worstStatus } from '../lib/core/health.mjs';
 
 const TOOLS = [
   {
@@ -56,22 +67,66 @@ function detect(cmd, args) {
   return { ok: true, version };
 }
 
-function main() {
-  console.log('\nTools doctor — ferramentas de processo (ADR-0018)\n');
+const TAG = {
+  ok: 'OK   ',
+  warn: 'AVISO',
+  fail: 'FALHA',
+  skipped: '—    ',
+};
+
+function printCore(results) {
+  console.log('Núcleo — o que impede o framework de trabalhar (SPEC-009)\n');
+
+  for (const r of results) {
+    console.log(`${TAG[r.status]} ${r.id.padEnd(13)} ${r.detail}`);
+    if (r.fix) console.log(`      corrigir: ${r.fix}`);
+    console.log('');
+  }
+}
+
+function printTools() {
+  console.log('Ferramentas de processo — opcionais (ADR-0018)\n');
+
   let installed = 0;
   for (const tool of TOOLS) {
     const [cmd, args] = tool.probe;
     const { ok, version } = detect(cmd, args);
     if (ok) installed += 1;
-    const tag = ok ? 'OK  ' : 'FALTA';
-    console.log(`${tag} ${tool.name.padEnd(13)} ${ok ? version : '(ausente)'}`);
+    console.log(`${ok ? TAG.ok : 'FALTA'} ${tool.name.padEnd(13)} ${ok ? version : '(ausente)'}`);
     console.log(`      papel: ${tool.role}`);
     console.log(`      gate:  ${tool.gate}`);
     if (!ok) console.log(`      instalar: ${tool.install}`);
     console.log('');
   }
-  console.log(`Resumo: ${installed}/${TOOLS.length} ferramentas disponiveis.`);
-  console.log('Ferramentas ausentes apenas desativam seus gates — o fluxo nunca trava por elas.');
+
+  console.log(`${installed}/${TOOLS.length} ferramentas disponíveis.`);
+  console.log('Ferramentas ausentes apenas desativam seus gates — o fluxo nunca trava por elas.\n');
+}
+
+async function main() {
+  console.log('\nForja doctor\n');
+
+  const core = await runChecks();
+  printCore(core);
+  printTools();
+
+  // Só o núcleo decide o exit code. Ferramenta ausente nunca reprova — o contrato do ADR-0018
+  // é preservado à risca.
+  const verdict = worstStatus(core);
+
+  if (verdict === 'fail') {
+    const raiz = core.filter((r) => r.status === 'fail' && r.severity === 'critical');
+    console.log(`Núcleo quebrado — ${raiz.length} ${raiz.length === 1 ? 'falha' : 'falhas'} crítica(s).`);
+    for (const r of raiz) console.log(`  ${r.id}: ${r.fix || 'sem correção automática'}`);
+    process.exit(1);
+  }
+
+  if (verdict === 'warn') {
+    console.log('Núcleo operante, com ressalvas. Nada trava o fluxo.');
+    return;
+  }
+
+  console.log('Núcleo saudável.');
 }
 
 main();
