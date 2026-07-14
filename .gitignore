@@ -49,6 +49,7 @@ dashboard/web/node_modules/
 !/specs/help
 !/specs/marco4-preview-sql
 !/specs/release-gate
+!/specs/coerencia-do-sistema
 
 # Runbooks GSD e context packs são gerados/efêmeros e podem carregar dados de
 # produto. São regeneráveis (gsd:plan, context:build), então ficam fora do git.

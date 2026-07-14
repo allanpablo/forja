@@ -2,7 +2,7 @@
 
 - **Spec**: ./spec.md
 - **Plan**: ./plan.md
-- **Status**: approved
+- **Status**: done
 - **Criado em**: 2026-07-14
 
 > Decomposição executável. Cada task tem dono claro, critério de done e referência a arquivos.

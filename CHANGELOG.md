@@ -4,35 +4,58 @@ Histórico consolidado das mudanças estruturais do framework. Para decisões ar
 
 ---
 
-## [Unreleased] — Doctor do núcleo
+## [1.1.4] — 2026-07-14 — Os gates
 
-SPEC-009 (`specs/doctor-do-nucleo/`) — ADR-0023. O `tools:doctor` auditava cinco ferramentas
-*opcionais* (sobre as quais ele mesmo dizia "o fluxo nunca trava por elas") e era cego para tudo
-que trava. Com o `better-sqlite3` compilado contra outra major do Node, a memória universal morria
-inteira e o doctor reportava "2/5 ferramentas disponíveis", exit 0 — enquanto o `SessionStart`
-prescrevia `npm install`, que **não** recompila binário nativo. Quinta ocorrência da classe de
-falha do ADR-0021: erra sem avisar.
+Duas fronteiras do framework funcionavam por disciplina, e a disciplina falhou nas duas. Esta versão
+as fecha com gates executáveis — e, pela primeira vez, com **prova**: os bugs históricos foram
+reintroduzidos um a um, e o gate reprovou cada um deles.
+
+> "Uma regra que depende de memória não é uma regra; é uma sugestão." — ADR-0021
+
+### O que muda para quem usa
+
+- **`npm publish` está bloqueado** se a instalação limpa não funcionar (`prepublishOnly` → ADR-0024).
+- **`tools:doctor` reprova** (exit 1) quando o núcleo está quebrado — antes ele auditava só
+  ferramentas opcionais e saía com 0 mesmo com a memória morta (ADR-0023).
+- Quando algo quebra, a saída traz **o comando que corrige**, não um stack trace.
 
 ### Adicionado
-- `lib/core/health.mjs` — saúde do núcleo como **dados** (`CHECKS[]`) + runner. Fonte única
-  consumida por `tools:doctor` e pelo hook `SessionStart`; nenhuma superfície mantém heurística
-  própria.
-- Sete checks: `native-abi`, `memory-db`, `memory-fresh`, `workspace`, `node-engines`,
-  `runtime-deps`, `mcp-json`. Os dois últimos convertem em gate executável invariantes que o
-  ADR-0021 corrigiu à mão e que podiam reincidir sem que nada percebesse.
-- Cascata via `dependsOn`: check cuja dependência falhou é `skipped`, não `fail` — uma causa, uma
-  linha vermelha, em vez de três erros escondendo a raiz.
-- `test/health.test.js` — 36 testes; cada check nos dois estados (são e quebrado).
 
-### Modificado
-- `tools:doctor` agora tem duas seções (Núcleo e Ferramentas) e **exit 1** quando um check crítico
-  do núcleo falha. Ferramenta opcional ausente segue `exit 0` — contrato do ADR-0018 preservado.
-- `scripts/hook-session-start.mjs` — `resolveDbPath()` e `staleIndex()` removidos. O
-  `catch { return null }` que colapsava "sem node_modules", "ABI incompatível" e "banco ausente"
-  num único `null` era a raiz da prescrição errada. O hook continua sempre com `exit 0`: reporta,
-  nunca trava a sessão.
-- `spec:new` mantém a allow-list de `/specs/*` no `.gitignore`. Toda spec nova do framework nascia
-  invisível ao git — criada, aprovada pelo `spec:check` e descartada em silêncio.
+- **`lib/core/health.mjs`** — saúde do núcleo como dados: ABI do `better-sqlite3`, memória, índice,
+  workspace, `engines`, deps de runtime, `.mcp.json`. Fonte única do `tools:doctor` e do hook
+  `SessionStart` (ADR-0023).
+- **`lib/core/release.mjs` + `release:check`** — o gate do tarball. Empacota, instala num diretório
+  isolado e **executa** os comandos. Grep não prova ausência; instalação prova (ADR-0024).
+- **`lib/core/checks.mjs`** — runner compartilhado. Uma máquina, dois catálogos: um guarda o repo,
+  outro guarda o pacote publicado.
+- **CI**: `tools:doctor` na matriz de Nodes e `release:check` em job próprio. A evidência do release
+  passa a viver no log do CI, não na memória de quem publica.
+- `spec:new` mantém a allow-list do `.gitignore` — toda spec nova do framework nascia invisível ao git.
+
+### Corrigido
+
+- **A memória morria em silêncio.** Com o `better-sqlite3` compilado contra outra major do Node,
+  `query:universal`, `sync:universal`, `context:smart`, `agent:route` e `memory:compress` ficavam
+  todos inoperantes — e o `SessionStart` prescrevia `npm install`, que **não** recompila binário
+  nativo. A correção é `npm rebuild better-sqlite3`, e agora é isso que o framework diz.
+- **`docs/token-optimization.md` mandava rodar quatro comandos inexistentes** (`context:build`,
+  `memory:db:reindex`, `memory:db:stats`, `cache:clear`) e linkava um `DEPLOYMENT.md` que nunca
+  existiu. É o documento que ensina a economia de tokens (ADR-0009) — um agente obediente executava
+  fantasmas.
+- **O Governance não conhecia os gates**: descrevia o `tools:doctor` pela definição anterior ao
+  ADR-0023 e ignorava o `release:check`.
+- `runtime-deps` passava por sorte: os geradores emitem `import … from '@nestjs/common'` dentro de
+  template literal, e o parser contava como dependência do framework.
+
+### Evidência
+
+| Bug histórico | Reintroduzido → |
+|---|---|
+| `better-sqlite3` como `devDependency` (ADR-0021) | reprovado por **dois** checks independentes |
+| `dashboard/` fora do `files[]` (v1.1.3) | reprovado: 4 comandos mortos, 19 imports sem destino |
+| `otplib`/`qrcode` publicados sem existir no git (v1.1.1) | reprovado sob `--publish`; `npm publish` aborta |
+
+**88 testes** (eram 28). ADR-0023 e ADR-0024. SPEC-009 e SPEC-010.
 
 ## [1.1.3] — 2026-07-09 — Dashboard congelado
 
