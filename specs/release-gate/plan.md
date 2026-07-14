@@ -1,7 +1,7 @@
 # Plan: release-gate
 
 - **Spec**: ./spec.md
-- **Status**: approved
+- **Status**: done
 - **Criado em**: 2026-07-14
 
 > Como vamos construir o que a spec define. Sem código aqui — só estrutura e decisões.

@@ -1,7 +1,7 @@
 # Spec: release-gate
 
 - **ID**: SPEC-010
-- **Status**: approved
+- **Status**: done
 - **Owner**: apk
 - **Criado em**: 2026-07-13
 - **Sprint alvo**: S?
