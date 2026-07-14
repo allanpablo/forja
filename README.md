@@ -51,15 +51,15 @@ principal força de trabalho — e precisa da disciplina de um time grande sem t
 $ forja spec:new pagamentos-pix
 ✓ Spec criada: specs/pagamentos-pix/spec.md          # nada vira código sem isso
 
-$ forja gsd:handoff -- plan pagamentos-pix
+$ forja gsd:handoff plan pagamentos-pix
 Handoff registrado: product → sdd-architect          # 7 campos, auditável (ADR-0005)
 
-$ forja code:impact -- processPayment
+$ forja code:impact processPayment
 Mapa de impacto: processPayment (profundidade 2)     # blast radius ANTES de editar
 --- Chamadores diretos ---
 BillingController.charge · RetryWorker.run
 
-$ forja gsd:check -- pagamentos-pix
+$ forja gsd:check pagamentos-pix
 OK   GSD runbook      OK   Spec directory
 OK   SDD spec check   OK   Codegraph
 Resultado: gates básicos prontos.                    # governança executável, não checklist
@@ -90,23 +90,22 @@ E cada comando acima ficou gravado em `.context/forja-runs.jsonl` — quando a g
 # Instalar (o pacote é forjajs; o comando é forja)
 npm install -g forjajs
 forja                    # help agrupado por domínio
-```
 
-Ou clonando o repo:
-
-```bash
 # Preparar o workspace de produção (canto fixo dos projetos)
-npm run workspace:init
+forja workspace:init
 
 # Criar um projeto novo (gera em ~/forja-workspace/projects/<nome>)
-npm run project:new meu-projeto -- --ai claude,copilot
+forja project:new meu-projeto --ai claude,copilot
 
 # Entrar no ciclo SDD/GSD da primeira feature
-npm run spec:new -- minha-feature
-npm run spec:plan -- minha-feature
-npm run spec:tasks -- minha-feature
-npm run spec:check -- minha-feature
+forja spec:new minha-feature
+forja spec:plan minha-feature
+forja spec:tasks minha-feature
+forja spec:check minha-feature
 ```
+
+> Clonou o repo em vez de instalar? Os mesmos comandos rodam como
+> `node bin/forja.mjs <comando>` — os scripts npm são apenas aliases finos do core.
 
 Passo a passo de **criar vs atualizar** projeto: [`docs/processo-projeto.md`](docs/processo-projeto.md).
 
@@ -114,7 +113,7 @@ Passo a passo de **criar vs atualizar** projeto: [`docs/processo-projeto.md`](do
 
 ```
 💡 Demanda
-   ├─ projeto NÃO existe ─► init:project + boilerplate + harness (desenha o time)
+   ├─ projeto NÃO existe ─► project:new + boilerplate + harness (desenha o time)
    └─ projeto JÁ existe ──► overlay --only-memory + codegraph init (entende o código)
                                               │
                                               ▼
@@ -137,9 +136,9 @@ Mapa completo do ciclo: [`docs/fluxo.md`](docs/fluxo.md).
 
 | Capacidade | Papel | Como usar |
 |---|---|---|
-| **codegraph** | análise de código (MCP local) | `npm run code:index` · `codegraph explore "<área>"` · ferramentas MCP `codegraph_explore`/`codegraph_node` |
+| **codegraph** | análise de código (MCP local) | `forja code:index` · `codegraph explore "<área>"` · ferramentas MCP `codegraph_explore`/`codegraph_node` |
 | **harness** | desenho de times de agentes (plugin) | na sessão Claude Code: _"build a harness for this project"_ → gera `.claude/agents` + `.claude/skills` |
-| **ai-engineering** | base de conhecimento (referência) | `projects/ai-engineering-from-scratch-main/` (ROADMAP, phases, glossary) |
+| **ai-engineering** | base de conhecimento (referência) | ver [`docs/capacidades-externas.md`](docs/capacidades-externas.md) |
 
 Detalhes e reinstalação: [`docs/capacidades-externas.md`](docs/capacidades-externas.md) · [ADR-0016](memory/90-decisions/0016-integracao-capacidades-externas.md).
 
@@ -148,43 +147,49 @@ Detalhes e reinstalação: [`docs/capacidades-externas.md`](docs/capacidades-ext
 Todos os comandos de processo passam por um único ponto de entrada (ADR-0020):
 
 ```bash
-node bin/forja.mjs                 # help agrupado por domínio
-node bin/forja.mjs <comando>       # ou, com o pacote linkado: forja <comando>
+forja                              # help agrupado por domínio
+forja <comando> [args]             # no repo clonado: node bin/forja.mjs <comando>
 ```
 
 O core aplica **gates** antes de executar (ex.: comandos de produto falham cedo sem
 workspace) e grava **auditoria** de cada execução (comando, args, exit code, duração)
 em `<workspace>/.context/forja-runs.jsonl` — a trilha que a governança usa no review.
-Os scripts npm abaixo são aliases finos que roteiam pelo core.
+Os scripts npm do repo são aliases finos que roteiam pelo core.
 
 ## Comandos essenciais
 
 ```bash
 # Workspace & projetos
-npm run workspace:init                            # cria ~/forja-workspace
-npm run project:new <nome> -- --ai claude,copilot # cria projeto no workspace
-npm run project:list                              # lista projetos do workspace
-npm run project:check <nome>                      # valida padrões no projeto
+forja workspace:init                       # cria ~/forja-workspace
+forja project:new <nome> --ai claude,copilot  # cria projeto no workspace
+forja project:list                         # lista projetos do workspace
+forja workspace:project:check <nome>       # valida padrões num projeto do workspace
 
 # Pipeline SDD
-npm run spec:new|plan|tasks|check -- <slug>
+forja spec:new <slug>                      # também: spec:plan · spec:tasks · spec:check
 
 # Sprint & handoffs (GSD)
-npm run sprint:start | sprint:status | sprint:complete
-npm run gsd:handoff -- <intent> <slug>            # handoff entre papéis (ADR-0005)
+forja sprint:start                         # também: sprint:status · sprint:complete
+forja gsd:plan <slug>                      # runbook GSD em .context/
+forja gsd:handoff <intent> <slug>          # handoff entre papéis (ADR-0005)
+forja gsd:check <slug>                     # gates básicos do runbook
 
 # Análise de código (codegraph)
-npm run code:index | code:sync | code:status
-npm run code:query "<termo>"
+forja code:check                           # índice confiável (worktree + freshness)
+forja code:impact <símbolo>                # chamadores + blast radius antes de editar
+forja code:query "<termo>"                 # também: code:index · code:sync · code:status
 
 # Memória & contexto (workspace)
-npm run sync:universal                            # reindexa SQLite FTS5 do workspace
-npm run query:universal "<query>"
-npm run context:smart                             # smart-context
+forja sync:universal                       # reindexa SQLite FTS5 do workspace
+forja query:universal "<query>"            # busca FTS5
+forja context:smart                        # smart-context (3 modos, ADR-0003)
+forja memory:compress                      # arquiva runs antigos + VACUUM
 
-# Qualidade & visão
-npm run project:check                             # standards do framework
-npm run project:dashboard                         # relatório estático de status
+# Qualidade & release
+forja project:check                        # standards do framework (pre-commit)
+forja tools:doctor                         # raio-x do núcleo; exit 1 se quebrou
+forja release:check --publish              # gate do tarball antes de publicar
+forja project:dashboard                    # relatório estático de status
 ```
 
 ## Separação framework × workspace
