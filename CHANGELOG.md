@@ -4,6 +4,37 @@ Histórico consolidado das mudanças estruturais do framework. Para decisões ar
 
 ---
 
+## [1.1.5] — 2026-07-14 — O comando é forja
+
+A documentação pública ainda falava a língua interna do repo: `npm run x -- args` onde o usuário
+do pacote tem `forja x args`. Esta versão alinha o que o README promete com o que o binário faz.
+
+### Corrigido
+
+- **README inteiro migrado para `forja` como forma canônica** — os scripts npm continuam
+  existindo como aliases do repo clonado, mas deixam de ser a vitrine.
+- **Exemplos do "60 segundos" estavam quebrados**: `forja gsd:handoff -- plan …` passa o `--`
+  cru para o script (o core não filtra separador) e o comando falha. O `--` só era necessário
+  na forma `npm run`; removido dos exemplos diretos.
+- **Comando errado na lista de essenciais**: validar projeto do workspace é
+  `workspace:project:check <nome>`, não `project:check <nome>` (que é o standards check do framework).
+- **Links mortos**: `projects/ai-engineering-from-scratch-main/` não existe no repo;
+  `docs/capacidades-externas.md` agora aponta para as fontes upstream (ADR-0016) e a
+  reinstalação segue a prescrição do `tools:doctor` (`npm i -g @codegraph/cli`) em vez do
+  symlink manual antigo.
+- **`package-lock.json` preso em 1.1.3** desde o bump da 1.1.4; sincronizado.
+
+### Adicionado
+
+- Seção "Comandos essenciais" do README ampliada com o que já existia no registry mas não
+  aparecia: `gsd:plan`/`gsd:check`, `code:check`/`code:impact`, `memory:compress`,
+  `tools:doctor`, `release:check --publish`.
+- `allowScripts` no `package.json`: instalações com política allow-scripts ativa deixam de
+  bloquear silenciosamente o prebuild do `better-sqlite3` — exatamente o modo de falha que
+  matava a memória (ADR-0023).
+
+---
+
 ## [1.1.4] — 2026-07-14 — Os gates
 
 Duas fronteiras do framework funcionavam por disciplina, e a disciplina falhou nas duas. Esta versão
