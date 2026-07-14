@@ -81,6 +81,7 @@
     "code:check": "node bin/forja.mjs code:check",
     "code:impact": "node bin/forja.mjs code:impact",
     "tools:doctor": "node bin/forja.mjs tools:doctor",
+    "release:check": "node bin/forja.mjs release:check",
     "test": "node --test test/*.test.js"
   },
   "keywords": [

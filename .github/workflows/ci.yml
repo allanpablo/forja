@@ -23,3 +23,25 @@ jobs:
         run: |
           node bin/forja.mjs
           node bin/forja.mjs spec:check forja-core
+
+      # O gate do núcleo (ADR-0023) existia e nada o executava automaticamente. Roda na matriz
+      # inteira de propósito: o check `native-abi` só tem sentido contra várias versões do Node.
+      - name: Doctor do núcleo
+        run: node bin/forja.mjs tools:doctor
+
+  # O gate do tarball (ADR-0024). Job separado e sem matriz: o custo aqui é o `npm install`
+  # compilando o better-sqlite3 do zero, e instalar três vezes não prova mais que instalar uma.
+  #
+  # Este job é a evidência do release — a prova de que uma instalação limpa funciona passa a viver
+  # no log do CI, e não na memória de quem publicou.
+  release-gate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22.x
+          cache: npm
+      - run: npm ci
+      - name: Gate do tarball (instalação limpa)
+        run: node bin/forja.mjs release:check
