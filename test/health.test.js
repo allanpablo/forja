@@ -469,6 +469,61 @@ test('runtime-deps: import estático de dependency legítima → ok', async () =
   assert.equal(r.status, 'ok');
 });
 
+test('runtime-deps: import dentro de template literal não conta (SPEC-010 AC-11)', async () => {
+  // Os geradores *escrevem* código NestJS dentro de crases — não o executam. Antes desta correção o
+  // check passava por sorte: `@nestjs/*` não estava nas devDeps. No dia em que estivesse, ele
+  // travaria o gate com falso positivo crítico. Fixture reproduz exatamente lib/generators/.
+  const env = {
+    root: '/repo',
+    fs: repoStub({
+      '/repo/package.json': JSON.stringify({
+        name: 'forjajs',
+        files: ['lib/'],
+        dependencies: {},
+        devDependencies: { '@nestjs/core': '^11.0.0' },
+      }),
+      // Reproduz nest-generator.js:304 — dentro do template, uma linha **começa** com `import`,
+      // que é o que a âncora `^\s*import` do parser casa.
+      '/repo/lib/generators/nest-generator.js': [
+        "import fs from 'node:fs';",
+        'const files = {',
+        "  'test/app.e2e-spec.ts': `import { Test } from '@nestjs/testing';",
+        "import { INestApplication } from '@nestjs/core';",
+        'describe("AppController", () => {});`,',
+        '};',
+      ].join('\n'),
+    }),
+  };
+
+  const [r] = await runChecks({ checks: [checkById('runtime-deps')], env });
+
+  assert.equal(r.status, 'ok', 'código emitido por gerador não é dependência do gerador');
+});
+
+test('runtime-deps: import real fora de crases continua reprovando', async () => {
+  // A correção não pode cegar o check: import de verdade, no topo do arquivo, ainda é violação.
+  const env = {
+    root: '/repo',
+    fs: repoStub({
+      '/repo/package.json': JSON.stringify({
+        name: 'forjajs',
+        files: ['lib/'],
+        dependencies: {},
+        devDependencies: { '@nestjs/core': '^11.0.0' },
+      }),
+      '/repo/lib/generators/nest-generator.js': [
+        "import { NestFactory } from '@nestjs/core';",
+        "const t = `import x from '@nestjs/core';`;",
+      ].join('\n'),
+    }),
+  };
+
+  const [r] = await runChecks({ checks: [checkById('runtime-deps')], env });
+
+  assert.equal(r.status, 'fail');
+  assert.match(r.detail, /@nestjs\/core/);
+});
+
 test('runtime-deps: import dinâmico não conta — lazy é o padrão pedido pelo ADR-0021', async () => {
   const env = {
     root: '/repo',

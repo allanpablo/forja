@@ -46,6 +46,9 @@ dashboard/web/node_modules/
 !/specs/reestruturacao-forja-v2
 !/specs/forja-core
 !/specs/doctor-do-nucleo
+!/specs/help
+!/specs/marco4-preview-sql
+!/specs/release-gate
 
 # Runbooks GSD e context packs são gerados/efêmeros e podem carregar dados de
 # produto. São regeneráveis (gsd:plan, context:build), então ficam fora do git.
