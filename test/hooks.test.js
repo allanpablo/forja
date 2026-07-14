@@ -1,6 +1,8 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
+import fs from 'node:fs';
+import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -80,4 +82,29 @@ test('session-start: nunca derruba a sessão e emite JSON válido', () => {
   const out = JSON.parse(res.stdout);
   assert.equal(out.hookSpecificOutput.hookEventName, 'SessionStart');
   assert.match(out.hookSpecificOutput.additionalContext, /<framework-status>/);
+});
+
+test('session-start: problema no núcleo vira aviso com correção, não crash (SPEC-009)', () => {
+  // Workspace inexistente → memória não indexada. Estado real, sem env var de conveniência.
+  // O hook reporta; o gate é o tools:doctor. Uma sessão que não abre porque o diagnóstico
+  // estourou é o pior resultado possível (ADR-0021).
+  const res = runHook('hook-session-start.mjs', {}, {
+    FORJA_WORKSPACE: path.join(os.tmpdir(), `forja-inexistente-${Date.now()}`),
+  });
+
+  assert.equal(res.status, 0, 'o hook nunca trava a sessão');
+  const ctx = JSON.parse(res.stdout).hookSpecificOutput.additionalContext;
+  assert.match(ctx, /⚠/, 'o problema aparece no briefing');
+  assert.match(ctx, /sync:universal/, 'com a correção ao lado');
+  assert.match(ctx, /Specs ativas/, 'e o resto do briefing sobrevive');
+});
+
+test('session-start: não prescreve `npm install` para ABI quebrado (AC-8)', () => {
+  // A prescrição errada que motivou a SPEC-009: `npm install` não recompila binário nativo.
+  const src = fs.readFileSync(path.join(root, 'scripts', 'hook-session-start.mjs'), 'utf8');
+
+  assert.doesNotMatch(src, /Rode `npm install`/, 'a prescrição errada não pode voltar');
+  assert.doesNotMatch(src, /function staleIndex/, 'heurística local removida — a lib é a fonte');
+  assert.doesNotMatch(src, /function resolveDbPath/, 'o catch que colapsava as três causas saiu');
+  assert.match(src, /runChecks/, 'consome lib/core/health.mjs');
 });

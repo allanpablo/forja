@@ -77,6 +77,66 @@ function listFeatures() {
     .filter(name => fs.statSync(path.join(specsDir, name)).isDirectory());
 }
 
+/**
+ * `.gitignore` ignora `/specs/*` e libera as specs do framework por allow-list. Uma spec nova
+ * nascia invisível ao git: criada, aprovada pelo check, e descartada em silêncio. A regra existia
+ * só como convenção — e convenção que depende de memória não é regra. Passa a viver no harness
+ * (ADR-0021).
+ *
+ * Puro de propósito: recebe e devolve conteúdo, para ser testável sem tocar no .gitignore real.
+ *
+ * @returns {{ changed: boolean, content: string, reason: 'added'|'already-present'|'no-block' }}
+ */
+export function addSpecToAllowlist(content, slug) {
+  const line = `!/specs/${slug}`;
+  const lines = content.split('\n');
+
+  if (lines.some((l) => l.trim() === line)) {
+    return { changed: false, content, reason: 'already-present' };
+  }
+
+  // Insere após a última entrada do bloco, não no fim do arquivo: as regras seguintes do
+  // .gitignore dependem da ordem.
+  let anchor = -1;
+  for (let i = 0; i < lines.length; i += 1) {
+    if (lines[i].trim().startsWith('!/specs/')) anchor = i;
+  }
+  if (anchor === -1) return { changed: false, content, reason: 'no-block' };
+
+  lines.splice(anchor + 1, 0, line);
+  return { changed: true, content: lines.join('\n'), reason: 'added' };
+}
+
+function gitignorePath() {
+  return process.env.FORJA_GITIGNORE || path.join(repoRoot, '.gitignore');
+}
+
+/** Efeito colateral de `spec:new`. Nunca derruba a criação da spec — criar a spec é o trabalho. */
+function ensureSpecVersioned(slug) {
+  const file = gitignorePath();
+  let raw;
+  try {
+    raw = fs.readFileSync(file, 'utf8');
+  } catch {
+    out('  ⚠ .gitignore não encontrado — confira se a spec será versionada.');
+    return;
+  }
+
+  const result = addSpecToAllowlist(raw, slug);
+  if (result.reason === 'no-block') {
+    out('  ⚠ bloco allow-list de specs ausente no .gitignore — versione a spec manualmente.');
+    return;
+  }
+  if (!result.changed) return;
+
+  try {
+    fs.writeFileSync(file, result.content);
+    out(`  + .gitignore: !/specs/${slug}`);
+  } catch {
+    out(`  ⚠ não foi possível escrever .gitignore — adicione "!/specs/${slug}" manualmente.`);
+  }
+}
+
 function cmdNew(feature) {
   if (!feature) fail('uso: spec:new <feature>');
   const slug = slugify(feature);
@@ -92,6 +152,7 @@ function cmdNew(feature) {
   });
   fs.writeFileSync(path.join(dir, 'spec.md'), content);
   out(`✓ criada: specs/${slug}/spec.md`);
+  ensureSpecVersioned(slug);
   out('  edite, mude status para "review", peça revisão.');
 }
 
@@ -181,16 +242,19 @@ function cmdSetStatus(feature, stage, status) {
   out(`✓ ${slug}/${stage}.md: ${previous} → ${status}`);
 }
 
-const [, , subcmd, ...rest] = process.argv;
-const arg = rest[0];
+// Só despacha quando executado como CLI. Importado (pelos testes), expõe as funções sem rodar nada.
+if (process.argv[1] && path.resolve(process.argv[1]) === __filename) {
+  const [, , subcmd, ...rest] = process.argv;
+  const arg = rest[0];
 
-switch (subcmd) {
-  case 'new': cmdNew(arg); break;
-  case 'plan': cmdNextStage('plan', arg); break;
-  case 'tasks': cmdNextStage('tasks', arg); break;
-  case 'check': cmdCheck(arg); break;
-  case 'set-status': cmdSetStatus(rest[0], rest[1], rest[2]); break;
-  default:
-    out('Uso: spec-cli <new|plan|tasks|check|set-status> [args]');
-    process.exit(1);
+  switch (subcmd) {
+    case 'new': cmdNew(arg); break;
+    case 'plan': cmdNextStage('plan', arg); break;
+    case 'tasks': cmdNextStage('tasks', arg); break;
+    case 'check': cmdCheck(arg); break;
+    case 'set-status': cmdSetStatus(rest[0], rest[1], rest[2]); break;
+    default:
+      out('Uso: spec-cli <new|plan|tasks|check|set-status> [args]');
+      process.exit(1);
+  }
 }
