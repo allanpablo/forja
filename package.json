@@ -34,6 +34,8 @@
     "!specs/agent-dashboard/"
   ],
   "scripts": {
+    "//prepublishOnly": "Gate do tarball (ADR-0024). NUNCA mova para prepack: o gate roda `npm pack`, e o prepack o dispararia de novo — recursão infinita. npm pack não dispara prepublishOnly, e é por isso que ele é o único hook seguro aqui.",
+    "prepublishOnly": "node bin/forja.mjs release:check -- --publish",
     "forja": "node bin/forja.mjs",
     "sync:universal": "node bin/forja.mjs sync:universal",
     "query:universal": "node bin/forja.mjs query:universal",
