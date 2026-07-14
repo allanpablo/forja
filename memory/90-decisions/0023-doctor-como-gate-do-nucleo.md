@@ -54,6 +54,11 @@ Dois problemas estruturais, não um bug:
 - **Dois contratos de exit code.** Núcleo crítico quebrado → `exit 1`. Ferramenta opcional ausente
   → `exit 0`, preservando o ADR-0018 à risca. Só `critical` trava: `workspace` ausente e Node fora
   do `engines` são avisos, porque não impedem trabalho.
+- **Ausente ≠ quebrado.** Num clone novo — ou num CI — a memória simplesmente nunca foi indexada.
+  Isso é o ponto de partida de qualquer instalação, não uma falha, e um comando resolve. `memory-db`
+  distingue *não indexado* (aviso) de *existe mas não abre* (crítico). A primeira versão tratava os
+  dois como crítico e o CI reprovou de imediato: um gate que reprova todo mundo no primeiro dia é um
+  gate em que ninguém confia.
 - **`scope: repo | runtime`.** `runtime-deps` e `mcp-json` — que convertem em gate executável dois
   invariantes que o ADR-0021 corrigiu à mão — só rodam dentro do repo do framework. Numa instalação
   `npm i -g forjajs` não há `devDependencies` nem `.mcp.json`, e rodá-los produziria falso positivo

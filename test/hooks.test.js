@@ -84,17 +84,17 @@ test('session-start: nunca derruba a sessão e emite JSON válido', () => {
   assert.match(out.hookSpecificOutput.additionalContext, /<framework-status>/);
 });
 
-test('session-start: núcleo quebrado vira aviso, não crash (SPEC-009)', () => {
-  // Workspace inexistente → universal.db ausente → memory-db falha como crítico. Quebra real,
-  // sem env var de conveniência. O hook reporta; o gate é o tools:doctor. Uma sessão que não abre
-  // porque o diagnóstico estourou é o pior resultado possível (ADR-0021).
+test('session-start: problema no núcleo vira aviso com correção, não crash (SPEC-009)', () => {
+  // Workspace inexistente → memória não indexada. Estado real, sem env var de conveniência.
+  // O hook reporta; o gate é o tools:doctor. Uma sessão que não abre porque o diagnóstico
+  // estourou é o pior resultado possível (ADR-0021).
   const res = runHook('hook-session-start.mjs', {}, {
     FORJA_WORKSPACE: path.join(os.tmpdir(), `forja-inexistente-${Date.now()}`),
   });
 
-  assert.equal(res.status, 0, 'exit 0 mesmo com o núcleo quebrado');
+  assert.equal(res.status, 0, 'o hook nunca trava a sessão');
   const ctx = JSON.parse(res.stdout).hookSpecificOutput.additionalContext;
-  assert.match(ctx, /✖/, 'a falha crítica aparece no briefing');
+  assert.match(ctx, /⚠/, 'o problema aparece no briefing');
   assert.match(ctx, /sync:universal/, 'com a correção ao lado');
   assert.match(ctx, /Specs ativas/, 'e o resto do briefing sobrevive');
 });

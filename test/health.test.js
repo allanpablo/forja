@@ -261,15 +261,27 @@ function fsStub({ exists = true, dbMtime = 0, files = {} } = {}) {
 
 const workspaceStub = { dbPath: () => '/w/universal.db', info: () => ({}) };
 
-test('memory-db: banco ausente → sync:universal', async () => {
+test('memory-db: banco nunca indexado → warn, não fail', async () => {
+  // Um clone novo (ou um CI) não tem universal.db: é o estado natural, não uma quebra. Reprovar
+  // aqui travaria o gate por aquilo que não impede trabalho.
   const [r] = await runChecks({
     checks: [db()],
     env: { fs: fsStub({ exists: false }), workspace: workspaceStub },
   });
 
-  assert.equal(r.status, 'fail');
+  assert.equal(r.status, 'warn');
   assert.equal(r.fix, 'npm run sync:universal');
-  assert.match(r.detail, /ausente/);
+  assert.equal(worstStatus([r]), 'warn', 'não pode reprovar um repo recém-clonado');
+});
+
+test('memory-fresh: sem índice não há defasagem a reportar', async () => {
+  // memory-db passa com aviso quando o banco não existe, então a cascata não pula o fresh.
+  const [r] = await runChecks({
+    checks: [fresh()],
+    env: { root: process.cwd(), fs: fsStub({ exists: false }), workspace: workspaceStub },
+  });
+
+  assert.equal(r.status, 'skipped', 'um índice inexistente não pode estar defasado');
 });
 
 test('memory-db: banco existe mas não abre → é outra causa, outro detalhe', async () => {
@@ -541,6 +553,24 @@ test('scope runtime não executa os checks de repo', async () => {
 // ---------------------------------------------------------------------------
 // Integração dos checks reais: uma causa, uma linha vermelha
 // ---------------------------------------------------------------------------
+
+test('clone novo, sem memória indexada, não reprova o gate', async () => {
+  // O cenário do CI: repo recém-clonado, `sync:universal` nunca rodou, workspace inexistente.
+  // Nada disso impede trabalho — é o ponto de partida de qualquer instalação. Se o gate reprova
+  // aqui, ele reprova todo mundo no primeiro dia, e aí ninguém mais confia nele.
+  const results = await runChecks({
+    scope: 'runtime',
+    env: {
+      importModule: async () => fakeSqlite(),
+      process: { versions: { node: '26.5.0' } },
+      workspace: { dbPath: () => '/w/universal.db', info: () => ({ root: '/w', source: 'default', exists: false }) },
+      fs: fsStub({ exists: false }),
+    },
+  });
+
+  assert.equal(worstStatus(results), 'warn', 'avisa, mas não trava');
+  assert.ok(results.every((r) => r.status !== 'fail'), 'nada aqui é falha');
+});
 
 test('ABI quebrado não vira três erros vermelhos', async () => {
   const results = await runChecks({

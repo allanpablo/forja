@@ -99,7 +99,7 @@ Falha critica aqui **reprova com exit 1**. Cada falha vem com o comando que a co
 | Check | O que verifica | Severidade |
 |---|---|---|
 | `native-abi` | better-sqlite3 carrega no Node em uso | critica |
-| `memory-db` | `universal.db` existe e abre | critica |
+| `memory-db` | `universal.db` abre | critica se corrompido; **aviso** se so nao foi indexado |
 | `memory-fresh` | indice em dia com `memory/` | aviso |
 | `workspace` | workspace resolvido (e por qual origem) | aviso |
 | `node-engines` | Node dentro do `engines` declarado | aviso |
