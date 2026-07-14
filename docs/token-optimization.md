@@ -410,7 +410,7 @@ const context = builder.build('global', 'my-project');
 
 ```bash
 # Developer needs feature context
-npm run context:build -- task my-project "payment feature"
+npm run context:smart -- task my-project "payment feature"
 # Uses cached domain + task-specific files
 # Result: ~30KB, ~7500 tokens, $0.0075
 ```
@@ -419,7 +419,7 @@ npm run context:build -- task my-project "payment feature"
 
 ```bash
 # Security agent needs all related context
-npm run context:build -- domain my-project
+npm run context:smart -- domain my-project
 # Adds security rules, ADRs, design docs
 # Result: ~20KB, ~5000 tokens, $0.005
 ```
@@ -428,7 +428,7 @@ npm run context:build -- domain my-project
 
 ```bash
 # New dev needs big picture
-npm run context:build -- global my-project
+npm run context:smart -- global my-project
 # Just mission, standards, recent ADRs
 # Result: ~2KB, ~500 tokens, $0.0005
 ```
@@ -441,21 +441,22 @@ npm run context:build -- global my-project
 
 ```bash
 # Try smaller mode
-npm run context:build -- global  # Instead of domain
+npm run context:smart -- global  # Instead of domain
 
 # Or prune manually
-node scripts/compress-memory.mjs
+npm run memory:compress
 npm run memory:vacuum
 ```
 
-### FTS5 Queries Slow?
+### FTS5 Queries Slow or Stale?
 
 ```bash
-# Rebuild search index
-npm run memory:db:reindex
+# Rebuild the index (it is also what fixes a stale index)
+npm run sync:universal
 
-# Check stats
-npm run memory:db:stats
+# The doctor tells you when the index is behind memory/ — it is the
+# failure that costs the most and shows the least (ADR-0023).
+npm run tools:doctor
 ```
 
 ### Cache Not Working?
@@ -472,23 +473,30 @@ cat .memoryrc.json | grep cache -A 5
 
 ## 📚 Related Commands
 
-```bash
-# Build context
-npm run context:build -- global my-project
+Todos passam pelo core (`bin/forja.mjs`, ADR-0020). Se um comando não está aqui, ele está no
+registry — `node bin/forja.mjs` lista todos.
 
-# Compress memory
+```bash
+# Buscar antes de ler: é o primeiro passo da economia de tokens (ADR-0009)
+npm run query:universal "auth"
+
+# Montar o pacote de contexto mínimo-suficiente (global | domain | task)
+npm run context:smart -- task my-project "payment feature"
+
+# Reindexar a memória — também é o que corrige um índice defasado
+npm run sync:universal
+
+# Comprimir memória antiga e recuperar espaço
+npm run memory:compress
 npm run memory:vacuum
 
-# Benchmark tokens
+# Medir a economia
 npm run token:benchmark
 
-# Clean cache
-npm run cache:clear
-
-# Query memory
-npm run memory:db:query -- "auth"
+# Índice defasado responde sobre memória velha, calado. O doctor avisa (ADR-0023)
+npm run tools:doctor
 ```
 
 ---
 
-**Next**: See [DEPLOYMENT.md](DEPLOYMENT.md) for integration with CI/CD.
+**Próximo**: [`docs/agent-harnesses.md`](agent-harnesses.md) — os gates e as ferramentas de processo.
