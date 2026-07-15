@@ -4,6 +4,19 @@ Histórico consolidado das mudanças estruturais do framework. Para decisões ar
 
 ---
 
+## [1.1.6] — 2026-07-14 — README em inglês
+
+A vitrine do pacote passa a ter versão em inglês, para alcançar quem chega pelo npm.
+
+### Adicionado
+- `README.en.md` — adaptação fiel do README em português, no estilo canônico `forja <comando>`.
+  Seletor de idioma no topo dos dois arquivos. Incluído no `files[]` do pacote.
+
+### Nota
+- A **documentação** (`docs/`) permanece em pt-BR — é parte da identidade do projeto. Só a capa
+  ganhou inglês. O README inglês foi verificado contra o registry: zero comandos inexistentes,
+  zero links quebrados.
+
 ## [1.1.5] — 2026-07-14 — O comando é forja
 
 A documentação pública ainda falava a língua interna do repo: `npm run x -- args` onde o usuário

@@ -1,6 +1,6 @@
 {
   "name": "forjajs",
-  "version": "1.1.5",
+  "version": "1.1.6",
   "description": "Forja — framework CLI-first de orquestração multiagente, memória hierárquica e geração de projetos com IA",
   "type": "module",
   "main": "index.js",
@@ -27,6 +27,7 @@
     ".github/copilot-instructions.md",
     ".memoryrc.json",
     "AGENTS.md",
+    "README.en.md",
     "DOC-MAP.md",
     "CHANGELOG.md",
     "CONTRIBUTING.md",
