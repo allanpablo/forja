@@ -16,6 +16,8 @@
   <img src="https://img.shields.io/badge/PRs-welcome-8957e5?style=flat-square" alt="PRs welcome">
 </p>
 
+<p align="center"><sub>🌐 <a href="README.en.md">English</a> · <strong>Português</strong></sub></p>
+
 ---
 
 ## Por que a Forja existe
@@ -256,13 +258,16 @@ projects/     LEGADO — não usar; projetos vivem no workspace externo
 - [ ] **Core fase 2** — CLI `forja` embutida nos projetos gerados (hoje herdam harness + instruções)
 - [ ] **Auditoria no SQLite** — promover `forja-runs.jsonl` a tabela consultável via FTS5
 - [ ] **Boilerplates além de NestJS** — o processo é agnóstico de stack; os templates vão atrás
-- [ ] **Docs em inglês** — pt-BR continua sendo a língua do projeto
+- [x] **README em inglês** — [`README.en.md`](README.en.md) (a documentação continua em pt-BR)
 
 Sugestões? Abra uma issue — feature não-trivial aqui começa por spec, inclusive as suas.
 
-## English summary
+## English
 
-**Forja** turns coding AI into an engineering team with process and memory: every project starts from a spec, every structural decision becomes an ADR, and nothing is lost between sessions. It orchestrates 6 agent roles through a Spec-Driven + GSD pipeline, keeps hierarchical memory indexed in SQLite FTS5, routes every command through a single audited core CLI (`forja`), and works with Claude, Copilot, Gemini and Codex by design. Documentation is in Brazilian Portuguese — that's part of the project's identity; the CLI and the code are readable regardless.
+Full English version: **[README.en.md](README.en.md)**. In short — **Forja** turns coding AI into an
+engineering team with process and memory: every project starts from a spec, every structural
+decision becomes an ADR, and nothing is lost between sessions. Documentation is in Brazilian
+Portuguese — that's part of the project's identity; the CLI and the code are readable regardless.
 
 ---
 
