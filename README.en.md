@@ -270,11 +270,33 @@ output, code, and ADRs are readable regardless of language.
 
 ## Roadmap
 
-- [ ] **Core phase 2** — the `forja` CLI embedded in generated projects (today they inherit the
-  harness + instructions)
-- [ ] **Audit in SQLite** — promote `forja-runs.jsonl` to a queryable FTS5 table
-- [ ] **Boilerplates beyond NestJS** — the process is stack-agnostic; the templates will follow
-- [x] **English README** — you're reading it
+The throughline: **turn knowledge that lives as convention into an executable invariant.** Each item
+below either closes a framework frontier with a gate, or carries that pattern into generated projects.
+
+**Recently shipped** (v1.2.0)
+
+- [x] **Core gate** — `tools:doctor` fails (exit 1) when what blocks the framework is broken (ABI,
+  memory, runtime deps) — ADR-0023.
+- [x] **Tarball gate** — `release:check` proves a clean install works before `npm publish`; the three
+  historical release bugs fail the gate — ADR-0024.
+- [x] **Doc coherence gate** — docs can't cite a ghost command or a link to nowhere; checked in CI — ADR-0025.
+- [x] **TypeScript as a gate** — strict `checkJs` in CI; core contracts typed. Found three latent bugs
+  no test caught (SPEC-012, in progress).
+- [x] **Calibrated Clean Architecture boilerplate** — layers where they pay off, lean where they don't
+  (`boilerplates/06-clean-arch`, ADR-0027).
+
+**Next** (by dependency, not by wish)
+
+- [ ] **Finish the TypeScript migration** — publish `dist/` and rename `.mjs → .ts`. Pipeline proven;
+  source stays `.mjs` (Node ≥ 20) until then.
+- [ ] **Token benchmark for clean-arch** — the saving is argued, not proven (ADR-0027): measure the
+  same feature in both architectures via `context:smart`. Prove it or recalibrate.
+- [ ] **`release-auditor` consumes the gate** — the third surface from ADR-0024: the agent runs
+  `release:check` instead of reimplementing the procedure in prose.
+- [ ] **Boilerplates beyond NestJS** — the process is stack-agnostic; the templates will follow.
+- [ ] **Queryable audit + generated dashboard** — promote `.context/forja-runs.jsonl` to an FTS5
+  table, and generate a **static** governance page on demand (read-only, no server — the ADR-0022
+  lesson that froze the server-dashboard).
 
 Suggestions? Open an issue — a non-trivial feature here starts from a spec, yours included.
 

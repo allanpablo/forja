@@ -256,10 +256,35 @@ projects/     LEGADO — não usar; projetos vivem no workspace externo
 
 ## Roadmap
 
-- [ ] **Core fase 2** — CLI `forja` embutida nos projetos gerados (hoje herdam harness + instruções)
-- [ ] **Auditoria no SQLite** — promover `forja-runs.jsonl` a tabela consultável via FTS5
-- [ ] **Boilerplates além de NestJS** — o processo é agnóstico de stack; os templates vão atrás
-- [x] **README em inglês** — [`README.en.md`](README.en.md) (a documentação continua em pt-BR)
+O fio condutor: **converter conhecimento que vive em convenção em invariante executável.** Cada
+item abaixo ou fecha uma fronteira do framework por um gate, ou leva esse padrão para os projetos
+gerados.
+
+**Recém-entregue** (v1.2.0)
+
+- [x] **Gate do núcleo** — `tools:doctor` reprova (exit 1) quando o que impede o framework de
+  trabalhar está quebrado (ABI, memória, deps de runtime) — ADR-0023.
+- [x] **Gate do tarball** — `release:check` prova que uma instalação limpa funciona antes do
+  `npm publish`; os três bugs históricos de release reprovam o gate — ADR-0024.
+- [x] **Gate de coerência da doc** — a documentação não pode citar comando fantasma nem link para o
+  nada; verificado no CI — ADR-0025.
+- [x] **TypeScript como gate** — `checkJs` estrito no CI; os contratos do núcleo tipados. Achou três
+  bugs latentes que nenhum teste pegava (SPEC-012, em curso).
+- [x] **Boilerplate Clean Architecture calibrado** — DDD por camadas onde se paga, enxuto onde não
+  (`boilerplates/06-clean-arch`, ADR-0027).
+
+**Próximos passos** (por dependência, não por desejo)
+
+- [ ] **Fechar a migração TypeScript** — publicar `dist/` e renomear `.mjs → .ts`. Pipeline provado;
+  a fonte segue `.mjs` (Node ≥ 20) até lá.
+- [ ] **Benchmark de token do clean-arch** — a economia é argumentada, não provada (ADR-0027):
+  medir a mesma feature nas duas arquiteturas via `context:smart`. Provar ou recalibrar.
+- [ ] **`release-auditor` consome o gate** — a terceira superfície do ADR-0024: o agente roda
+  `release:check` em vez de reimplementar o procedimento em prosa.
+- [ ] **Boilerplates além de NestJS** — o processo é agnóstico de stack; os templates vão atrás.
+- [ ] **Auditoria consultável + painel gerado** — promover `.context/forja-runs.jsonl` a tabela
+  FTS5, e gerar um painel de governança **estático** por comando (leitura, sem servidor — a lição
+  do ADR-0022, que congelou o dashboard-servidor).
 
 Sugestões? Abra uma issue — feature não-trivial aqui começa por spec, inclusive as suas.
 
