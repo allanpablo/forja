@@ -12,6 +12,10 @@
     "noEmit": true,
     "strict": true,
     "noImplicitAny": false,
+    // On-ramp: catch-var como `any` (comportamento pré-TS-4.4). O valor da migração são os
+    // contratos tipados (checks/registry/handoff), não estreitar cada catch de script folha.
+    // lib/core já estreita explicitamente via asErrno onde importa. Revisitar na Fase 2.
+    "useUnknownInCatchVariables": false,
     "skipLibCheck": true,
     "resolveJsonModule": true,
     "forceConsistentCasingInFileNames": true

@@ -94,10 +94,10 @@ function readText(file) {
 
 function runCodegraph(args) {
   const result = spawnSync('codegraph', args, { cwd: root, encoding: 'utf8' });
-  if (result.error && result.error.code === 'ENOENT') {
+  if (result.error && /** @type {any} */ (result.error).code === 'ENOENT') {
     return { missing: true };
   }
-  if (result.error && result.error.code === 'EPERM') {
+  if (result.error && /** @type {any} */ (result.error).code === 'EPERM') {
     const quote = (value) => `'${String(value).replace(/'/g, `'\\''`)}'`;
     const fallback = spawnSync('/bin/sh', ['-lc', ['codegraph', ...args.map(quote)].join(' ')], {
       cwd: root,
@@ -125,7 +125,7 @@ function codegraphStatus() {
   if (res.missing) return { missing: true };
   let data = null;
   try {
-    data = JSON.parse(res.stdout);
+    data = JSON.parse(/** @type {string} */ (res.stdout));
   } catch {
     return { missing: false, parseError: true, raw: res.stdout || res.stderr };
   }
@@ -533,7 +533,9 @@ Design / Code intelligence:
 `);
 }
 
-const [command, ...args] = process.argv.slice(2);
+const [command, ...rest] = process.argv.slice(2);
+/** dispatch heterogêneo: cada cmd consome os args do seu jeito (Fase 1) */
+const args = /** @type {any} */ (rest);
 
 switch (command) {
   case 'workspace:init':
@@ -567,7 +569,7 @@ switch (command) {
     cmdGsdCheck(args);
     break;
   case 'code:check':
-    cmdCodeCheck(args);
+    cmdCodeCheck();
     break;
   case 'code:impact':
     cmdCodeImpact(args);

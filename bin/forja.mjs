@@ -126,7 +126,7 @@ if (cmd.node) {
     cwd: root,
     stdio: 'inherit',
   });
-  if (result.error && result.error.code === 'ENOENT') {
+  if (result.error && /** @type {any} */ (result.error).code === 'ENOENT') {
     console.error(`Binário não encontrado no PATH: ${cmd.bin}. Veja: forja tools:doctor`);
     result.status = 127;
   }

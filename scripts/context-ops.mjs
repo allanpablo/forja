@@ -4,7 +4,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import Database from 'better-sqlite3';
 import { fileURLToPath } from 'node:url';
-import { ensureSchema, dbPath } from './memory-schema.mjs';
+import { ensureSchema, getDbPath } from './memory-schema.mjs';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const root = path.resolve(__dirname, '..');
@@ -77,9 +77,10 @@ function listSpecs() {
 
 function openDb() {
   ensureSchema({ silent: true });
-  return new Database(dbPath, { timeout: 5000 });
+  return new Database(getDbPath(), { timeout: 5000 });
 }
 
+/** @param {number|null} [limitTokens] */
 function recordContextRun(kind, slug, filePath, content, limitTokens = null) {
   const db = openDb();
   const tokens = estimateTokens(content);
@@ -116,7 +117,7 @@ function upsertSpecSummary(slug, content) {
 }
 
 function getOpenHandoffs(slug = null) {
-  if (!fs.existsSync(dbPath)) return [];
+  if (!fs.existsSync(getDbPath())) return [];
   const db = openDb();
   let rows;
   try {
@@ -450,7 +451,9 @@ Comandos:
 `);
 }
 
-const [cmd, ...args] = process.argv.slice(2);
+const [cmd, ...rest] = process.argv.slice(2);
+/** dispatch heterogêneo: cada cmd consome os args do seu jeito (Fase 1) */
+const args = /** @type {any} */ (rest);
 switch (cmd) {
   case 'budget': cmdBudget(args); break;
   case 'sprint-pack': cmdSprintPack(); break;

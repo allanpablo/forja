@@ -110,7 +110,7 @@ function buildTaskContext(slug, capBytes) {
     [`specs/${slug}/tasks.md`, 2500],
     [`.context/gsd-${slug}.md`, 1500],
   ];
-  for (const [rel, sliceCap] of candidates) {
+  for (const [rel, sliceCap] of /** @type {[string, number][]} */ (candidates)) {
     try {
       const c = fs.readFileSync(path.join(root, rel), 'utf8');
       pieces.push(`### ${rel}\n\n${c.slice(0, sliceCap)}`);
