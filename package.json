@@ -85,6 +85,7 @@
     "code:impact": "node bin/forja.mjs code:impact",
     "tools:doctor": "node bin/forja.mjs tools:doctor",
     "release:check": "node bin/forja.mjs release:check",
+    "build": "tsc -p tsconfig.build.json",
     "types:check": "tsc --noEmit",
     "test": "node --test test/*.test.js"
   },

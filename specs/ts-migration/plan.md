@@ -129,6 +129,27 @@ ele, os imports estáticos não resolveriam nos dois mundos.
 `path.join(pkgDir, 'bin', 'forja.mjs')` — quebraria com `dist/bin/forja.js`. Passa a ler o campo
 `bin`. Correção de robustez que a migração torna obrigatória.
 
+**D8: Fase 2 e Fase 3 se fundem (achado da implementação).** O plano tratava renomear (Fase 2) e
+buildar (Fase 3) como fases separadas. Não são: `.ts` **não roda em Node < 22.18**, e o
+`engines.node` é `>=20`. No instante em que a fonte vira `.ts`, um pacote publicado **sem `dist/`**
+quebra para quem está em Node 20/21, e o `release:check` (instalação limpa no CI) reprova. Não
+existe estado intermediário *publicável* meio-renomeado. Então a renomeação e o `dist/` andam
+juntos, mantendo o `release:check` verde o tempo todo. Em dev nada muda (Node 26 roda `.ts`); o
+acoplamento é só na fronteira do publicado. Estratégia de menor risco: **provar o pipeline de build
++ runtime duplo primeiro** (a parte nova e arriscada), depois a renomeação leaf-first vira grind
+mecânico sobre trilho provado.
+
+**D9: Publicar `dist/` desde já desacopla o risco (achado ao provar o pipeline).** O `tsc` emite um
+`dist/` que espelha a árvore, e `node dist/bin/forja.mjs` roda (o `resolveScript` acha
+`dist/scripts/`). A consequência: se o pacote **sempre embarca `dist/`** — mesmo enquanto a fonte
+ainda é `.mjs` (o build vira uma cópia) — o artefato publicado é sempre JS runnable, e o
+acoplamento de Node-floor do D8 **nunca morde**. Então a ordem certa inverte a intuição: primeiro a
+**infra de release** (build → `dist/`, `package.json` apontando para `dist/`, `prepublishOnly`),
+com a fonte ainda `.mjs` — a plumbing de release provada sobre código que não pode quebrar em
+runtime. **Depois** a renomeação `.mjs → .ts` vira mudança **interna**: a fonte muda, o `dist/`
+regenera como `.js`, e o publicado nunca vê `.ts` cru. O `.ts`-não-roda-em-Node-20 deixa de ser
+risco porque o publicado é sempre `dist/`.
+
 D2, D3 e D4 são estruturais → **ADR-0026**, referenciando ADR-0021 (o NFR "roda sem build" e a
 classe "dist mente") e ADR-0024 (o gate que ganha o `build-fresh`).
 

@@ -16,7 +16,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
-import { COMMANDS, DOMAINS } from '../lib/core/registry.mjs';
+import { COMMANDS, DOMAINS, resolveScript } from '../lib/core/registry.mjs';
 import { getWorkspaceInfo, getWorkspaceContextDir } from '../lib/workspace.mjs';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -116,7 +116,7 @@ if (gateErrors.length) {
 const started = Date.now();
 let result;
 if (cmd.node) {
-  const script = path.join(root, cmd.node);
+  const script = resolveScript(root, cmd.node);
   result = spawnSync('node', [script, ...(cmd.args || []), ...rest], {
     cwd: root,
     stdio: 'inherit',

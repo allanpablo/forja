@@ -60,3 +60,4 @@ dashboard/web/node_modules/
 # O diretório é mantido versionado apenas pelo README que documenta a convenção.
 /memory/30-projects/*
 !/memory/30-projects/README.md
+/dist/
