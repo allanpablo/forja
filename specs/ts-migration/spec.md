@@ -52,7 +52,9 @@ build" que faz o Forja resiliente, e **sem** deixar o artefato compilado divergi
       artefato compilado não pode ser publicado defasado.
 - [ ] AC-3: **On-ramp por `checkJs` antes de renomear.** `tsconfig` com `checkJs: true, strict: true,
       noEmit` roda sobre os `.mjs` atuais; os erros de tipo são corrigidos **antes** de qualquer
-      renomeação. `forja types:check` entra no registry e no CI.
+      renomeação. `types:check` vira **npm script** (como `test`) e step do CI — **fora do registry
+      publicado**, porque precisa do devDep `typescript` e seria comando quebrado numa instalação
+      `forjajs` (a classe da v1.1.3). *(Correção de rota da Fase 0.)*
 - [ ] AC-4: **Contratos tipados.** `Check`, `Probe`, `Result`, `Env`, `Command` (registry) e o
       handoff de 7 campos (ADR-0005) viram tipos reais, não `@typedef` de convenção.
 - [ ] AC-5: `tsc` emite `.d.ts` no `dist/`; o `package.json` aponta `types`/`exports` para eles.
