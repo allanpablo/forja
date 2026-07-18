@@ -647,3 +647,114 @@ test('ABI quebrado não vira três erros vermelhos', async () => {
   assert.ok(skipped.includes('memory-db'), 'memória depende do ABI: não tem o que observar');
   assert.ok(skipped.includes('memory-fresh'));
 });
+
+// ---------------------------------------------------------------------------
+// Coerência da documentação (SPEC-011)
+//
+// Env de doc: repoStub + package.json forjajs. `scanCommands`/`scanLinks`/`projectCommands` leem
+// via env.fs; o registry vem do módulo real (cito comandos reais como spec:new).
+// ---------------------------------------------------------------------------
+
+function docEnv(files, opts = {}) {
+  return { root: '/repo', fs: repoStub({ '/repo/package.json': PKG(), ...files }, opts) };
+}
+
+const docsCommands = () => checkById('docs-commands');
+const commandsDocumented = () => checkById('commands-documented');
+const docsLinks = () => checkById('docs-links');
+
+test('docs-commands: comando fantasma na doc reprova (critical)', async () => {
+  const [r] = await runChecks({
+    checks: [docsCommands()],
+    env: docEnv({ '/repo/docs/guia.md': 'Rode `forja fantasma:naoexiste`.' }),
+  });
+  assert.equal(r.status, 'fail');
+  assert.equal(r.severity, 'critical');
+  assert.match(r.detail, /fantasma:naoexiste/);
+  assert.match(r.detail, /docs\/guia\.md/);
+});
+
+test('docs-commands: comando real do registry passa', async () => {
+  const [r] = await runChecks({
+    checks: [docsCommands()],
+    env: docEnv({ '/repo/docs/guia.md': 'Rode `forja spec:new x`.' }),
+  });
+  assert.equal(r.status, 'ok');
+});
+
+test('docs-commands: comando do projeto gerado NÃO reprova (AC-2, prova de fogo)', async () => {
+  // start:dev é do NestJS do projeto gerado, não do Forja. A allowlist derivada tem que reconhecê-lo.
+  const [r] = await runChecks({
+    checks: [docsCommands()],
+    env: docEnv({
+      '/repo/docs/onboarding.md': 'No projeto gerado: `npm run start:dev`.',
+      '/repo/lib/generators/nest.js': '`{ "scripts": { "start:dev": "nest start --watch" } }`',
+    }),
+  });
+  assert.equal(r.status, 'ok', 'comando do projeto gerado é legítimo, não fantasma');
+});
+
+test('docs-commands: derivação segue o gerador — foo:bar entra quando o gerador o define (AC-2)', async () => {
+  // A prova de que a allowlist é DERIVADA, não congelada. Sem o gerador, foo:bar é fantasma;
+  // com ele, é aceito. Se este teste passasse nos dois casos, a derivação seria decorativa.
+  const doc = { '/repo/docs/x.md': '`npm run foo:bar`' };
+
+  const semGerador = await runChecks({ checks: [docsCommands()], env: docEnv(doc) });
+  assert.equal(semGerador[0].status, 'fail', 'sem gerador, foo:bar é fantasma');
+
+  const comGerador = await runChecks({
+    checks: [docsCommands()],
+    env: docEnv({ ...doc, '/repo/boilerplates/y/package.json': '{"scripts":{"foo:bar":"x"}}' }),
+  });
+  assert.equal(comGerador[0].status, 'ok', 'com o gerador definindo foo:bar, deixa de ser fantasma');
+});
+
+test('docs-commands: renomear um comando torna a doc velha detectável (métrica-norte)', async () => {
+  // A promessa da spec: renomear vira ato detectável. Uma doc que ainda cita o nome antigo reprova.
+  const [r] = await runChecks({
+    checks: [docsCommands()],
+    env: docEnv({ '/repo/docs/velho.md': 'Use `forja spec:antigo-removido`.' }),
+  });
+  assert.equal(r.status, 'fail', 'a citação órfã do nome renomeado é pega');
+});
+
+test('commands-documented: comando do registry sem menção vira warn', async () => {
+  // Doc cita só spec:new; os outros 41 do registry ficam sem menção → warn (não trava).
+  const [r] = await runChecks({
+    checks: [commandsDocumented()],
+    env: docEnv({ '/repo/docs/x.md': '`forja spec:new a`' }),
+  });
+  assert.equal(r.status, 'warn');
+  assert.match(r.detail, /spec:plan/, 'lista os não-documentados');
+  assert.equal(worstStatus([r]), 'warn', 'capacidade obscura atrapalha, não impede');
+});
+
+test('docs-links: link relativo sem alvo vira warn', async () => {
+  const [r] = await runChecks({
+    checks: [docsLinks()],
+    env: docEnv({ '/repo/docs/a.md': 'veja [x](./sumiu.md)' }),
+  });
+  assert.equal(r.status, 'warn');
+  assert.match(r.detail, /sumiu\.md/);
+});
+
+test('docs-links: link que resolve passa', async () => {
+  const [r] = await runChecks({
+    checks: [docsLinks()],
+    env: docEnv({
+      '/repo/docs/a.md': 'veja [x](./b.md)',
+      '/repo/docs/b.md': 'destino',
+    }),
+  });
+  assert.equal(r.status, 'ok');
+});
+
+test('coerência: os 3 checks são skipped-como-ok fora do repo do framework', async () => {
+  const env = docEnv({ '/repo/docs/x.md': '`forja fantasma:z` [y](./sumiu.md)' }, { git: false });
+  const results = await runChecks({
+    checks: [docsCommands(), commandsDocumented(), docsLinks()],
+    env,
+  });
+  assert.ok(results.every((r) => r.status === 'ok'), 'não se aplicam a uma instalação forjajs');
+  assert.ok(results.every((r) => /não se aplica/.test(r.detail)));
+});

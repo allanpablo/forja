@@ -294,9 +294,9 @@ open coverage/index.html
 
 | Recurso | Quando usar |
 |---------|------------|
-| [EXEMPLOS-CODIGO.md](../../EXEMPLOS-CODIGO.md) | "Como faço X?" |
-| [REFERENCIA-RAPIDA.md](../../REFERENCIA-RAPIDA.md) | Atalhos de comandos |
-| [IMPLEMENTACAO-FASE1.md](../../IMPLEMENTACAO-FASE1.md) | Roteiros práticos |
+| [boilerplates/](../../../boilerplates/README.md) | Padrões prontos por stack |
+| [quick-reference.md](../../quick-reference.md) | Atalhos de comandos |
+| [fluxo.md](../../fluxo.md) | Roteiro do ciclo CLI-first |
 | [NestJS Docs](https://docs.nestjs.com) | Dúvidas NestJS |
 
 ---

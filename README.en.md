@@ -196,6 +196,7 @@ forja sync:universal                       # reindex the workspace SQLite FTS5
 forja query:universal "<query>"            # FTS5 search
 forja context:smart                        # smart-context (3 modes, ADR-0003)
 forja memory:compress                      # archive old runs + VACUUM
+forja memory:extract                       # extract global knowledge from memory
 
 # Quality & release
 forja project:check                        # framework standards (pre-commit)

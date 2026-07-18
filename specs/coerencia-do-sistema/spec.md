@@ -1,7 +1,7 @@
 # Spec: coerencia-do-sistema
 
 - **ID**: SPEC-011
-- **Status**: review
+- **Status**: done
 - **Owner**: apk
 - **Criado em**: 2026-07-14
 - **Sprint alvo**: S?
@@ -53,28 +53,29 @@ agente.
 
 ## 4. Critérios de aceite (Definition of Done)
 
-- [ ] AC-1: Check `docs-commands` (`scope: repo`, catálogo de `health.mjs`): todo `npm run <cmd>` /
+- [x] AC-1: Check `docs-commands` (`scope: repo`, catálogo de `health.mjs`): todo `npm run <cmd>` /
       `forja <cmd>` citado em `docs/`, `prompts/`, `.claude/agents/`, `AGENTS.md`, `CLAUDE.md` e
       `README.md` existe no registry (ADR-0020).
-- [ ] AC-2: **Comandos do projeto gerado não contam.** `start:dev`, `test:cov`, `memory:db:*` e
+- [x] AC-2: **Comandos do projeto gerado não contam.** `start:dev`, `test:cov`, `memory:db:*` e
       afins são do NestJS/Jest do projeto que o Forja **gera**, não do Forja. A allowlist é derivada
       dos geradores, **não escrita à mão** — uma lista manual mente com o tempo (foi a lição do
       `.gitignore` na SPEC-009). 7 dos 11 "fantasmas" da auditoria eram isto.
-- [ ] AC-3: Check `commands-documented` (**warn**, `scope: repo`): todo comando do registry é
-      mencionado em pelo menos um `.md` versionado. Hoje 2 de 42 não são.
-- [ ] AC-4: Check `docs-links` (**warn**, `scope: repo`): todo link markdown relativo entre arquivos
+- [x] AC-3: Check `commands-documented` (**warn**, `scope: repo`): todo comando do registry é
+      mencionado em pelo menos um `.md` versionado. Hoje 1 de 42 não é (`memory:extract`) — a
+      reescrita canônica do README na v1.1.5 já documentou `workspace:project:check`.
+- [x] AC-4: Check `docs-links` (**warn**, `scope: repo`): todo link markdown relativo entre arquivos
       versionados resolve. `docs/DEPLOYMENT.md` era link para o nada.
-- [ ] AC-5: Os três checks entram no `tools:doctor` e, por consequência, no CI — que já roda o
+- [x] AC-5: Os três checks entram no `tools:doctor` e, por consequência, no CI — que já roda o
       doctor na matriz (ADR-0024).
-- [ ] AC-6: **Severidades honestas.** `docs-commands` é `critical` (comando fantasma faz o agente
+- [x] AC-6: **Severidades honestas.** `docs-commands` é `critical` (comando fantasma faz o agente
       agir errado). `commands-documented` e `docs-links` são `warn` (atrapalham, não impedem). Um
       gate que reprova o que não impede trabalho é um gate que se aprende a ignorar.
-- [ ] AC-7: Toda reprovação nomeia **arquivo e linha** e prescreve a correção. O gate que diz "algo
+- [x] AC-7: Toda reprovação nomeia **arquivo e linha** e prescreve a correção. O gate que diz "algo
       está errado" sem dizer onde é só mais um step obscuro.
-- [ ] AC-8: Testes com fixture para cada check nos dois estados, incluindo o falso positivo do AC-2.
-- [ ] AC-9: ADR-0025 registrando a decisão.
-- [ ] AC-10: Os 2 comandos órfãos (`workspace:project:check`, `memory:extract`) são documentados —
-      ou removidos do registry, se não servirem mais. Capacidade obscura é capacidade morta.
+- [x] AC-8: Testes com fixture para cada check nos dois estados, incluindo o falso positivo do AC-2.
+- [x] AC-9: ADR-0025 registrando a decisão.
+- [x] AC-10: O comando órfão restante (`memory:extract`) é documentado — ou removido do registry,
+      se não servir mais. Capacidade obscura é capacidade morta.
 
 ## 5. Escopo
 
@@ -82,7 +83,7 @@ agente.
 - `lib/core/health.mjs` — os três checks novos (o catálogo do repo).
 - `lib/core/doc-graph.mjs` — varredura dos `.md` versionados: comandos citados, links relativos.
 - Derivação automática da allowlist de comandos do projeto gerado, a partir de `lib/generators/`.
-- Documentar os 2 comandos órfãos.
+- Documentar o comando órfão restante (`memory:extract`), ou removê-lo.
 - ADR-0025 + testes.
 
 **Fora** (explícito):

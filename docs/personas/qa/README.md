@@ -339,9 +339,9 @@ POST /api/seu-endpoint com payload { "campo": "valor especial" }
 
 | Recurso | Quando usar |
 |---------|------------|
-| [CHECKLIST-FINAL.md](../../CHECKLIST-FINAL.md) | Critérios globais |
-| [DASHBOARD-PROGRESSO.md](../../DASHBOARD-PROGRESSO.md) | Status do projeto |
-| [REFINAMENTO-v1.0.md](../../REFINAMENTO-v1.0.md) | Segurança (SEC-*) |
+| [agent-harnesses.md](../../agent-harnesses.md) | Gates e ferramentas de processo |
+| [DOC-MAP.md](../../../DOC-MAP.md) | Mapa da documentação |
+| [memory/90-decisions/](../../../memory/90-decisions/) | Decisões e rationale |
 
 ---
 
