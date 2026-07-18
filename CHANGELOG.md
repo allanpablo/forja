@@ -4,6 +4,31 @@ Histórico consolidado das mudanças estruturais do framework. Para decisões ar
 
 ---
 
+## [Unreleased] — Coerência da documentação
+
+SPEC-011 (`specs/coerencia-do-sistema/`) — ADR-0025. Os ADRs 0023 e 0024 fecharam a classe "erra sem
+avisar" no núcleo e no tarball; esta frente fecha a terceira fronteira: **a doc que instrui o
+agente**. O Forja é operado por agentes que executam o que a doc manda — quando a doc mente, o
+agente erra por obediência.
+
+### Adicionado
+- `lib/core/doc-graph.mjs` — scanner puro dos `.md` de instrução: comandos citados, links relativos,
+  e a allowlist de comandos do projeto gerado **derivada** de duas fontes (geradores + boilerplates).
+- Três checks no catálogo de `health.mjs`, exercitados pelo `tools:doctor` (e no CI):
+  - `docs-commands` (**critical**): todo `forja <cmd>` citado existe no registry.
+  - `commands-documented` (**warn**): todo comando do registry é mencionado em algum `.md`.
+  - `docs-links` (**warn**): todo link markdown relativo resolve.
+- `test/doc-graph.test.js` + testes dos checks em `test/health.test.js` — 109 testes no total.
+
+### Corrigido
+- 22 links relativos quebrados em docs legadas (personas, quick-reference, structure) repontados
+  para alvos reais — resíduo do layout pré-v1.1.
+- `memory:extract` (único comando do registry sem menção) documentado no README.
+
+### Nota
+- O `docs-links` pegou o **próprio autor**: um erro de profundidade relativa (`../../` vs
+  `../../../`) na correção dos links foi detectado pelo doctor antes do commit.
+
 ## [1.1.6] — 2026-07-14 — README em inglês
 
 A vitrine do pacote passa a ter versão em inglês, para alcançar quem chega pelo npm.

@@ -355,6 +355,6 @@ node backend/scripts/memory-db-query.mjs --table improvement_items
 ---
 
 **Para mais detalhes**, veja:
-- [START-HERE.md](../START-HERE.md)
-- [memory/00-global/contrato-agentes.md](memory/00-global/contrato-agentes.md)
-- [README.md](README.md)
+- [README.md](../README.md)
+- [AGENTS.md](../AGENTS.md)
+- [DOC-MAP.md](../DOC-MAP.md)

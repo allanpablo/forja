@@ -345,11 +345,11 @@ logger.error('Auth failed', error);             // Erro
 
 | Recurso | Link |
 |---------|------|
-| Documentation Map | [DOC-MAP.md](DOC-MAP.md) |
-| Start Here | [START-HERE.md](START-HERE.md) |
-| Examples | [EXEMPLOS-CODIGO.md](EXEMPLOS-CODIGO.md) |
-| Architecture | [REFINAMENTO-v1.0.md](REFINAMENTO-v1.0.md) |
-| Personas | [docs/personas/](docs/personas/) |
+| Documentation Map | [DOC-MAP.md](../DOC-MAP.md) |
+| Getting Started | [README.md](../README.md) |
+| Boilerplates | [boilerplates/](../boilerplates/README.md) |
+| Architecture | [AGENTS.md](../AGENTS.md) |
+| Personas | [personas/](personas/) |
 
 ---
 
@@ -399,10 +399,10 @@ open http://localhost:3000/api/health
 
 | Dúvida | Arquivo |
 |--------|---------|
-| "Como começar?" | [START-HERE.md](START-HERE.md) |
-| "Como codificar?" | [EXEMPLOS-CODIGO.md](EXEMPLOS-CODIGO.md) |
-| "Como arquitetar?" | [REFINAMENTO-v1.0.md](REFINAMENTO-v1.0.md) |
-| "Qual minha persona?" | [DOC-MAP.md](DOC-MAP.md) |
+| "Como começar?" | [README.md](../README.md) |
+| "Como codificar?" | [boilerplates/](../boilerplates/README.md) |
+| "Como arquitetar?" | [AGENTS.md](../AGENTS.md) |
+| "Qual minha persona?" | [DOC-MAP.md](../DOC-MAP.md) |
 
 ---
 

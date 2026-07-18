@@ -309,10 +309,10 @@ Seguir [Guia de Developer](../developer/README.md)
 
 | Documento | Quando ler |
 |-----------|-----------|
-| [REFINAMENTO-v1.0.md](../../REFINAMENTO-v1.0.md) | Especificação técnica completa |
-| [ESTRUTURA-PROJETO.md](../../ESTRUTURA-PROJETO.md) | Hierarquia de diretórios |
-| [memory/20-architecture/](../../memory/20-architecture/) | Design do seu projeto |
-| [EXEMPLOS-CODIGO.md](../../EXEMPLOS-CODIGO.md) | Padrões prontos |
+| [AGENTS.md](../../../AGENTS.md) | Os 6 papéis e a topologia |
+| [memory/90-decisions/](../../../memory/90-decisions/) | ADRs com rationale |
+| [structure.md](../../structure.md) | Estrutura de diretórios |
+| [agent-harnesses.md](../../agent-harnesses.md) | Harness e ferramentas de processo |
 
 ---
 
