@@ -44,6 +44,7 @@ function readStdin() {
 }
 
 /** Falha aberta: um guard quebrado não pode travar a sessão inteira. */
+/** @returns {never} */
 function allow() { process.exit(0); }
 
 (async function main() {

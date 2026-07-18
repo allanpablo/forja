@@ -119,7 +119,7 @@ Exemplos:
  * Run subprocess
  */
 function runScript(scriptPath, args = []) {
-  return new Promise((resolve, reject) => {
+  return new Promise((/** @type {(v?: unknown) => void} */ resolve, reject) => {
     const proc = spawn('node', [scriptPath, ...args], {
       stdio: 'inherit',
       cwd: root,
