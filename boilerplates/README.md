@@ -119,6 +119,26 @@ node ../bin/init-project.js meu-projeto --template monorepo
 
 ---
 
+### 🧱 6. Clean Architecture (Calibrada)
+**Para**: Produtos com regra de negócio de verdade — DDD por camadas, sem cerimônia
+
+```bash
+node ../bin/init-project.js meu-projeto --template clean-arch
+```
+
+**Inclui**:
+- Fatia rica (Orders): domain / application / infrastructure / presentation, com inversão de dependência
+- Caminho enxuto (Products): CRUD em 1 camada, lado a lado — a calibração visível
+- Invariante de domínio testável **sem subir o Nest**
+- Memória por bounded context (linguagem ubíqua) para leitura barata por agente
+- `WHEN-CLEAN-WHEN-LEAN.md`: o critério de quando usar cada padrão
+
+**Use quando**: há invariante de negócio ou máquina de estados. Para CRUD puro, prefira um dos flat acima.
+
+[Abrir 📂](./06-clean-arch)
+
+---
+
 ### 📊 6. Dashboard Admin
 **Para**: Painel administrativo, gestão interna
 
