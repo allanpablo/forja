@@ -4,30 +4,42 @@ Histórico consolidado das mudanças estruturais do framework. Para decisões ar
 
 ---
 
-## [Unreleased] — Coerência da documentação
+## [1.2.0] — 2026-07-18 — Boilerplate Clean Architecture, coerência de doc e correções
 
-SPEC-011 (`specs/coerencia-do-sistema/`) — ADR-0025. Os ADRs 0023 e 0024 fecharam a classe "erra sem
-avisar" no núcleo e no tarball; esta frente fecha a terceira fronteira: **a doc que instrui o
-agente**. O Forja é operado por agentes que executam o que a doc manda — quando a doc mente, o
-agente erra por obediência.
-
-### Adicionado
-- `lib/core/doc-graph.mjs` — scanner puro dos `.md` de instrução: comandos citados, links relativos,
-  e a allowlist de comandos do projeto gerado **derivada** de duas fontes (geradores + boilerplates).
-- Três checks no catálogo de `health.mjs`, exercitados pelo `tools:doctor` (e no CI):
-  - `docs-commands` (**critical**): todo `forja <cmd>` citado existe no registry.
-  - `commands-documented` (**warn**): todo comando do registry é mencionado em algum `.md`.
-  - `docs-links` (**warn**): todo link markdown relativo resolve.
-- `test/doc-graph.test.js` + testes dos checks em `test/health.test.js` — 109 testes no total.
+Feature nova (um boilerplate), o terceiro gate de invariante (coerência da documentação), e
+**correções de dois bugs vivos na 1.1.6** que o TypeScript achou. A migração TS avançou até o
+pipeline de build provado — mas continua publicando a fonte `.mjs` (a troca para `dist/` é interna
+e fica para uma release futura).
 
 ### Corrigido
-- 22 links relativos quebrados em docs legadas (personas, quick-reference, structure) repontados
-  para alvos reais — resíduo do layout pré-v1.1.
-- `memory:extract` (único comando do registry sem menção) documentado no README.
+- **`npm run dev` estava quebrado** na 1.1.6: `scripts/dev.mjs` chamava `spawn()` sem importar —
+  `ReferenceError` em três caminhos (agent-harness, compress-memory, create-memory-nest-kit).
+- **`context:budget` / `catalog:assets` estavam quebrados** na 1.1.6: `scripts/context-ops.mjs`
+  importava `dbPath` (inexistente; só há `getDbPath`) e o usava em `new Database(dbPath)`.
+- Typedefs `Check`/`Result` duplicados e divergentes em `health.mjs` (resíduo da extração do runner).
+- 22 links relativos quebrados em docs legadas (personas, quick-reference, structure).
+
+### Adicionado
+- **Boilerplate `06-clean-arch`** (SPEC-013, ADR-0027): DDD por camadas onde se paga, caminho enxuto
+  onde não. Fatia rica (Orders) com inversão de dependência e invariante testável sem subir o Nest;
+  caminho enxuto (Products) lado a lado; `WHEN-CLEAN-WHEN-LEAN.md` com o critério; memória por
+  bounded context. A economia de token é reportada com honestidade (argumentada, não provada — o
+  benchmark é follow-up).
+- **Gate de coerência da documentação** (SPEC-011, ADR-0025): `lib/core/doc-graph.mjs` + três checks
+  no `health.mjs` — `docs-commands` (critical: todo `forja <cmd>` citado existe no registry),
+  `commands-documented` e `docs-links` (warn). Rodam no `tools:doctor` e no CI.
+- **Resolver de script agnóstico de extensão** (SPEC-012): `resolveScript` desacopla o registry da
+  extensão (`.ts → .js → .mjs`), preparando a migração TS. Backward-compatible.
+
+### Interno
+- **TypeScript como gate** (SPEC-012, Fases 0-1): `checkJs` estrito sobre a fonte `.mjs`,
+  `types:check` no CI, contratos do núcleo (`Check`/`Probe`/`Result`) tipados. Pipeline de build
+  (`tsc → dist`) provado; a publicação de `dist/` e a renomeação `.mjs → .ts` ficam para depois.
 
 ### Nota
-- O `docs-links` pegou o **próprio autor**: um erro de profundidade relativa (`../../` vs
-  `../../../`) na correção dos links foi detectado pelo doctor antes do commit.
+- O `docs-links` pegou o **próprio autor**: um erro de profundidade relativa (`../../` vs `../../../`)
+  na correção dos links foi detectado pelo doctor antes do commit. E o `release:check` pegou o
+  acoplamento do dist-publish (código em `dist/scripts`, não `scripts/`) antes de qualquer publish.
 
 ## [1.1.6] — 2026-07-14 — README em inglês
 
