@@ -1,0 +1,21 @@
+{
+  // On-ramp da migração TS (SPEC-012, Fase 0). checkJs sobre os .mjs atuais, sem renomear nada.
+  // noImplicitAny fica OFF nesta fase: os ~280 parâmetros sem tipo são anotados durante a
+  // renomeação leaf-first (Fase 2), arquivo a arquivo. Aqui perseguimos os erros ESTRUTURAIS —
+  // mismatches reais e aperto de contrato. Flag vira ON ao final da Fase 2.
+  "compilerOptions": {
+    "target": "es2022",
+    "module": "nodenext",
+    "moduleResolution": "nodenext",
+    "allowJs": true,
+    "checkJs": true,
+    "noEmit": true,
+    "strict": true,
+    "noImplicitAny": false,
+    "skipLibCheck": true,
+    "resolveJsonModule": true,
+    "forceConsistentCasingInFileNames": true
+  },
+  "include": ["lib/**/*", "scripts/**/*", "bin/**/*"],
+  "exclude": ["node_modules", "dist", "docs/archive"]
+}

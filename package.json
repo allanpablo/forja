@@ -85,6 +85,7 @@
     "code:impact": "node bin/forja.mjs code:impact",
     "tools:doctor": "node bin/forja.mjs tools:doctor",
     "release:check": "node bin/forja.mjs release:check",
+    "types:check": "tsc --noEmit",
     "test": "node --test test/*.test.js"
   },
   "keywords": [
@@ -108,5 +109,9 @@
   },
   "allowScripts": {
     "better-sqlite3@12.11.1": true
+  },
+  "devDependencies": {
+    "@types/node": "^26.1.1",
+    "typescript": "^5.9.3"
   }
 }
