@@ -1,0 +1,43 @@
+{
+  "schemaVersion": "1.0",
+  "type": "boilerplate",
+  "name": "06-clean-arch",
+  "title": "Clean Architecture Calibrada - DDD por camadas, sem cerimônia",
+  "path": "boilerplates/06-clean-arch",
+  "readme": "boilerplates/06-clean-arch/README.md",
+  "stack": [
+    "NestJS",
+    "TypeScript",
+    "TypeORM",
+    "Postgres"
+  ],
+  "useCases": [
+    "Domínio com regra de negócio",
+    "DDD",
+    "Clean Architecture",
+    "Hexagonal"
+  ],
+  "commands": [
+    "npm install",
+    "npm run start:dev",
+    "npm test",
+    "npm run test:e2e"
+  ],
+  "gates": [
+    "npm test",
+    "npm run test:cov"
+  ],
+  "tokenPolicy": {
+    "firstRead": [
+      "boilerplate.manifest.json",
+      "README.md",
+      "WHEN-CLEAN-WHEN-LEAN.md",
+      "memory/30-domains/orders/context.md"
+    ],
+    "avoidLoadingByDefault": [
+      "node_modules",
+      "dist",
+      "coverage"
+    ]
+  }
+}
