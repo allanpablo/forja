@@ -53,6 +53,7 @@ function env(files, extra = {}) {
 const PKG_JSON = (extra = {}) => JSON.stringify({
   name: 'forjajs',
   files: ['bin/', 'lib/', 'scripts/'],
+  bin: { forja: 'bin/forja.mjs' },
   dependencies: { 'better-sqlite3': '^12.0.0' },
   ...extra,
 });
@@ -185,7 +186,7 @@ test('deps-unused: dependency que ninguém importa é warn, não fail', async ()
 
 test('smoke-commands: reprova por assinatura de loader, não por exit code', async () => {
   const e = env(
-    { [`${PKG_DIR}/bin/forja.mjs`]: '' },
+    { [`${PKG_DIR}/bin/forja.mjs`]: '', [`${PKG_DIR}/package.json`]: PKG_JSON() },
     {
       smokeCommands: [['query:universal']],
       spawn: () => ({ stdout: '', stderr: "Error [ERR_MODULE_NOT_FOUND]: Cannot find package 'better-sqlite3'" }),
@@ -203,7 +204,7 @@ test('smoke-commands: exit ≠ 0 por falta de workspace NÃO reprova', async () 
   // é o pacote **funcionando**. Reprovar aqui reprovaria todo tarball saudável — é a armadilha do
   // memory-db da SPEC-009, um nível acima.
   const e = env(
-    { [`${PKG_DIR}/bin/forja.mjs`]: '' },
+    { [`${PKG_DIR}/bin/forja.mjs`]: '', [`${PKG_DIR}/package.json`]: PKG_JSON() },
     {
       smokeCommands: [['query:universal', 'teste']],
       spawn: () => ({ stdout: '', stderr: 'Nenhum resultado encontrado. Rode sync:universal.' }),
@@ -217,7 +218,7 @@ test('smoke-commands: exit ≠ 0 por falta de workspace NÃO reprova', async () 
 
 test('smoke-commands: ABI quebrado no tarball também reprova', async () => {
   const e = env(
-    { [`${PKG_DIR}/bin/forja.mjs`]: '' },
+    { [`${PKG_DIR}/bin/forja.mjs`]: '', [`${PKG_DIR}/package.json`]: PKG_JSON() },
     {
       smokeCommands: [['tools:doctor']],
       spawn: () => ({ stdout: '', stderr: 'Error: ERR_DLOPEN_FAILED' }),
