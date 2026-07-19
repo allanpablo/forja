@@ -13,7 +13,7 @@
 
 import fs from 'node:fs';
 import path from 'node:path';
-import ContextBuilder from '../lib/context-builder.js';
+import ContextBuilder from '../lib/context-builder.ts';
 import { fileURLToPath } from 'node:url';
 import { getDbPath, ensureSchema } from './memory-schema.ts';
 

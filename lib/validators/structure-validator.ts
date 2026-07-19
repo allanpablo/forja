@@ -64,8 +64,8 @@ const NEST_CRITICAL_DIRS = [
  * @returns {Object} Resultado da validação
  */
 export function validateMemoryStructure(baseDir) {
-  const errors = [];
-  const warnings = [];
+  const errors: string[] = [];
+  const warnings: string[] = [];
 
   // Validar arquivos críticos
   for (const filePath of CRITICAL_FILES) {
@@ -122,8 +122,8 @@ export function validateMemoryStructure(baseDir) {
  * @returns {Object} Resultado da validação
  */
 export function validateNestStructure(baseDir) {
-  const errors = [];
-  const warnings = [];
+  const errors: string[] = [];
+  const warnings: string[] = [];
 
   // Validar arquivos críticos do NestJS
   for (const filePath of NEST_CRITICAL_FILES) {
@@ -181,11 +181,11 @@ export function validateNestStructure(baseDir) {
  * @param {Object} options - Opções { includeNest: boolean }
  * @returns {Object} Resultado completo
  */
-export function validateProjectStructure(baseDir, options = {}) {
+export function validateProjectStructure(baseDir, options: { includeNest?: boolean } = {}) {
   const { includeNest = false } = options;
 
   const memoryResult = validateMemoryStructure(baseDir);
-  const results = { memory: memoryResult };
+  const results: { memory: any; nest?: any } = { memory: memoryResult };
 
   if (includeNest) {
     results.nest = validateNestStructure(baseDir);

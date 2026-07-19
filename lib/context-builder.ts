@@ -15,6 +15,12 @@ import Database from 'better-sqlite3';
 import { getDbPath, ensureSchema } from '../scripts/memory-schema.ts';
 
 export class ContextBuilder {
+  projectPath: string;
+  dbPath: string;
+  db: any;
+  cache: Map<any, any>;
+  maxCacheSize: number;
+
   constructor(projectPath, dbPath) {
     this.projectPath = projectPath;
     this.dbPath = dbPath;
@@ -58,7 +64,7 @@ export class ContextBuilder {
     this.connect();
     
     const started = Date.now();
-    const nodes = [];
+    const nodes: any[] = [];
     const seenPaths = new Set();
 
     // 1. Contexto global obrigatório

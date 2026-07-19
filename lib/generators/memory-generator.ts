@@ -4,7 +4,7 @@
  */
 
 import path from 'node:path';
-import { writeFileSafe, ensureDir, maybeGitkeep } from '../utils/file-helpers.js';
+import { writeFileSafe, ensureDir, maybeGitkeep } from '../utils/file-helpers.ts';
 
 /**
  * Template de arquivos da estrutura de memória

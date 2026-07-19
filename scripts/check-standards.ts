@@ -56,7 +56,7 @@ function check() {
     console.log(`Projeto:  ${projectDir}\n`);
   }
   
-  const results = [];
+  const results: { file: string; status: string; weight: number }[] = [];
   let score = 0;
 
   for (const file of mandatoryFiles) {

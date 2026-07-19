@@ -81,7 +81,7 @@ function logSection(title) {
   console.log(`${'═'.repeat(80)}\n`);
 }
 
-function execCmd(cmd, opts = {}) {
+function execCmd(cmd, opts: { quiet?: boolean; ignoreError?: boolean } = {}) {
   try {
     return execSync(cmd, { 
       stdio: opts.quiet ? 'pipe' : 'inherit',
@@ -325,7 +325,7 @@ async function step02CopyInstructions(projectDir, opts) {
   ensureDir(instructionsDir);
 
   const canonicalPath = path.join(kitRoot, CANONICAL_INSTRUCTIONS);
-  let canonical = null;
+  let canonical: string | null = null;
   if (fs.existsSync(canonicalPath)) {
     canonical = fs.readFileSync(canonicalPath, 'utf8');
   }

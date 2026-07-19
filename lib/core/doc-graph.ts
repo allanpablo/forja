@@ -200,7 +200,7 @@ export function projectCommands(env) {
     /* sem geradores — segue */
   }
   for (const entry of genEntries) {
-    if (!/\.(mjs|js)$/.test(entry)) continue;
+    if (!/\.(mjs|cjs|js|ts)$/.test(entry)) continue;
     const src = safeRead(env, path.join(genDir, entry));
     if (src == null) continue;
     for (const key of scriptKeys(src)) commands.add(key);

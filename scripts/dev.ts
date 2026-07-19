@@ -156,7 +156,7 @@ async function contextBuild([mode, project, keyword] = []) {
 
   try {
     ensureSchema({ silent: true });
-    const builder = (await import('../lib/context-builder.js')).default;
+    const builder = (await import('../lib/context-builder.ts')).default;
     const dbPath = getDbPath();
 
     const ctx = new builder(root, dbPath);
