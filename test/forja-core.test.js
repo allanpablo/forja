@@ -9,7 +9,7 @@ import { COMMANDS, DOMAINS } from '../lib/core/registry.ts';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const root = path.resolve(__dirname, '..');
-const forja = path.join(root, 'bin/forja.mjs');
+const forja = path.join(root, 'bin/forja.ts');
 
 function run(args, env = process.env) {
   return spawnSync(process.execPath, [forja, ...args], { cwd: root, encoding: 'utf8', env });

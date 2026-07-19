@@ -42,7 +42,7 @@ function skip() { process.exit(0); }
 
   let payload;
   try {
-    payload = JSON.parse(await readStdin());
+    payload = JSON.parse((await readStdin()) as string);
   } catch {
     skip();
   }

@@ -6,7 +6,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "node $CLAUDE_PROJECT_DIR/scripts/hook-session-start.mjs",
+            "command": "node $CLAUDE_PROJECT_DIR/scripts/hook-session-start.ts",
             "timeout": 5000
           }
         ]
@@ -17,7 +17,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "node $CLAUDE_PROJECT_DIR/scripts/hook-user-prompt.mjs",
+            "command": "node $CLAUDE_PROJECT_DIR/scripts/hook-user-prompt.ts",
             "timeout": 3000
           }
         ]
@@ -29,7 +29,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "node $CLAUDE_PROJECT_DIR/scripts/hook-guard-paths.mjs",
+            "command": "node $CLAUDE_PROJECT_DIR/scripts/hook-guard-paths.ts",
             "timeout": 5000
           }
         ]
@@ -41,7 +41,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "node $CLAUDE_PROJECT_DIR/scripts/hook-post-edit.mjs",
+            "command": "node $CLAUDE_PROJECT_DIR/scripts/hook-post-edit.ts",
             "timeout": 60000
           }
         ]
@@ -50,9 +50,9 @@
   },
   "permissions": {
     "allow": [
-      "Bash(node bin/forja.mjs *)",
-      "Bash(node scripts/spec-cli.mjs *)",
-      "Bash(node scripts/agent-router.mjs *)",
+      "Bash(node bin/forja.ts *)",
+      "Bash(node scripts/spec-cli.ts *)",
+      "Bash(node scripts/agent-router.ts *)",
       "Bash(npm run spec:*)",
       "Bash(npm run memory:*)",
       "Bash(npm run sprint:*)",

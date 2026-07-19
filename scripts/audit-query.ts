@@ -5,10 +5,10 @@
  *   forja audit:query --cmd release:check por comando
  *   forja audit:query --since 7d          janela de tempo (Nd/Nh/Nm)
  */
-import { queryAudit, defaultEnv } from '../lib/audit.mjs';
+import { queryAudit, defaultEnv } from '../lib/audit.ts';
 
 function parseArgs(argv) {
-  const o = {};
+  const o: { failed?: boolean; cmd?: string; since?: string } = {};
   for (let i = 0; i < argv.length; i += 1) {
     if (argv[i] === '--failed') o.failed = true;
     else if (argv[i] === '--cmd') o.cmd = argv[++i];

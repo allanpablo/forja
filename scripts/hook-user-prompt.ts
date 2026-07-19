@@ -103,14 +103,14 @@ function setCached(key, content) {
 // Pack task-mode de uma spec: o contexto mínimo-suficiente para trabalhar
 // naquela feature, sem carregar memory/ inteira.
 function buildTaskContext(slug, capBytes) {
-  const pieces = [];
+  const pieces: string[] = [];
   const candidates = [
     [`specs/${slug}/spec.md`, 4000],
     [`specs/${slug}/plan.md`, 2500],
     [`specs/${slug}/tasks.md`, 2500],
     [`.context/gsd-${slug}.md`, 1500],
   ];
-  for (const [rel, sliceCap] of /** @type {[string, number][]} */ (candidates)) {
+  for (const [rel, sliceCap] of (candidates as [string, number][])) {
     try {
       const c = fs.readFileSync(path.join(root, rel), 'utf8');
       pieces.push(`### ${rel}\n\n${c.slice(0, sliceCap)}`);
@@ -128,7 +128,7 @@ function buildTaskContext(slug, capBytes) {
 function buildContext(prompt, capBytes) {
   // Estratégia simples: cabeça das ADRs + index global. FTS5 dirigido por prompt seria ideal,
   // mas evitamos abrir SQLite no hot path do hook. O Context Engineer faz isso quando convocado.
-  const pieces = [];
+  const pieces: string[] = [];
   const candidates = [
     'memory/00-global/mission.md',
     'memory/00-global/standards.md',
@@ -159,7 +159,7 @@ function buildContext(prompt, capBytes) {
 
 (function main() {
   const raw = readStdin();
-  let payload = {};
+  let payload: any = {};
   try { payload = raw ? JSON.parse(raw) : {}; } catch { /* tolerância */ }
   const prompt = payload.prompt || payload.user_prompt || '';
 

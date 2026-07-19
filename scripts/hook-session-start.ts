@@ -29,7 +29,7 @@ function safeReadDir(p) { try { return fs.readdirSync(p); } catch { return []; }
 
 function listSpecs() {
   const specsDir = path.join(root, 'specs');
-  const out = [];
+  const out: { slug: string; status: string }[] = [];
   for (const slug of safeReadDir(specsDir)) {
     if (slug.startsWith('_') || slug.startsWith('.')) continue;
     const specPath = path.join(specsDir, slug, 'spec.md');
@@ -44,7 +44,7 @@ function listSpecs() {
 /** Handoffs só fazem sentido com a memória de pé — daí o `memoriaOk` do caller. */
 async function openHandoffs() {
   try {
-    const { getWorkspaceDbPath } = await import('../lib/workspace.mjs');
+    const { getWorkspaceDbPath } = await import('../lib/workspace.ts');
     const { default: Database } = await import('better-sqlite3');
     const db = new Database(getWorkspaceDbPath(), { readonly: true });
     const rows = db.prepare(`SELECT id, from_agent, to_agent, intent, spec_slug FROM handoffs WHERE status='open' ORDER BY id DESC LIMIT 10`).all();

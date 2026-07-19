@@ -3,13 +3,13 @@ import path from 'node:path';
 import crypto from 'node:crypto';
 import Database from 'better-sqlite3';
 import { fileURLToPath } from 'node:url';
-import { ensureSchema, getDbPath } from './memory-schema.mjs';
+import { ensureSchema, getDbPath } from './memory-schema.ts';
 import {
   initWorkspace,
   getProjectsDir,
   getWorkspaceSpecsDir,
   getWorkspaceProjectsMemoryDir,
-} from '../lib/workspace.mjs';
+} from '../lib/workspace.ts';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);

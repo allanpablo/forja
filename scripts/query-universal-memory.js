@@ -1,5 +1,5 @@
 import Database from 'better-sqlite3';
-import { getDbPath, ensureSchema } from './memory-schema.mjs';
+import { getDbPath, ensureSchema } from './memory-schema.ts';
 
 ensureSchema({ silent: true });
 const dbPath = getDbPath();

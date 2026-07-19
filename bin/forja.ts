@@ -17,7 +17,7 @@ import path from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { COMMANDS, DOMAINS, resolveScript } from '../lib/core/registry.ts';
-import { getWorkspaceInfo, getWorkspaceContextDir } from '../lib/workspace.mjs';
+import { getWorkspaceInfo, getWorkspaceContextDir } from '../lib/workspace.ts';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const root = path.resolve(__dirname, '..');
@@ -51,7 +51,7 @@ function suggest(input) {
 
 // Gates transversais (ADR-0020). Retorna lista de erros bloqueantes.
 function runGates(cmd) {
-  const errors = [];
+  const errors: string[] = [];
   for (const gate of cmd.gates || []) {
     if (gate === 'workspace' || gate === 'workspace-warn') {
       const info = getWorkspaceInfo();

@@ -5,11 +5,11 @@ import fs from 'node:fs';
 import path from 'node:path';
 import os from 'node:os';
 import { fileURLToPath } from 'node:url';
-import { addSpecToAllowlist } from '../scripts/spec-cli.mjs';
+import { addSpecToAllowlist } from '../scripts/spec-cli.ts';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-const cli = path.resolve(__dirname, '..', 'scripts', 'spec-cli.mjs');
+const cli = path.resolve(__dirname, '..', 'scripts', 'spec-cli.ts');
 const repoRoot = path.resolve(__dirname, '..');
 
 // spec:new mantém a allow-list do .gitignore (AC-11). Estes testes rodam contra o repo real, então

@@ -3,7 +3,7 @@
  * audit:sync — projeta o `.context/forja-runs.jsonl` na tabela consultável `audit_runs` (SPEC-014).
  * Idempotente. O `.jsonl` segue sendo a fonte de verdade; esta tabela é reconstruível.
  */
-import { syncAudit, defaultEnv } from '../lib/audit.mjs';
+import { syncAudit, defaultEnv } from '../lib/audit.ts';
 
 try {
   const r = await syncAudit(defaultEnv());

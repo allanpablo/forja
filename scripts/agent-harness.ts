@@ -11,7 +11,7 @@ import {
   resolveProject,
   getProjectsDir,
   getWorkspaceProjectsMemoryDir,
-} from '../lib/workspace.mjs';
+} from '../lib/workspace.ts';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const root = path.resolve(__dirname, '..');
@@ -94,10 +94,10 @@ function readText(file) {
 
 function runCodegraph(args) {
   const result = spawnSync('codegraph', args, { cwd: root, encoding: 'utf8' });
-  if (result.error && /** @type {any} */ (result.error).code === 'ENOENT') {
+  if (result.error && (result.error as any).code === 'ENOENT') {
     return { missing: true };
   }
-  if (result.error && /** @type {any} */ (result.error).code === 'EPERM') {
+  if (result.error && (result.error as any).code === 'EPERM') {
     const quote = (value) => `'${String(value).replace(/'/g, `'\\''`)}'`;
     const fallback = spawnSync('/bin/sh', ['-lc', ['codegraph', ...args.map(quote)].join(' ')], {
       cwd: root,
@@ -123,9 +123,9 @@ function runCodegraph(args) {
 function codegraphStatus() {
   const res = runCodegraph(['status', '--json']);
   if (res.missing) return { missing: true };
-  let data = null;
+  let data: any = null;
   try {
-    data = JSON.parse(/** @type {string} */ (res.stdout));
+    data = JSON.parse(res.stdout as string);
   } catch {
     return { missing: false, parseError: true, raw: res.stdout || res.stderr };
   }
@@ -155,7 +155,7 @@ function cmdCodeCheck() {
     fail('\nResultado: status do codegraph ilegivel.');
   }
 
-  const lines = [];
+  const lines: string[] = [];
   let blocking = false;
 
   if (!s.initialized) {
@@ -184,7 +184,7 @@ function cmdCodeCheck() {
   console.log('\nResultado: code intelligence confiavel.');
 }
 
-function cmdCodeImpact([symbol, depthArg]) {
+function cmdCodeImpact([symbol, depthArg]: string[]) {
   if (!symbol) fail('Uso: agent-harness code:impact <simbolo> [profundidade]');
   const res0 = runCodegraph(['status', '--json']);
   if (res0.missing) {
@@ -209,7 +209,7 @@ function cmdCodeImpact([symbol, depthArg]) {
   }
 }
 
-function cmdDesignCheck([briefPath]) {
+function cmdDesignCheck([briefPath]: string[]) {
   if (!briefPath) fail('Uso: agent-harness design:check <brief.md>');
   const content = readText(briefPath);
   const missing = DESIGN_REQUIRED.filter((needle) => !content.includes(needle));
@@ -228,7 +228,7 @@ function cmdDesignCheck([briefPath]) {
   console.log('\nResultado: pronto para handoff visual.');
 }
 
-function cmdDesignSelect([surface = 'agent-console', tone = 'tecnico']) {
+function cmdDesignSelect([surface = 'agent-console', tone = 'tecnico']: string[]) {
   const normalized = surface.toLowerCase();
   const refs = SURFACE_MAP[normalized] || SURFACE_MAP.tool;
   console.log(`Superficie: ${surface}`);
@@ -242,7 +242,7 @@ function cmdDesignSelect([surface = 'agent-console', tone = 'tecnico']) {
   console.log('\nProximo passo: preencher design-md/BRIEF-TEMPLATE.md com uma referencia primaria.');
 }
 
-function cmdHermesHandoff([jsonArg]) {
+function cmdHermesHandoff([jsonArg]: string[]) {
   if (!jsonArg) fail('Uso: agent-harness hermes:handoff \'<json ADR-0005>\'');
   let payload;
   try {
@@ -274,7 +274,7 @@ function appendHandoff(payload) {
   return result.status ?? 1;
 }
 
-function cmdGsdPlan([slug = 'run', ...goalParts]) {
+function cmdGsdPlan([slug = 'run', ...goalParts]: string[]) {
   const goal = goalParts.join(' ') || 'execucao orientada por agentes';
   const safeSlug = slug.toLowerCase().replace(/[^a-z0-9._-]+/g, '-');
   const outDir = path.join(root, '.context');
@@ -323,7 +323,7 @@ function cmdGsdPlan([slug = 'run', ...goalParts]) {
   if (!hasSpec) console.log(`Aviso: spec nao encontrada em specs/${safeSlug}/spec.md`);
 }
 
-function cmdGsdHandoff([phase, slug, ...contextParts]) {
+function cmdGsdHandoff([phase, slug, ...contextParts]: string[]) {
   if (!phase || !slug) fail('Uso: agent-harness gsd:handoff <spec|plan|implement|review> <slug> [contexto]');
   const template = GSD_HANDOFFS[phase];
   if (!template) fail(`Fase invalida: ${phase}. Use: ${Object.keys(GSD_HANDOFFS).join('|')}`);
@@ -347,10 +347,10 @@ function cmdGsdHandoff([phase, slug, ...contextParts]) {
   process.exit(appendHandoff(payload));
 }
 
-function cmdGsdCheck([slug, briefPath]) {
+function cmdGsdCheck([slug, briefPath]: string[]) {
   if (!slug) fail('Uso: agent-harness gsd:check <slug> [brief.md]');
   const safeSlug = slug.toLowerCase().replace(/[^a-z0-9._-]+/g, '-');
-  const checks = [];
+  const checks: { name: string; ok: boolean; detail: any }[] = [];
 
   const runbook = path.join(root, '.context', `gsd-${safeSlug}.md`);
   checks.push({
@@ -437,7 +437,7 @@ function cmdWorkspaceInit() {
   }
 }
 
-function cmdProjectNew([name, ...rest]) {
+function cmdProjectNew([name, ...rest]: string[]) {
   if (!name) fail('Uso: agent-harness project:new <nome> [--ai claude,copilot] [--skip-backend]');
   const safeName = name.toLowerCase().replace(/[^a-z0-9._-]+/g, '-');
   const projectDir = resolveProject(safeName);
@@ -500,7 +500,7 @@ function cmdProjectList() {
   }
 }
 
-function cmdProjectCheck([name]) {
+function cmdProjectCheck([name]: string[]) {
   if (!name) fail('Uso: agent-harness project:check <nome>');
   const result = spawnSync('node', [path.join(root, 'scripts/check-standards.js'), name], {
     cwd: root,

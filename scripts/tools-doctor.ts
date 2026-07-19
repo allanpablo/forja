@@ -62,7 +62,7 @@ const TOOLS = [
 
 function detect(cmd, args) {
   const res = spawnSync(cmd, args, { encoding: 'utf8' });
-  if (res.error && /** @type {any} */ (res.error).code === 'ENOENT') return { ok: false };
+  if (res.error && (res.error as any).code === 'ENOENT') return { ok: false };
   const version = (res.stdout || res.stderr || '').trim().split('\n')[0] || 'instalado';
   return { ok: true, version };
 }

@@ -11,7 +11,7 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const root = path.resolve(__dirname, '..');
 
 function sync(ws) {
-  const res = spawnSync(process.execPath, [path.join(root, 'bin/forja.mjs'), 'sync:universal'], {
+  const res = spawnSync(process.execPath, [path.join(root, 'bin/forja.ts'), 'sync:universal'], {
     cwd: root,
     encoding: 'utf8',
     env: { ...process.env, FORJA_WORKSPACE: ws },

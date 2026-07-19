@@ -15,7 +15,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import ContextBuilder from '../lib/context-builder.js';
 import { fileURLToPath } from 'node:url';
-import { getDbPath, ensureSchema } from './memory-schema.mjs';
+import { getDbPath, ensureSchema } from './memory-schema.ts';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const root = path.resolve(__dirname, '..');
@@ -39,7 +39,7 @@ function formatBytes(bytes) {
   return (bytes / Math.pow(k, i)).toFixed(2) + ' ' + sizes[i];
 }
 
-function walkMarkdown(dir, out = []) {
+function walkMarkdown(dir, out: string[] = []) {
   if (!fs.existsSync(dir)) return out;
   for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
     if (['node_modules', '.git', '.memory', 'archive'].includes(entry.name)) continue;
@@ -76,7 +76,7 @@ async function benchmark() {
     let fullContext = '';
 
     const baselineRoots = ['AGENTS.md', 'README.md', 'DOC-MAP.md', 'memory', 'docs', 'prompts', 'specs'];
-    const baselineFiles = [];
+    const baselineFiles: string[] = [];
     for (const rel of baselineRoots) {
       const abs = path.join(root, rel);
       if (!fs.existsSync(abs)) continue;
@@ -104,7 +104,7 @@ async function benchmark() {
 
     // 2. Testar 3 modos de contexto inteligente
     const modes = ['global', 'domain', 'task'];
-    const results = [];
+    const results: { mode: string; size: number; tokens: number; time: number; cost: number; savings: number }[] = [];
 
     for (const mode of modes) {
       console.log(`Scenario: ${mode.toUpperCase()} Mode\n`);

@@ -4,7 +4,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import Database from 'better-sqlite3';
 import { fileURLToPath } from 'node:url';
-import { ensureSchema, getDbPath } from './memory-schema.mjs';
+import { ensureSchema, getDbPath } from './memory-schema.ts';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const root = path.resolve(__dirname, '..');
@@ -81,7 +81,7 @@ function openDb() {
 }
 
 /** @param {number|null} [limitTokens] */
-function recordContextRun(kind, slug, filePath, content, limitTokens = null) {
+function recordContextRun(kind, slug, filePath, content, limitTokens: number | null = null) {
   const db = openDb();
   const tokens = estimateTokens(content);
   const status = limitTokens && tokens > limitTokens ? 'over_budget' : 'ok';
@@ -299,7 +299,7 @@ function inferBoilerplateManifest(name, relPath) {
 function inferDesignManifest(name, relPath) {
   const readme = readIfExists(relPath, 8000);
   const lower = `${name} ${readme}`.toLowerCase();
-  const surfaces = [];
+  const surfaces: string[] = [];
   if (['linear.app', 'cursor', 'raycast', 'sentry', 'posthog', 'claude'].includes(name)) surfaces.push('agent-console', 'ops');
   if (['stripe', 'linear.app', 'posthog', 'sentry', 'supabase'].includes(name)) surfaces.push('dashboard');
   if (['mintlify', 'stripe', 'vercel', 'resend', 'hashicorp'].includes(name)) surfaces.push('docs');
@@ -367,7 +367,7 @@ function cmdGenerateManifests() {
 
 function cmdAssetCatalog() {
   ensureOutDir();
-  const assets = [];
+  const assets: { tags: any; manifest: any; title: any; summary: string; type: string; name: string; path: string }[] = [];
   const boilerRoot = path.join(root, 'boilerplates');
   if (fs.existsSync(boilerRoot)) {
     for (const entry of fs.readdirSync(boilerRoot, { withFileTypes: true })) {
@@ -453,7 +453,7 @@ Comandos:
 
 const [cmd, ...rest] = process.argv.slice(2);
 /** dispatch heterogêneo: cada cmd consome os args do seu jeito (Fase 1) */
-const args = /** @type {any} */ (rest);
+const args: any = rest;
 switch (cmd) {
   case 'budget': cmdBudget(args); break;
   case 'sprint-pack': cmdSprintPack(); break;

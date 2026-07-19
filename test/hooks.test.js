@@ -19,7 +19,7 @@ function runHook(script, payload, env = {}) {
   });
 }
 
-const GUARD = 'hook-guard-paths.mjs';
+const GUARD = 'hook-guard-paths.ts';
 
 test('guard: bloqueia escrita em projects/ com motivo acionável', () => {
   const res = runHook(GUARD, { tool_input: { file_path: 'projects/app/main.ts' }, cwd: root });
@@ -36,7 +36,7 @@ test('guard: bloqueia docs/archive/ mesmo com path absoluto', () => {
 });
 
 test('guard: libera código vivo', () => {
-  const res = runHook(GUARD, { tool_input: { file_path: 'lib/core/registry.mjs' }, cwd: root });
+  const res = runHook(GUARD, { tool_input: { file_path: 'lib/core/registry.ts' }, cwd: root });
   assert.equal(res.status, 0);
   assert.equal(res.stderr, '');
 });
@@ -58,7 +58,7 @@ test('guard: falha aberta — payload inválido não trava a sessão', () => {
   assert.equal(res.status, 0);
 });
 
-const POST = 'hook-post-edit.mjs';
+const POST = 'hook-post-edit.ts';
 
 test('post-edit: ignora arquivo não vigiado sem rodar teste', () => {
   const res = runHook(POST, { tool_input: { file_path: 'README.md' }, cwd: root });
@@ -67,7 +67,7 @@ test('post-edit: ignora arquivo não vigiado sem rodar teste', () => {
 });
 
 test('post-edit: registry íntegro passa em silêncio', () => {
-  const res = runHook(POST, { tool_input: { file_path: 'lib/core/registry.mjs' }, cwd: root });
+  const res = runHook(POST, { tool_input: { file_path: 'lib/core/registry.ts' }, cwd: root });
   assert.equal(res.status, 0, `esperado 0, veio ${res.status}: ${res.stderr}`);
 });
 
@@ -77,7 +77,7 @@ test('post-edit: FORJA_HOOK_TEST=0 desliga', () => {
 });
 
 test('session-start: nunca derruba a sessão e emite JSON válido', () => {
-  const res = runHook('hook-session-start.mjs', {});
+  const res = runHook('hook-session-start.ts', {});
   assert.equal(res.status, 0);
   const out = JSON.parse(res.stdout);
   assert.equal(out.hookSpecificOutput.hookEventName, 'SessionStart');
@@ -88,7 +88,7 @@ test('session-start: problema no núcleo vira aviso com correção, não crash (
   // Workspace inexistente → memória não indexada. Estado real, sem env var de conveniência.
   // O hook reporta; o gate é o tools:doctor. Uma sessão que não abre porque o diagnóstico
   // estourou é o pior resultado possível (ADR-0021).
-  const res = runHook('hook-session-start.mjs', {}, {
+  const res = runHook('hook-session-start.ts', {}, {
     FORJA_WORKSPACE: path.join(os.tmpdir(), `forja-inexistente-${Date.now()}`),
   });
 
@@ -101,10 +101,10 @@ test('session-start: problema no núcleo vira aviso com correção, não crash (
 
 test('session-start: não prescreve `npm install` para ABI quebrado (AC-8)', () => {
   // A prescrição errada que motivou a SPEC-009: `npm install` não recompila binário nativo.
-  const src = fs.readFileSync(path.join(root, 'scripts', 'hook-session-start.mjs'), 'utf8');
+  const src = fs.readFileSync(path.join(root, 'scripts', 'hook-session-start.ts'), 'utf8');
 
   assert.doesNotMatch(src, /Rode `npm install`/, 'a prescrição errada não pode voltar');
   assert.doesNotMatch(src, /function staleIndex/, 'heurística local removida — a lib é a fonte');
   assert.doesNotMatch(src, /function resolveDbPath/, 'o catch que colapsava as três causas saiu');
-  assert.match(src, /runChecks/, 'consome lib/core/health.mjs');
+  assert.match(src, /runChecks/, 'consome lib/core/health.ts');
 });

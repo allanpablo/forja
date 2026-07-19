@@ -18,7 +18,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { spawn, spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
-import { getDbPath, ensureSchema } from './memory-schema.mjs';
+import { getDbPath, ensureSchema } from './memory-schema.ts';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -118,8 +118,8 @@ Exemplos:
 /**
  * Run subprocess
  */
-function runScript(scriptPath, args = []) {
-  return new Promise((/** @type {(v?: unknown) => void} */ resolve, reject) => {
+function runScript(scriptPath, args: string[] = []) {
+  return new Promise<void>((resolve, reject) => {
     const proc = spawn('node', [scriptPath, ...args], {
       stdio: 'inherit',
       cwd: root,
@@ -138,7 +138,7 @@ function runScript(scriptPath, args = []) {
 }
 
 function harnessCommand(command) {
-  return async function runHarness(args = []) {
+  return async function runHarness(args: string[] = []) {
     await runScript(path.join(root, 'scripts', 'agent-harness.mjs'), [command, ...args]);
   };
 }
@@ -291,7 +291,7 @@ async function projectHealth() {
 /**
  * Project Init Handler
  */
-async function projectInit([projectName, ...flags] = []) {
+async function projectInit([projectName, ...flags]: string[] = []) {
   if (!projectName) {
     console.error('Uso: project:init <project-name> [--force] [--only-memory]');
     process.exit(1);

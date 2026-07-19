@@ -9,8 +9,8 @@
  */
 import fs from 'node:fs';
 import path from 'node:path';
-import { collect, renderHtml } from '../lib/governance-report.mjs';
-import { getWorkspaceContextDir, ensureDir } from '../lib/workspace.mjs';
+import { collect, renderHtml } from '../lib/governance-report.ts';
+import { getWorkspaceContextDir, ensureDir } from '../lib/workspace.ts';
 
 const argv = process.argv.slice(2);
 const outIdx = argv.indexOf('--out');
