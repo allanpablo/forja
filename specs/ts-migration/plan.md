@@ -172,17 +172,15 @@ classe "dist mente") e ADR-0024 (o gate que ganha o `build-fresh`).
       no CI. Corrigir os erros com os arquivos ainda `.mjs`. Nada renomeado ainda.
 - [x] **Fase 1 — resolver.** Registry sem extensão (na verdade: registry mantém `.mjs` e o
       `resolveScript` faz strip + tenta `.ts/.js/.mjs`), dispatch pelo resolver. Suíte verde.
-- [~] **Fase 2 — renomear leaf-first.** Um módulo por vez (D5), `npm test` verde a cada um.
-      **Entregue: todos os 21 módulos `.mjs` do framework** (`lib/core/`, `lib/{audit,governance-report,
-      workspace}`, `bin/forja`, todos os `scripts/` incl. hooks). Os typedefs JSDoc viraram `interface`
-      real; `allowImportingTsExtensions` no type-check (build reescreve `.ts→.js`). Dois achados
-      recorrentes no `.ts` estrito: `[]`→`never[]` (anotação inline) e os casts-comentário
-      `/** @type */ (x)` não narram (viram `as`). **Também entregue: os 16 `.js`** (entries públicos
-      `init-project`/`create-memory-nest-kit` + generators + scaffolding). Agora **todo o código-fonte
-      do framework é `.ts`**. Armadilha corrigida: o sed que atualizava os `node:` do registry atingiu
-      também o array de fallback do próprio `resolveScript` (`['.ts','.js','.mjs']`→`['.ts','.ts','.ts']`),
-      quebrando a resolução do `dist/*.js`. **Resta**: `noImplicitAny: true` (endurecimento final —
-      hoje off, ~280 params a tipar).
+- [x] **Fase 2 — renomear leaf-first + endurecer.** **Concluída.** Toda a fonte do framework é `.ts`
+      (21 `.mjs` + 16 `.js`), e `noImplicitAny` está ON — os ~285 params foram anotados (tipo real
+      onde agrega, `any` explícito onde é dinâmico). Shim `lib/vendor.d.ts` para o `better-sqlite3`
+      sem tipos; `lib/templates` excluído do type-check (é conteúdo). O ratchet está armado.
+      Achados recorrentes no `.ts` estrito: `[]`→`never[]` (anotação inline), os casts-comentário
+      `/** @type */ (x)` não narram (viram `as`), e os typedefs JSDoc viram `interface`/`import type`
+      reais. Armadilha corrigida em voo: o sed que atualizava os `node:` do registry atingiu também o
+      array de fallback do `resolveScript` (`['.ts','.js','.mjs']`→`['.ts','.ts','.ts']`), quebrando a
+      resolução do `dist/*.js` — pego pelo `release:check`, não pelo type-check nem pelos testes.
 - [x] **Fase 3 — build + publish.** `tsc` emitindo `dist/`; `package.json` apontando para `dist/`;
       `prepublishOnly` = gate (o gate builda, D4 revisado). Provado por `release:check` (#15).
 - [x] Doc/persona: governança ganha o `build-fresh`; `docs/` e `CONTRIBUTING` ganham o "dev roda

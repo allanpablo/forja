@@ -26,7 +26,7 @@ import { fileURLToPath } from 'node:url';
 
 import { runChecks as run, worstStatus, stripTemplateLiterals } from './checks.ts';
 
-/** @typedef {import('./checks.ts').Check} Check */
+import type { Check } from './checks.ts';
 import { COMMANDS, resolveScript } from './registry.ts';
 
 export { worstStatus };
@@ -37,7 +37,7 @@ const repoRoot = path.resolve(path.dirname(__filename), '..', '..');
 /** Assinaturas de tarball quebrado. Exit code não serve — ver `smokeCommands`. */
 const LOADER_ERRORS = /ERR_MODULE_NOT_FOUND|ERR_DLOPEN_FAILED|Cannot find module|ERR_PACKAGE_PATH_NOT_EXPORTED/;
 
-function git(args, cwd = repoRoot) {
+function git(args: any, cwd = repoRoot) {
   return execFileSync('git', args, { cwd, encoding: 'utf8' });
 }
 
@@ -54,7 +54,7 @@ function git(args, cwd = repoRoot) {
  * @param {(ctx: { pkgDir: string, installDir: string }) => Promise<T>|T} fn
  * @returns {Promise<T>}
  */
-export async function withCleanInstall(fn, { root = repoRoot } = {}) {
+export async function withCleanInstall(fn: any, { root = repoRoot } = {}) {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'forja-release-'));
 
   // Isolamento de verdade — e ele vaza por onde não se espera.
@@ -72,7 +72,7 @@ export async function withCleanInstall(fn, { root = repoRoot } = {}) {
     if (key.startsWith('npm_')) delete env[key];
   }
 
-  const npm = (args, cwd) => {
+  const npm = (args: any, cwd: any) => {
     try {
       return execFileSync('npm', args, { cwd, encoding: 'utf8', env, stdio: 'pipe' });
     } catch (err) {
@@ -91,7 +91,7 @@ export async function withCleanInstall(fn, { root = repoRoot } = {}) {
     // separado que alguém possa esquecer — e sem acoplar a prova a uma edição do workflow. Se o
     // build falha (erro de tipo), o `npm` abaixo lança com o stderr do tsc e o gate reprova claro.
     const manifest = JSON.parse(fs.readFileSync(path.join(root, 'package.json'), 'utf8'));
-    const shipsDist = (manifest.files || []).some((f) => f.replace(/\/+$/, '') === 'dist');
+    const shipsDist = (manifest.files || []).some((f: any) => f.replace(/\/+$/, '') === 'dist');
     if (shipsDist && manifest.scripts?.build) npm(['run', 'build'], root);
 
     const tgz = npm(['pack', '--silent', '--pack-destination', dir], root)
@@ -124,12 +124,11 @@ export async function withCleanInstall(fn, { root = repoRoot } = {}) {
  * Severidade depende do modo: sob `--publish` é fatal; em dev é aviso — um gate que reprova todo
  * desenvolvimento local é um gate que se contorna (a lição que o CI nos deu na SPEC-009).
  */
-/** @type {Check} */
-const treeClean = {
+const treeClean: Check = {
   id: 'tree-clean',
   title: 'árvore limpa (o tarball é o commit)',
   severity: 'critical',
-  probe(env) {
+  probe(env: any) {
     let dirty;
     try {
       dirty = git(['status', '--short'], env.root).trim();
@@ -149,12 +148,11 @@ const treeClean = {
 };
 
 /** Se o pacote não instala, todo o resto é irrelevante — daí todos dependerem deste. */
-/** @type {Check} */
-const install = {
+const install: Check = {
   id: 'install',
   title: 'o pacote instala do zero',
   severity: 'critical',
-  probe(env) {
+  probe(env: any) {
     return env.pkgDir && env.fs.existsSync(env.pkgDir)
       ? { status: 'ok', detail: `instalado em ${path.basename(env.installDir)}`, fix: null }
       : { status: 'fail', detail: 'o tarball não instalou', fix: 'npm pack && npm i <tgz> — investigue o erro' };
@@ -165,13 +163,12 @@ const install = {
  * Todo comando anunciado pelo registry precisa existir no tarball. É o bug da v1.1.3, generalizado:
  * `npm run dashboard` era publicado, a pasta `dashboard/` não.
  */
-/** @type {Check} */
-const registryScripts = {
+const registryScripts: Check = {
   id: 'registry-scripts',
   title: 'todo comando do registry existe no tarball',
   severity: 'critical',
   dependsOn: 'install',
-  probe(env) {
+  probe(env: any) {
     const faltando: string[] = [];
     let total = 0;
 
@@ -218,7 +215,7 @@ const CODE_DIRS = ['bin', 'lib', 'scripts'];
  * runtime (`root = dirname(bin)/..`); os checks de release precisam olhar no mesmo lugar, senão
  * procuram o código onde ele não está mais.
  */
-function pkgCodeRoot(env) {
+function pkgCodeRoot(env: any) {
   try {
     const pkg = JSON.parse(env.fs.readFileSync(path.join(env.pkgDir, 'package.json'), 'utf8'));
     const binRel = typeof pkg.bin === 'string' ? pkg.bin : pkg.bin?.forja;
@@ -229,7 +226,7 @@ function pkgCodeRoot(env) {
   return env.pkgDir;
 }
 
-function publishedSources(env) {
+function publishedSources(env: any) {
   const out: string[] = [];
   const root = pkgCodeRoot(env);
 
@@ -241,7 +238,7 @@ function publishedSources(env) {
   return out;
 }
 
-function walkDir(env, dir, out) {
+function walkDir(env: any, dir: any, out: any) {
   let entries;
   try {
     entries = env.fs.readdirSync(dir);
@@ -266,7 +263,7 @@ function walkDir(env, dir, out) {
 
 const IMPORT_RE = /(?:^|\s)(?:import|export)[^'"]*?from\s*['"]([^'"]+)['"]|(?:^|\s)import\s*['"]([^'"]+)['"]/gm;
 
-function importsOf(env, file) {
+function importsOf(env: any, file: any) {
   const src = stripTemplateLiterals(env.fs.readFileSync(file, 'utf8'));
   const out: string[] = [];
   for (const m of src.matchAll(IMPORT_RE)) out.push(m[1] || m[2]);
@@ -274,7 +271,7 @@ function importsOf(env, file) {
 }
 
 /** Pacote npm (não builtin, não relativo). `@scope/x/sub` → `@scope/x`. */
-function packageName(specifier) {
+function packageName(specifier: any) {
   if (!specifier || specifier.startsWith('.') || specifier.startsWith('/')) return null;
   if (specifier.startsWith('node:')) return null;
   const parts = specifier.split('/');
@@ -282,13 +279,12 @@ function packageName(specifier) {
 }
 
 /** Import relativo que não resolve dentro do tarball = arquivo fora do `files[]` (bug da v1.1.3). */
-/** @type {Check} */
-const importsResolve = {
+const importsResolve: Check = {
   id: 'imports-resolve',
   title: 'imports relativos resolvem dentro do tarball',
   severity: 'critical',
   dependsOn: 'install',
-  probe(env) {
+  probe(env: any) {
     const quebrados: string[] = [];
 
     for (const file of publishedSources(env)) {
@@ -314,13 +310,12 @@ const importsResolve = {
 };
 
 /** O bug do ADR-0021 §2: importado por script publicado, mas declarado como devDependency. */
-/** @type {Check} */
-const depsDeclared = {
+const depsDeclared: Check = {
   id: 'deps-declared',
   title: 'todo import externo está em dependencies',
   severity: 'critical',
   dependsOn: 'install',
-  probe(env) {
+  probe(env: any) {
     const pkg = JSON.parse(env.fs.readFileSync(path.join(env.pkgDir, 'package.json'), 'utf8'));
     const deps = new Set(Object.keys(pkg.dependencies || {}));
     const faltando = new Map<string, string>();
@@ -347,13 +342,12 @@ const depsDeclared = {
 };
 
 /** Peso morto viaja no tarball de todo usuário. Incomoda; não quebra — por isso `warn` (D7). */
-/** @type {Check} */
-const depsUnused = {
+const depsUnused: Check = {
   id: 'deps-unused',
   title: 'nenhuma dependency é peso morto',
   severity: 'warn',
   dependsOn: 'install',
-  probe(env) {
+  probe(env: any) {
     const pkg = JSON.parse(env.fs.readFileSync(path.join(env.pkgDir, 'package.json'), 'utf8'));
     const deps = Object.keys(pkg.dependencies || {});
     const usados = new Set();
@@ -391,13 +385,12 @@ const depsUnused = {
  * code reprovaria um pacote saudável — a mesma armadilha do `memory-db` na SPEC-009, um nível
  * acima.
  */
-/** @type {Check} */
-const smokeCommands = {
+const smokeCommands: Check = {
   id: 'smoke-commands',
   title: 'os comandos executam de verdade',
   severity: 'critical',
   dependsOn: 'install',
-  probe(env) {
+  probe(env: any) {
     // Lê o entry point do campo `bin` do package.json, não de um path fixo — o publicado aponta
     // para dist/ (SPEC-012). Cravar `bin/forja.mjs` quebraria o smoke assim que o bin mudasse.
     const pkg = JSON.parse(env.fs.readFileSync(path.join(env.pkgDir, 'package.json'), 'utf8'));
@@ -451,7 +444,7 @@ export function defaultEnv(overrides = {}) {
     registry: COMMANDS,
     smokeCommands: DEFAULT_SMOKE,
     publish: false,
-    spawn: (cmd, args, opts) => {
+    spawn: (cmd: any, args: any, opts: any) => {
       try {
         return {
           stdout: execFileSync(cmd, args, { encoding: 'utf8', stdio: 'pipe', ...opts }),
@@ -479,7 +472,7 @@ export async function runReleaseChecks({ publish = false, env: overrides = {} } 
   const arvoreAntes = git(['status', '--short'], base.root);
 
   const results = await withCleanInstall(
-    ({ pkgDir, installDir }) => run({
+    ({ pkgDir, installDir }: any) => run({
       checks: RELEASE_CHECKS,
       env: { ...base, pkgDir, installDir },
     }),

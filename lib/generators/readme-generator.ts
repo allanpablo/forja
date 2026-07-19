@@ -8,7 +8,7 @@ import { writeFileSafe } from '../utils/file-helpers.ts';
 /**
  * Factory para README dinâmico
  */
-function createReadmeContent(projectName) {
+function createReadmeContent(projectName: any) {
   return `# ${projectName}
 
 Scaffold gerado por **create-memory-nest-kit v0.5.0**
@@ -197,7 +197,7 @@ npm run project:dashboard
  * @param {string} projectName - Nome do projeto
  * @param {Object} options - Opções (force)
  */
-export function generateReadme(baseDir, projectName, options = {}) {
+export function generateReadme(baseDir: any, projectName: any, options = {}) {
   const content = createReadmeContent(projectName);
   writeFileSafe(path.join(baseDir, 'README.md'), content, options);
 

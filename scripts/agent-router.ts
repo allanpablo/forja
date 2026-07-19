@@ -47,7 +47,7 @@ const VALID_INTENTS = ['implement', 'review', 'plan', 'research', 'spec', 'route
 const BUSY_ATTEMPTS = 8;
 const BUSY_DELAY_MS = 150;
 
-function fail(msg, code = 1) {
+function fail(msg: any, code = 1) {
   fs.writeSync(2, `[agent-router] ${msg}\n`);
   process.exit(code);
 }
@@ -78,13 +78,13 @@ function openDb() {
   return db;
 }
 
-function sleepSync(ms) {
+function sleepSync(ms: any) {
   const buffer = new SharedArrayBuffer(4);
   const view = new Int32Array(buffer);
   Atomics.wait(view, 0, 0, ms);
 }
 
-function withBusyRetry(fn) {
+function withBusyRetry(fn: any) {
   let lastError;
   for (let attempt = 1; attempt <= BUSY_ATTEMPTS; attempt++) {
     try { return fn(); }
@@ -101,7 +101,7 @@ function readStdin() {
   return fs.readFileSync(0, 'utf8');
 }
 
-function parsePayload(raw) {
+function parsePayload(raw: any) {
   let obj;
   try { obj = JSON.parse(raw); } catch (e) { fail(`JSON inválido: ${e.message}`); }
   for (const k of REQUIRED) {
@@ -113,7 +113,7 @@ function parsePayload(raw) {
   return obj;
 }
 
-function cmdAppend(arg) {
+function cmdAppend(arg: any) {
   const raw = arg && arg !== '-' ? arg : readStdin();
   const h = parsePayload(raw);
   const db = openDb();
@@ -132,7 +132,7 @@ function cmdAppend(arg) {
   db.close();
 }
 
-function cmdList(args) {
+function cmdList(args: any) {
   const db = openDb();
   const filters: string[] = [];
   const params: any[] = [];
@@ -148,7 +148,7 @@ function cmdList(args) {
   db.close();
 }
 
-function cmdShow(idArg) {
+function cmdShow(idArg: any) {
   const id = parseInt(idArg, 10);
   if (!id) fail('uso: agent-router show <id>');
   const db = openDb();
@@ -158,7 +158,7 @@ function cmdShow(idArg) {
   db.close();
 }
 
-function cmdSetStatus(idArg, status) {
+function cmdSetStatus(idArg: any, status: any) {
   const id = parseInt(idArg, 10);
   if (!id) fail(`uso: agent-router ${status} <id>`);
   const db = openDb();

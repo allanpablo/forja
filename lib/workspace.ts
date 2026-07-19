@@ -33,7 +33,7 @@ function getHomeDir() {
   return os.homedir();
 }
 
-function readJsonSafe(filePath) {
+function readJsonSafe(filePath: any) {
   try {
     const raw = fs.readFileSync(filePath, 'utf8');
     return JSON.parse(raw);
@@ -100,7 +100,7 @@ export function getWorkspaceContextDir() {
   return path.join(getWorkspaceRoot(), '.context');
 }
 
-export function resolveProject(name) {
+export function resolveProject(name: any) {
   if (!name || typeof name !== 'string') {
     throw new Error('Nome do projeto é obrigatório');
   }
@@ -120,7 +120,7 @@ export function listProjects() {
     .map((entry) => entry.name);
 }
 
-export function ensureDir(dir) {
+export function ensureDir(dir: any) {
   if (!fs.existsSync(dir)) {
     fs.mkdirSync(dir, { recursive: true });
   }
@@ -198,13 +198,13 @@ Fichas de projetos gerados pelo Forja. Cada arquivo representa um produto ativo 
   return root;
 }
 
-export function isInsideFrameworkRepo(filePath) {
+export function isInsideFrameworkRepo(filePath: any) {
   const frameworkRoot = path.resolve(__dirname, '..');
   const resolved = path.resolve(filePath);
   return resolved === frameworkRoot || resolved.startsWith(frameworkRoot + path.sep);
 }
 
-export function assertOutsideFrameworkRepo(filePath, operation = 'operacao') {
+export function assertOutsideFrameworkRepo(filePath: any, operation = 'operacao') {
   if (isInsideFrameworkRepo(filePath)) {
     throw new Error(
       `${operation} não pode ser executada dentro do repositório do framework Forja. Use o workspace externo (~/forja-workspace).`

@@ -25,7 +25,7 @@ async function main() {
   const results = await runReleaseChecks({ publish });
 
   for (const r of results) {
-    console.log(`${TAG[r.status]} ${r.id.padEnd(17)} ${r.detail}`);
+    console.log(`${(TAG as any)[r.status]} ${r.id.padEnd(17)} ${r.detail}`);
     if (r.fix) console.log(`      corrigir: ${r.fix}`);
     console.log('');
   }
@@ -33,7 +33,7 @@ async function main() {
   const verdict = worstStatus(results);
 
   if (verdict === 'fail') {
-    const raiz = results.filter((r) => r.status === 'fail' && r.severity === 'critical');
+    const raiz = results.filter((r: any) => r.status === 'fail' && r.severity === 'critical');
     console.log(`REPROVADO — ${raiz.length} falha(s) crítica(s). O pacote não deve ser publicado.`);
     for (const r of raiz) console.log(`  ${r.id}: ${r.fix || 'sem correção automática'}`);
     process.exit(1);

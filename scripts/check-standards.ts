@@ -10,7 +10,7 @@ const root = path.resolve(__dirname, '..');
 const [projectArg] = process.argv.slice(2);
 
 const project = projectArg || 'framework-root';
-let projectDir;
+let projectDir: any;
 if (projectArg) {
   initWorkspace();
   projectDir = resolveProject(projectArg);

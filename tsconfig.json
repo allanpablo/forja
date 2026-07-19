@@ -1,8 +1,8 @@
 {
-  // On-ramp da migração TS (SPEC-012, Fase 0). checkJs sobre os .mjs atuais, sem renomear nada.
-  // noImplicitAny fica OFF nesta fase: os ~280 parâmetros sem tipo são anotados durante a
-  // renomeação leaf-first (Fase 2), arquivo a arquivo. Aqui perseguimos os erros ESTRUTURAIS —
-  // mismatches reais e aperto de contrato. Flag vira ON ao final da Fase 2.
+  // Migração TS concluída (SPEC-012). Toda a fonte do framework é .ts, checkJs cobre o que sobra.
+  // noImplicitAny está ON: o ratchet está armado — todo parâmetro novo precisa de tipo explícito.
+  // Os ~285 params existentes foram anotados na Fase 2 (tipo real onde agrega, `any` explícito onde
+  // o valor é genuinamente dinâmico: args de CLI, linhas de SQLite, JSON de payload).
   "compilerOptions": {
     "target": "es2022",
     "module": "nodenext",
@@ -14,7 +14,7 @@
     // No build vira false + rewriteRelativeImportExtensions reescreve .ts→.js (tsconfig.build.json).
     "allowImportingTsExtensions": true,
     "strict": true,
-    "noImplicitAny": false,
+    "noImplicitAny": true,
     // On-ramp: catch-var como `any` (comportamento pré-TS-4.4). O valor da migração são os
     // contratos tipados (checks/registry/handoff), não estreitar cada catch de script folha.
     // lib/core já estreita explicitamente via asErrno onde importa. Revisitar na Fase 2.
@@ -24,5 +24,5 @@
     "forceConsistentCasingInFileNames": true
   },
   "include": ["lib/**/*", "scripts/**/*", "bin/**/*"],
-  "exclude": ["node_modules", "dist", "docs/archive"]
+  "exclude": ["node_modules", "dist", "docs/archive", "lib/templates"]
 }

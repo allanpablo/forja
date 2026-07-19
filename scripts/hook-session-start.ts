@@ -25,7 +25,7 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const root = path.resolve(__dirname, '..');
 
-function safeReadDir(p) { try { return fs.readdirSync(p); } catch { return []; } }
+function safeReadDir(p: any) { try { return fs.readdirSync(p); } catch { return []; } }
 
 function listSpecs() {
   const specsDir = path.join(root, 'specs');

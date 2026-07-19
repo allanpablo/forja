@@ -10,7 +10,7 @@ import { writeFileSafe, ensureDir, maybeGitkeep } from '../utils/file-helpers.ts
  * Factory de templates NestJS dinâmicos
  * Recebe projectName para interpolar em package.json
  */
-function createNestTemplates(projectName) {
+function createNestTemplates(projectName: any) {
   return {
     'backend/package.json': `{
   "name": "${projectName}-api",
@@ -457,7 +457,7 @@ CREATE TABLE IF NOT EXISTS agent_sessions (
  * @param {string} projectName - Nome do projeto
  * @param {Object} options - Opções (force, noGitkeep)
  */
-export function generateNestStructure(baseDir, projectName, options = {}) {
+export function generateNestStructure(baseDir: any, projectName: any, options = {}) {
   const dynamicTemplates = createNestTemplates(projectName);
   const allTemplates = { ...dynamicTemplates, ...databaseScriptTemplates };
 

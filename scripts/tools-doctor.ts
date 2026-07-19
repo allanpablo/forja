@@ -60,7 +60,7 @@ const TOOLS = [
   },
 ];
 
-function detect(cmd, args) {
+function detect(cmd: any, args: any) {
   const res = spawnSync(cmd, args, { encoding: 'utf8' });
   if (res.error && (res.error as any).code === 'ENOENT') return { ok: false };
   const version = (res.stdout || res.stderr || '').trim().split('\n')[0] || 'instalado';
@@ -74,11 +74,11 @@ const TAG = {
   skipped: '—    ',
 };
 
-function printCore(results) {
+function printCore(results: any) {
   console.log('Núcleo — o que impede o framework de trabalhar (SPEC-009)\n');
 
   for (const r of results) {
-    console.log(`${TAG[r.status]} ${r.id.padEnd(13)} ${r.detail}`);
+    console.log(`${(TAG as any)[r.status]} ${r.id.padEnd(13)} ${r.detail}`);
     if (r.fix) console.log(`      corrigir: ${r.fix}`);
     console.log('');
   }

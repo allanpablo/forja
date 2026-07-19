@@ -23,7 +23,7 @@ const root = path.resolve(__dirname, '..');
 /**
  * Estimar tokens (1KB ≈ 250 tokens, aproximação)
  */
-function estimateTokens(content) {
+function estimateTokens(content: any) {
   const size = typeof content === 'number' ? content : content.length;
   return Math.round(size / 4); // 1 token ~= 4 bytes
 }
@@ -31,7 +31,7 @@ function estimateTokens(content) {
 /**
  * Formatar bytes em legível
  */
-function formatBytes(bytes) {
+function formatBytes(bytes: any) {
   if (bytes === 0) return '0 B';
   const k = 1024;
   const sizes = ['B', 'KB', 'MB'];
@@ -39,7 +39,7 @@ function formatBytes(bytes) {
   return (bytes / Math.pow(k, i)).toFixed(2) + ' ' + sizes[i];
 }
 
-function walkMarkdown(dir, out: string[] = []) {
+function walkMarkdown(dir: any, out: string[] = []) {
   if (!fs.existsSync(dir)) return out;
   for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
     if (['node_modules', '.git', '.memory', 'archive'].includes(entry.name)) continue;

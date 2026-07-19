@@ -29,11 +29,11 @@ export function defaultEnv(overrides = {}) {
   };
 }
 
-function lineHash(line) {
+function lineHash(line: any) {
   return createHash('sha1').update(line).digest('hex');
 }
 
-async function openDb(env) {
+async function openDb(env: any) {
   const { default: Database } = await import('better-sqlite3');
   const db = new Database(env.dbPath);
   // Auto-suficiente: cria a própria tabela no db que abre. Idempotente, e desacopla o audit do
@@ -67,7 +67,7 @@ export async function syncAudit(env = defaultEnv()) {
 
   let ingested = 0;
   let skipped = 0;
-  const run = db.transaction((rows) => {
+  const run = db.transaction((rows: any) => {
     for (const row of rows) {
       const res = insert.run(row);
       ingested += res.changes;
@@ -98,7 +98,7 @@ export async function syncAudit(env = defaultEnv()) {
 }
 
 /** Converte `7d` / `24h` / `30m` num timestamp ISO de corte, ou null. */
-function sinceCutoff(since) {
+function sinceCutoff(since: any) {
   if (!since) return null;
   const m = /^(\d+)([dhm])$/.exec(since);
   if (!m) return null;
@@ -126,7 +126,7 @@ export async function queryAudit(env = defaultEnv(), opts: { since?: string; cmd
                ORDER BY ts DESC`;
   const rows = db.prepare(sql).all(params);
   db.close();
-  return rows.map((r) => ({ ...r, args: JSON.parse(r.args || '[]') }));
+  return rows.map((r: any) => ({ ...r, args: JSON.parse(r.args || '[]') }));
 }
 
 /**
@@ -152,7 +152,7 @@ export async function auditSummary(env = defaultEnv()) {
 }
 
 /** Último exit code de um comando (para o painel mostrar o estado sem reexecutar — D4). */
-export async function lastExit(env, cmd) {
+export async function lastExit(env: any, cmd: any) {
   const db = await openDb(env);
   const row = db.prepare('SELECT exit_code AS exitCode, ts FROM audit_runs WHERE cmd = ? ORDER BY ts DESC LIMIT 1').get(cmd);
   db.close();

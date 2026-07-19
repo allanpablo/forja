@@ -23,7 +23,7 @@ const STATUS_RE = /-\s*\*\*Status\*\*:\s*([a-z]+)/i;
 const NUCLEO = ['native-abi', 'memory-db', 'memory-fresh', 'workspace', 'node-engines', 'runtime-deps', 'mcp-json'];
 const DOC = ['docs-commands', 'commands-documented', 'docs-links'];
 
-function readStatus(env, file) {
+function readStatus(env: any, file: any) {
   try {
     const m = env.fs.readFileSync(file, 'utf8').match(STATUS_RE);
     return m ? m[1].toLowerCase() : null;
@@ -32,7 +32,7 @@ function readStatus(env, file) {
   }
 }
 
-function collectSpecs(env) {
+function collectSpecs(env: any) {
   const dir = path.join(env.root, 'specs');
   let entries: string[] = [];
   try {
@@ -55,26 +55,26 @@ function collectSpecs(env) {
   return out;
 }
 
-function countAdrs(env) {
+function countAdrs(env: any) {
   try {
     return env.fs
       .readdirSync(path.join(env.root, 'memory', '90-decisions'))
-      .filter((f) => /^\d{4}-.*\.md$/.test(f)).length;
+      .filter((f: any) => /^\d{4}-.*\.md$/.test(f)).length;
   } catch {
     return 0;
   }
 }
 
-async function collectGates(env) {
+async function collectGates(env: any) {
   // Importa os catálogos como dados. Cada check: { id, title, severity }.
   const [{ CHECKS }, { RELEASE_CHECKS }] = await Promise.all([
     import('./core/health.ts'),
     import('./core/release.ts'),
   ]);
-  const pick = (ids) => CHECKS.filter((c) => ids.includes(c.id)).map((c) => ({ id: c.id, severity: c.severity }));
+  const pick = (ids: any) => CHECKS.filter((c) => ids.includes(c.id)).map((c) => ({ id: c.id, severity: c.severity }));
 
   // Estado = último exit do comando na auditoria (não reexecuta — D4). Degrada para "?" sem audit.
-  const exitOf = async (cmd) => {
+  const exitOf = async (cmd: any) => {
     try {
       const r = await lastExit(auditEnv(), cmd);
       return r ? (r.exitCode === 0 ? 'pass' : 'fail') : 'unknown';
@@ -116,22 +116,22 @@ export async function collect(env: { root?: string; fs?: typeof fs } = {}) {
 // render — string HTML self-contained (CSS inline, zero asset externo)
 // ---------------------------------------------------------------------------
 
-const esc = (s) => String(s).replace(/[&<>"]/g, (c) => (({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' } as Record<string, string>)[c]));
+const esc = (s: any) => String(s).replace(/[&<>"]/g, (c) => (({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' } as Record<string, string>)[c]));
 
-function stageCell(v) {
+function stageCell(v: any) {
   if (!v || v === null) return '<td class="st na">—</td>';
   return `<td class="st ${esc(v)}">${esc(v)}</td>`;
 }
 
 /** @param {Awaited<ReturnType<typeof collect>>} d */
-export function renderHtml(d) {
-  const gateCards = d.gates.map((g) => {
+export function renderHtml(d: any) {
+  const gateCards = d.gates.map((g: any) => {
     const state = g.state === 'pass' ? 'PASS' : g.state === 'fail' ? 'FAIL' : '—';
-    const checks = g.checks.map((c) => `<li><span class="cid">${esc(c.id)}</span><span class="sev ${esc(c.severity)}">${esc(c.severity)}</span></li>`).join('');
+    const checks = g.checks.map((c: any) => `<li><span class="cid">${esc(c.id)}</span><span class="sev ${esc(c.severity)}">${esc(c.severity)}</span></li>`).join('');
     return `<div class="gate ${esc(g.state)}"><div class="gh"><span class="gn">${esc(g.name)}</span><span class="gs">${state}</span></div><div class="gc">${esc(g.cmd)} · ${esc(g.adr)}</div><ul>${checks}</ul></div>`;
   }).join('');
 
-  const specRows = d.specs.map((s) =>
+  const specRows = d.specs.map((s: any) =>
     `<tr><td class="slug">${esc(s.slug)}</td>${stageCell(s.spec)}${stageCell(s.plan)}${stageCell(s.tasks)}</tr>`
   ).join('');
 
@@ -139,7 +139,7 @@ export function renderHtml(d) {
   const auditBlock = audit && audit.total
     ? `<div class="ametrics"><div><b>${audit.total}</b><span>runs auditados</span></div><div><b>${audit.fails}</b><span>reprovações</span></div></div>
        <table class="board"><thead><tr><th>comando</th><th>runs</th><th>falhas</th><th>média</th></tr></thead><tbody>
-       ${audit.byCmd.slice(0, 8).map((c) => `<tr><td class="slug">${esc(c.cmd)}</td><td class="num">${c.runs}</td><td class="num ${c.fails ? 'bad' : ''}">${c.fails}</td><td class="num">${c.avgMs ?? '—'}ms</td></tr>`).join('')}
+       ${audit.byCmd.slice(0, 8).map((c: any) => `<tr><td class="slug">${esc(c.cmd)}</td><td class="num">${c.runs}</td><td class="num ${c.fails ? 'bad' : ''}">${c.fails}</td><td class="num">${c.avgMs ?? '—'}ms</td></tr>`).join('')}
        </tbody></table>`
     : `<p class="empty">Sem atividade registrada ainda. A trilha nasce em <code>.context/forja-runs.jsonl</code> conforme você usa o <code>forja</code>. Rode <code>forja audit:sync</code>.</p>`;
 

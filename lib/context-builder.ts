@@ -21,7 +21,7 @@ export class ContextBuilder {
   cache: Map<any, any>;
   maxCacheSize: number;
 
-  constructor(projectPath, dbPath) {
+  constructor(projectPath: any, dbPath: any) {
     this.projectPath = projectPath;
     this.dbPath = dbPath;
     this.db = null;
@@ -60,7 +60,7 @@ export class ContextBuilder {
    * @param {string} keyword - Palavra-chave para busca (modo 'task')
    * @returns {string} Conteúdo do contexto em markdown
    */
-  build(mode, project, keyword = '') {
+  build(mode: any, project: any, keyword = '') {
     this.connect();
     
     const started = Date.now();
@@ -125,7 +125,7 @@ export class ContextBuilder {
   /**
    * Obter contexto de domínio (vision, design, rules do projeto)
    */
-  _getDomainNodes(project) {
+  _getDomainNodes(project: any) {
     try {
       const stmt = this.db.prepare(`
         SELECT DISTINCT n.title, n.content, n.path 
@@ -151,7 +151,7 @@ export class ContextBuilder {
   /**
    * Obter contexto orientado a tarefa (busca por FTS5)
    */
-  _getTaskNodes(project, keyword) {
+  _getTaskNodes(project: any, keyword: any) {
     try {
       const stmt = this.db.prepare(`
         SELECT DISTINCT n.title, n.content, n.path 
@@ -174,7 +174,7 @@ export class ContextBuilder {
   /**
    * Gerar markdown deduplicado
    */
-  _generateMarkdown(mode, project, keyword, nodes, seenPaths) {
+  _generateMarkdown(mode: any, project: any, keyword: any, nodes: any, seenPaths: any) {
     let md = `# CONTEXT PACK: ${project.toUpperCase()}\n\n`;
     md += `**Mode**: \`${mode}\`\n`;
     if (keyword) md += `**Search**: \`${keyword}\`\n`;
@@ -196,7 +196,7 @@ export class ContextBuilder {
   /**
    * Salvar contexto em arquivo
    */
-  save(content, outputPath) {
+  save(content: any, outputPath: any) {
     const dir = path.dirname(outputPath);
     if (!fs.existsSync(dir)) {
       fs.mkdirSync(dir, { recursive: true });
@@ -207,7 +207,7 @@ export class ContextBuilder {
   /**
    * Estatísticas de contexto
    */
-  stats(mode, project, keyword = '') {
+  stats(mode: any, project: any, keyword = '') {
     const content = this.build(mode, project, keyword);
     const lines = content.split('\n').length;
     const tokens = Math.round(content.length / 4); // Aproximação simples

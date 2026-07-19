@@ -807,7 +807,7 @@ export function getAllMemoryTemplates() {
  * @param {string} baseDir - Diretório base para geração
  * @param {Object} options - Opções (force, noGitkeep)
  */
-export function generateMemoryStructure(baseDir, options = {}) {
+export function generateMemoryStructure(baseDir: any, options = {}) {
   const allTemplates = getAllMemoryTemplates();
 
   // Escrever todos os arquivos

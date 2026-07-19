@@ -63,7 +63,7 @@ const NEST_CRITICAL_DIRS = [
  * @param {string} baseDir - Diretório base
  * @returns {Object} Resultado da validação
  */
-export function validateMemoryStructure(baseDir) {
+export function validateMemoryStructure(baseDir: any) {
   const errors: string[] = [];
   const warnings: string[] = [];
 
@@ -121,7 +121,7 @@ export function validateMemoryStructure(baseDir) {
  * @param {string} baseDir - Diretório base
  * @returns {Object} Resultado da validação
  */
-export function validateNestStructure(baseDir) {
+export function validateNestStructure(baseDir: any) {
   const errors: string[] = [];
   const warnings: string[] = [];
 
@@ -181,7 +181,7 @@ export function validateNestStructure(baseDir) {
  * @param {Object} options - Opções { includeNest: boolean }
  * @returns {Object} Resultado completo
  */
-export function validateProjectStructure(baseDir, options: { includeNest?: boolean } = {}) {
+export function validateProjectStructure(baseDir: any, options: { includeNest?: boolean } = {}) {
   const { includeNest = false } = options;
 
   const memoryResult = validateMemoryStructure(baseDir);
@@ -216,7 +216,7 @@ export function validateProjectStructure(baseDir, options: { includeNest?: boole
  * Imprime relatório de validação de forma amigável
  * @param {Object} report - Resultado de validateProjectStructure
  */
-export function printValidationReport(report) {
+export function printValidationReport(report: any) {
   if (report.isValid) {
     console.log('✅ Estrutura do projeto é válida!');
   } else {

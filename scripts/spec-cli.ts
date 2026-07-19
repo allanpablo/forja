@@ -29,7 +29,7 @@ const STATUS_RE = /-\s*\*\*Status\*\*:\s*([a-z]+)[^\n]*/i;
 const VALID_STATUSES = ['draft', 'review', 'approved', 'implementing', 'done', 'abandoned'];
 
 /** @returns {never} */
-function fail(msg): never {
+function fail(msg: any): never {
   fs.writeSync(2, `[spec-cli] ${msg}\n`);
   process.exit(1);
 }
@@ -38,7 +38,7 @@ function out(msg = '') {
   fs.writeSync(1, `${msg}\n`);
 }
 
-function slugify(name) {
+function slugify(name: any) {
   return name
     .toLowerCase()
     .normalize('NFD').replace(/[̀-ͯ]/g, '')
@@ -50,13 +50,13 @@ function todayISO() {
   return new Date().toISOString().slice(0, 10);
 }
 
-function readTemplate(stage) {
+function readTemplate(stage: any) {
   const p = path.join(templatesDir, `${stage}.md`);
   if (!fs.existsSync(p)) fail(`template ${stage}.md ausente em ${templatesDir}`);
   return fs.readFileSync(p, 'utf8');
 }
 
-function fillTemplate(tpl, vars) {
+function fillTemplate(tpl: any, vars: any) {
   return tpl
     .replace(/{{FEATURE}}/g, vars.feature)
     .replace(/{{ID}}/g, vars.id)
@@ -64,7 +64,7 @@ function fillTemplate(tpl, vars) {
     .replace(/{{DATE}}/g, vars.date);
 }
 
-function readStatus(filePath) {
+function readStatus(filePath: any) {
   if (!fs.existsSync(filePath)) return null;
   const content = fs.readFileSync(filePath, 'utf8');
   const m = content.match(STATUS_RE);
@@ -88,11 +88,11 @@ function listFeatures() {
  *
  * @returns {{ changed: boolean, content: string, reason: 'added'|'already-present'|'no-block' }}
  */
-export function addSpecToAllowlist(content, slug) {
+export function addSpecToAllowlist(content: any, slug: any) {
   const line = `!/specs/${slug}`;
   const lines = content.split('\n');
 
-  if (lines.some((l) => l.trim() === line)) {
+  if (lines.some((l: any) => l.trim() === line)) {
     return { changed: false, content, reason: 'already-present' };
   }
 
@@ -113,7 +113,7 @@ function gitignorePath() {
 }
 
 /** Efeito colateral de `spec:new`. Nunca derruba a criação da spec — criar a spec é o trabalho. */
-function ensureSpecVersioned(slug) {
+function ensureSpecVersioned(slug: any) {
   const file = gitignorePath();
   let raw;
   try {
@@ -138,7 +138,7 @@ function ensureSpecVersioned(slug) {
   }
 }
 
-function cmdNew(feature) {
+function cmdNew(feature: any) {
   if (!feature) fail('uso: spec:new <feature>');
   const slug = slugify(feature);
   const dir = path.join(specsDir, slug);
@@ -157,7 +157,7 @@ function cmdNew(feature) {
   out('  edite, mude status para "review", peça revisão.');
 }
 
-function cmdNextStage(stage, feature) {
+function cmdNextStage(stage: any, feature: any) {
   if (!feature) fail(`uso: spec:${stage} <feature>`);
   const slug = slugify(feature);
   const dir = path.join(specsDir, slug);
@@ -177,7 +177,7 @@ function cmdNextStage(stage, feature) {
   out(`✓ criada: specs/${slug}/${stage}.md`);
 }
 
-function checkFeature(slug) {
+function checkFeature(slug: any) {
   const dir = path.join(specsDir, slug);
   const result = { slug, stages: {} as Record<string, string | null>, ok: true, errors: [] as string[] };
   for (const stage of STAGES) {
@@ -203,7 +203,7 @@ function checkFeature(slug) {
   return result;
 }
 
-function cmdCheck(feature) {
+function cmdCheck(feature: any) {
   const features = feature ? [slugify(feature)] : listFeatures();
   if (!features.length) {
     out('Nenhuma spec encontrada em specs/');
@@ -226,7 +226,7 @@ function cmdCheck(feature) {
   }
 }
 
-function cmdSetStatus(feature, stage, status) {
+function cmdSetStatus(feature: any, stage: any, status: any) {
   if (!feature || !stage || !status) fail('uso: spec:set-status <feature> <spec|plan|tasks> <status>');
   if (!STAGES.includes(stage)) fail(`stage inválido: ${stage}. Use: ${STAGES.join('|')}`);
   if (!VALID_STATUSES.includes(status)) fail(`status inválido: ${status}. Use: ${VALID_STATUSES.join('|')}`);
