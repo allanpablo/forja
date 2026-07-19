@@ -4,6 +4,22 @@ Histórico consolidado das mudanças estruturais do framework. Para decisões ar
 
 ---
 
+## [1.3.1] — 2026-07-19 — Migração TypeScript dos módulos do framework (interno)
+
+**Sem mudança para quem instala** — o `dist/*.js` publicado é idêntico ao da 1.3.0. A conversão é
+interna: fecha a renomeação leaf-first da SPEC-012 Fase 2.
+
+### Alterado (interno)
+- **Todos os 21 módulos `.mjs` do framework** (`bin/forja`, `lib/{audit,governance-report,workspace}`,
+  todos os `scripts/` incluindo os 4 hooks) convertidos para `.ts`, com ~130 anotações de tipo. Os
+  typedefs JSDoc viraram `interface`; os casts-comentário `/** @type */ (x)` viraram `as`.
+- Dev e CI rodam a fonte `.ts` (Node ≥22.6); o `ci.yml` invoca `bin/forja.ts`. O publicado segue
+  `dist/*.js` (Node ≥20), provado pelo `release-gate`.
+- **Fora desta fatia** (deliberado): os 16 `.js` (entries públicos + generators + scaffolding), que
+  seguem no checkJs, e `noImplicitAny: true` (endurecimento final).
+
+---
+
 ## [1.3.0] — 2026-07-19 — Governança visível e o núcleo em TypeScript
 
 Duas frentes que amadurecem o framework: a governança sai do arquivo que ninguém abre para
