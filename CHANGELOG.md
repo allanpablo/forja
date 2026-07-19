@@ -4,6 +4,23 @@ Histórico consolidado das mudanças estruturais do framework. Para decisões ar
 
 ---
 
+## [1.3.2] — 2026-07-19 — Migração TypeScript concluída (interno)
+
+**Sem mudança para quem instala** — o `dist/*.js` publicado é idêntico ao da 1.3.1. Fecha a SPEC-012.
+
+### Alterado (interno)
+- **Fonte 100% TypeScript**: os 16 `.js` restantes (entries públicos `init-project`/
+  `create-memory-nest-kit`, generators, validators, `context-builder`, scaffolding) viraram `.ts`.
+- **`noImplicitAny: true`** — o ratchet está armado: daqui pra frente todo parâmetro novo precisa de
+  tipo explícito. Os ~285 params existentes foram anotados (tipo real onde agrega, `any` explícito
+  onde o valor é dinâmico). Os checks de `health`/`release` viram `Check[]` de verdade.
+- Shim `lib/vendor.d.ts` para o `better-sqlite3` (sem tipos publicados); `lib/templates` fora do
+  type-check (é conteúdo copiado, não código do framework).
+- Correção pega pelo `release:check`: um sed havia corrompido o array de fallback do `resolveScript`
+  (`['.ts','.js','.mjs']`→`['.ts','.ts','.ts']`), quebrando a resolução do `dist/*.js`.
+
+---
+
 ## [1.3.1] — 2026-07-19 — Migração TypeScript dos módulos do framework (interno)
 
 **Sem mudança para quem instala** — o `dist/*.js` publicado é idêntico ao da 1.3.0. A conversão é
