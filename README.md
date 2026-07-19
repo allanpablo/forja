@@ -192,6 +192,7 @@ forja memory:extract                       # extrai conhecimento global da memó
 forja project:check                        # standards do framework (pre-commit)
 forja tools:doctor                         # raio-x do núcleo; exit 1 se quebrou
 forja release:check --publish              # gate do tarball antes de publicar
+forja project:smoke                        # gate do projeto gerado; --full instala e builda o backend
 forja project:dashboard                    # relatório estático de status
 
 # Governança & auditoria

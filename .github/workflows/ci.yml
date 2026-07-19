@@ -50,3 +50,8 @@ jobs:
       - run: npm ci
       - name: Gate do tarball (instalação limpa)
         run: node bin/forja.ts release:check
+      # Gate do projeto gerado (ADR-0029), tier barato: gera um projeto isolado e prova que é
+      # coerente (sem placeholder vazado, package.json válido, estrutura íntegra). Sem rede — o
+      # tier --full (npm install + build) é opt-in, pré-release.
+      - name: Gate do projeto gerado
+        run: node bin/forja.ts project:smoke
