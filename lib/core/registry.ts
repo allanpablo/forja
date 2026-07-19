@@ -297,6 +297,11 @@ export const COMMANDS = {
     desc: 'Gate do tarball: instala limpo e prova que o pacote funciona (ADR-0024). --publish para o modo estrito',
     node: 'scripts/release-check.ts',
   },
+  'project:smoke': {
+    domain: 'governanca',
+    desc: 'Gate do projeto gerado: gera isolado e prova que é coerente (SPEC-015). --full instala e builda o backend',
+    node: 'scripts/project-smoke.ts',
+  },
   'project:dashboard': {
     domain: 'governanca',
     desc: 'Gera dashboard estático de status',
