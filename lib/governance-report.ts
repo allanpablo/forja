@@ -15,7 +15,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { COMMANDS } from './core/registry.ts';
-import { auditSummary, lastExit, defaultEnv as auditEnv } from './audit.mjs';
+import { auditSummary, lastExit, defaultEnv as auditEnv } from './audit.ts';
 
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 
@@ -34,13 +34,13 @@ function readStatus(env, file) {
 
 function collectSpecs(env) {
   const dir = path.join(env.root, 'specs');
-  let entries = [];
+  let entries: string[] = [];
   try {
     entries = env.fs.readdirSync(dir);
   } catch {
     return [];
   }
-  const out = [];
+  const out: { slug: string; spec: any; plan: any; tasks: any }[] = [];
   for (const slug of entries) {
     if (slug.startsWith('_') || slug.startsWith('.')) continue;
     const spec = readStatus(env, path.join(dir, slug, 'spec.md'));
@@ -99,7 +99,7 @@ async function collectAudit() {
 }
 
 /** @param {{ root?: string, fs?: typeof fs }} [env] */
-export async function collect(env = {}) {
+export async function collect(env: { root?: string; fs?: typeof fs } = {}) {
   const e = { root: env.root ?? repoRoot, fs: env.fs ?? fs };
   const specs = collectSpecs(e);
   const adrs = countAdrs(e);
@@ -116,7 +116,7 @@ export async function collect(env = {}) {
 // render — string HTML self-contained (CSS inline, zero asset externo)
 // ---------------------------------------------------------------------------
 
-const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+const esc = (s) => String(s).replace(/[&<>"]/g, (c) => (({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' } as Record<string, string>)[c]));
 
 function stageCell(v) {
   if (!v || v === null) return '<td class="st na">—</td>';

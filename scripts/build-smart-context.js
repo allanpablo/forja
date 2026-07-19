@@ -1,8 +1,8 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import Database from 'better-sqlite3';
-import { getDbPath, ensureSchema } from './memory-schema.mjs';
-import { resolveProject, initWorkspace } from '../lib/workspace.mjs';
+import { getDbPath, ensureSchema } from './memory-schema.ts';
+import { resolveProject, initWorkspace } from '../lib/workspace.ts';
 
 initWorkspace();
 ensureSchema({ silent: true });

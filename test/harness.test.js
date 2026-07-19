@@ -16,7 +16,7 @@ function run(scriptArgs, env = process.env) {
 }
 
 test('code:check degrada sem travar quando codegraph ausente', () => {
-  const r = run(['scripts/agent-harness.mjs', 'code:check'], NO_TOOLS_ENV);
+  const r = run(['scripts/agent-harness.ts', 'code:check'], NO_TOOLS_ENV);
   assert.equal(r.status, 0, 'deve sair 0 (nao-bloqueante) sem codegraph');
   assert.match(r.stdout, /nao instalado/i);
 });
@@ -28,19 +28,19 @@ test('code-intel.mjs (template emitido) tambem degrada sem codegraph', () => {
 });
 
 test('code:impact sem simbolo retorna erro de uso', () => {
-  const r = run(['scripts/agent-harness.mjs', 'code:impact']);
+  const r = run(['scripts/agent-harness.ts', 'code:impact']);
   assert.equal(r.status, 1);
   assert.match(r.stderr + r.stdout, /Uso:/);
 });
 
 test('code:impact sem codegraph oferece fallback manual', () => {
-  const r = run(['scripts/agent-harness.mjs', 'code:impact', 'algumSimbolo'], NO_TOOLS_ENV);
+  const r = run(['scripts/agent-harness.ts', 'code:impact', 'algumSimbolo'], NO_TOOLS_ENV);
   assert.equal(r.status, 0);
   assert.match(r.stdout, /Fallback manual/i);
 });
 
 test('tools:doctor lista as 5 ferramentas e nao trava sem nenhuma', () => {
-  const r = run(['scripts/tools-doctor.mjs'], NO_TOOLS_ENV);
+  const r = run(['scripts/tools-doctor.ts'], NO_TOOLS_ENV);
   assert.equal(r.status, 0);
   for (const name of ['codegraph', 'gitleaks', 'ast-grep', 'lefthook', 'markdownlint']) {
     assert.ok(r.stdout.includes(name), `esperava ${name} no relatorio`);

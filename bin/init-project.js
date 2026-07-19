@@ -24,7 +24,7 @@ import {
   initWorkspace,
   getWorkspaceProjectsMemoryDir,
   assertOutsideFrameworkRepo,
-} from '../lib/workspace.mjs';
+} from '../lib/workspace.ts';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);

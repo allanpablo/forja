@@ -29,7 +29,7 @@ const STATUS_RE = /-\s*\*\*Status\*\*:\s*([a-z]+)[^\n]*/i;
 const VALID_STATUSES = ['draft', 'review', 'approved', 'implementing', 'done', 'abandoned'];
 
 /** @returns {never} */
-function fail(msg) {
+function fail(msg): never {
   fs.writeSync(2, `[spec-cli] ${msg}\n`);
   process.exit(1);
 }
@@ -179,7 +179,7 @@ function cmdNextStage(stage, feature) {
 
 function checkFeature(slug) {
   const dir = path.join(specsDir, slug);
-  const result = { slug, stages: /** @type {Record<string,string|null>} */ ({}), ok: true, errors: /** @type {string[]} */ ([]) };
+  const result = { slug, stages: {} as Record<string, string | null>, ok: true, errors: [] as string[] };
   for (const stage of STAGES) {
     const status = readStatus(path.join(dir, `${stage}.md`));
     result.stages[stage] = status;

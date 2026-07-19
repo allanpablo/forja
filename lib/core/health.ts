@@ -29,7 +29,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { getWorkspaceDbPath, getWorkspaceInfo } from '../workspace.mjs';
+import { getWorkspaceDbPath, getWorkspaceInfo } from '../workspace.ts';
 import { runChecks as run, worstStatus, stripTemplateLiterals, asErrno } from './checks.ts';
 import { COMMANDS } from './registry.ts';
 import { scanCommands, scanLinks, projectCommands } from './doc-graph.ts';

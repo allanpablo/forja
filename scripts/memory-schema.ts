@@ -4,7 +4,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import Database from 'better-sqlite3';
 import { fileURLToPath } from 'node:url';
-import { getWorkspaceDbPath, initWorkspace } from '../lib/workspace.mjs';
+import { getWorkspaceDbPath, initWorkspace } from '../lib/workspace.ts';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const root = path.resolve(__dirname, '..');

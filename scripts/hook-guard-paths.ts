@@ -45,14 +45,14 @@ function readStdin() {
 
 /** Falha aberta: um guard quebrado não pode travar a sessão inteira. */
 /** @returns {never} */
-function allow() { process.exit(0); }
+function allow(): never { process.exit(0); }
 
 (async function main() {
   if (process.env.FORJA_GUARD === '0') allow();
 
   let payload;
   try {
-    payload = JSON.parse(await readStdin());
+    payload = JSON.parse((await readStdin()) as string);
   } catch {
     allow();
   }

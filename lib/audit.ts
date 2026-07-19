@@ -15,7 +15,7 @@
 import fs from 'node:fs';
 import { createHash } from 'node:crypto';
 
-import { getWorkspaceDbPath, getWorkspaceContextDir } from './workspace.mjs';
+import { getWorkspaceDbPath, getWorkspaceContextDir } from './workspace.ts';
 
 /** @typedef {{ ts: string, cmd: string, args: string[], exitCode: number, durationMs: number }} Run */
 
@@ -74,7 +74,7 @@ export async function syncAudit(env = defaultEnv()) {
     }
   });
 
-  const rows = [];
+  const rows: { line_hash: string; ts: any; cmd: any; args: string; exit_code: any; duration_ms: any }[] = [];
   for (const line of lines) {
     try {
       const r = JSON.parse(line);
@@ -103,7 +103,7 @@ function sinceCutoff(since) {
   const m = /^(\d+)([dhm])$/.exec(since);
   if (!m) return null;
   const [, n, unit] = m;
-  const ms = { d: 864e5, h: 36e5, m: 6e4 }[unit] * Number(n);
+  const ms = ({ d: 864e5, h: 36e5, m: 6e4 } as Record<string, number>)[unit] * Number(n);
   return new Date(Date.now() - ms).toISOString();
 }
 
@@ -111,10 +111,10 @@ function sinceCutoff(since) {
  * Consulta estruturada. `{ since, cmd, gate, failed }`.
  * @returns {Promise<Run[]>}
  */
-export async function queryAudit(env = defaultEnv(), opts = {}) {
+export async function queryAudit(env = defaultEnv(), opts: { since?: string; cmd?: string; failed?: boolean; gate?: string } = {}) {
   const db = await openDb(env);
-  const where = [];
-  const params = {};
+  const where: string[] = [];
+  const params: Record<string, any> = {};
 
   const cutoff = sinceCutoff(opts.since);
   if (cutoff) { where.push('ts >= @cutoff'); params.cutoff = cutoff; }

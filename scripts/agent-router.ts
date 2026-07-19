@@ -33,7 +33,7 @@ import path from 'node:path';
 import process from 'node:process';
 import { fileURLToPath } from 'node:url';
 import Database from 'better-sqlite3';
-import { getDbPath, ensureSchema } from './memory-schema.mjs';
+import { getDbPath, ensureSchema } from './memory-schema.ts';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -134,8 +134,8 @@ function cmdAppend(arg) {
 
 function cmdList(args) {
   const db = openDb();
-  const filters = [];
-  const params = [];
+  const filters: string[] = [];
+  const params: any[] = [];
   if (args.includes('--open')) filters.push("status = 'open'");
   const toIdx = args.indexOf('--to');
   if (toIdx >= 0 && args[toIdx + 1]) { filters.push('to_agent = ?'); params.push(args[toIdx + 1]); }

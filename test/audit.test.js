@@ -4,7 +4,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 
-import { syncAudit, queryAudit, auditSummary, lastExit } from '../lib/audit.mjs';
+import { syncAudit, queryAudit, auditSummary, lastExit } from '../lib/audit.ts';
 
 /** Ambiente descartável: um jsonl de fixture + um db temporário. Sem tocar o workspace real. */
 function tmpEnv(lines) {

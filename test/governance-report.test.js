@@ -4,7 +4,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 
-import { collect, renderHtml } from '../lib/governance-report.mjs';
+import { collect, renderHtml } from '../lib/governance-report.ts';
 
 /** Repo de fixture: specs com status + ADRs. Sem tocar o repo real. */
 function fixtureRepo() {
