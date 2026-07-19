@@ -5,14 +5,12 @@
   "type": "module",
   "main": "index.js",
   "bin": {
-    "forja": "bin/forja.mjs",
-    "init-project": "bin/init-project.js",
-    "create-memory-nest-kit": "bin/create-memory-nest-kit.js"
+    "forja": "dist/bin/forja.mjs",
+    "init-project": "dist/bin/init-project.js",
+    "create-memory-nest-kit": "dist/bin/create-memory-nest-kit.js"
   },
   "files": [
-    "bin/",
-    "lib/",
-    "scripts/",
+    "dist/",
     "prompts/",
     "boilerplates/",
     "design-md/",

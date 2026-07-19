@@ -37,7 +37,7 @@ renomeação não quebrou nada.
 | `lib/generators/*.js` → `.ts` | tipa a assinatura; o **conteúdo** (template string) fica string | B |
 | `package.json` | `main`/`types`/`exports`/`bin` → `dist/`; `build`; `files[]` dist; `prepublishOnly` | **A** |
 | `.claude/settings.json` | hooks → `.ts` (dev roda nativo) | B |
-| `.github/workflows/ci.yml` | steps `types:check` e `build` | B |
+| `.github/workflows/ci.yml` | só o step `types:check` (o build vive no `release:check`, D4) | B |
 | `memory/90-decisions/0026-*.md` | **criar** — ADR | B |
 
 Os três `A` são o registry, o dispatch e o `package.json` — a tríade que decide se o comando roda
@@ -95,7 +95,7 @@ export interface Check { id: string; title: string; severity: Severity; scope?: 
 | `main` / `types` | `dist/lib/index.js` / `.d.ts` |
 | `files[]` | troca `bin/ lib/ scripts/` por `dist/` (o resto — memory/, docs/, boilerplates/ — fica) |
 | `scripts.build` | `tsc` |
-| `scripts.prepublishOnly` | `npm run build && node bin/forja.ts release:check -- --publish` |
+| `scripts.prepublishOnly` | `node bin/forja.mjs release:check -- --publish` (o gate builda, D4) |
 
 ## 5. Decisões e alternativas
 
@@ -113,9 +113,15 @@ dois registries — é como se chega a duas verdades divergentes, o defeito que 
 roda `.ts`); publicado roda `dist/.js`. `engines.node` fica `>=20` — por isso publicamos compilado.
 O usuário final não é obrigado a Node novo; o dev sim.
 
-**D4: `build-fresh` no `RELEASE_CHECKS`.** Sem ele, a migração reintroduz a classe do ADR-0021: um
-`dist/` que mente sobre o `src/`. O gate recompila num temp e faz diff com o `dist/` commitado;
-diferente → reprova com `npm run build`. É o `memory-fresh`, um nível abaixo.
+**D4 (revisado na implementação): o gate builda o `dist/`, e o `dist/` não é commitado.** O plano
+original commitava `dist/` e um check `build-fresh` fazia diff contra a fonte — mas isso guarda um
+artefato de build no git e reintroduz staleness ("o `dist/` commitado bate com o `src/`?"). A versão
+que shipou é mais simples: `dist/` é gitignored e o `release:check` roda `npm run build` **antes de
+empacotar** (só quando `files[]` inclui `dist/`). Como `npm publish` empacota o disco e o gate
+empacota o mesmo disco recém-buildado, o tarball provado é exatamente o publicado — sem diff, sem
+artefato no git, sem janela de staleness. Efeito colateral que destravou a Fase 3: a prova fica
+self-contained e **não precisa de um step de `build` no `ci.yml`** (que exigiria escopo de workflow e
+acoplaria a prova ao CI). Uma máquina — o gate — constrói e prova.
 
 **D5: `checkJs` antes de renomear; leaf-first depois.** Ordem por dependência:
 `workspace → checks → registry → doc-graph → health/release → scripts → hooks → bin → generators`.
