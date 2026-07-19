@@ -4,6 +4,31 @@ Histórico consolidado das mudanças estruturais do framework. Para decisões ar
 
 ---
 
+## [1.3.0] — 2026-07-19 — Governança visível e o núcleo em TypeScript
+
+Duas frentes que amadurecem o framework: a governança sai do arquivo que ninguém abre para
+**consultável e visível**, e o motor de invariantes (`lib/core/`) passa a ser **TypeScript de
+verdade**, com o pacote publicando `dist/` compilado.
+
+### Adicionado
+- **Auditoria consultável + painel de governança** (SPEC-014, ADR-0028): `audit:sync` projeta o
+  `.context/forja-runs.jsonl` na tabela `audit_runs` (idempotente por `line_hash` — o `.jsonl` segue
+  sendo a fonte de verdade); `audit:query` filtra a trilha por `--failed`/`--cmd`/`--since`/`--gate`;
+  `governance:dashboard` gera um HTML **estático e self-contained** (sem servidor — a lição do
+  ADR-0022) com o estado de specs, ADRs, gates e métricas.
+- **`lib/core/` em TypeScript** (SPEC-012 Fase 2, leaf-first): `checks`, `health`, `release`,
+  `doc-graph` e `registry` viram `.ts` com `interface Check/Probe/Result` reais. Dev roda `.ts`
+  nativo (Node ≥22.6); o publicado embarca `dist/*.js` (Node ≥20).
+
+### Alterado
+- **O pacote publica `dist/` compilado** (SPEC-012 Fase 3): `bin`/`files[]` apontam para `dist/`. O
+  `release:check` **builda o `dist/` antes de empacotar**, então o tarball provado é exatamente o
+  publicado — sem step de build no CI, sem `dist/` no git, sem janela de staleness.
+- **CI**: o job `test` roda em Node 22.x/24.x (a fonte `.ts` exige strip-types ≥22.6). O suporte a
+  Node 20 do pacote publicado (que é `dist/*.js`) segue provado pelo job `release-gate`.
+
+---
+
 ## [1.2.0] — 2026-07-18 — Boilerplate Clean Architecture, coerência de doc e correções
 
 Feature nova (um boilerplate), o terceiro gate de invariante (coerência da documentação), e
