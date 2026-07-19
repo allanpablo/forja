@@ -36,8 +36,7 @@ import { scanCommands, scanLinks, projectCommands } from './doc-graph.ts';
 
 // Os contratos vivem em checks.mjs — importados, não redefinidos. As cópias locais eram resíduo da
 // extração do runner (SPEC-010) e já divergiam.
-/** @typedef {import('./checks.ts').Check} Check */
-/** @typedef {import('./checks.ts').Result} Result */
+import type { Check, Result } from './checks.ts';
 /** @typedef {import('./checks.ts').Status} Status */
 
 // O runner vive em checks.mjs e é compartilhado com o catálogo de release (SPEC-010). Re-exportado
@@ -65,7 +64,7 @@ export function defaultEnv(overrides = {}) {
   return {
     root: repoRoot,
     fs,
-    importModule: (specifier) => import(specifier),
+    importModule: (specifier: any) => import(specifier),
     process: globalThis.process,
     workspace: { dbPath: getWorkspaceDbPath, info: getWorkspaceInfo },
     ...overrides,
@@ -86,13 +85,12 @@ export function defaultEnv(overrides = {}) {
  * Classificamos por `err.code`, nunca pela mensagem: o texto do erro varia entre versões do Node,
  * e este check existe precisamente para sobreviver a troca de versão do Node.
  */
-/** @type {Check} */
-const nativeAbi = {
+const nativeAbi: Check = {
   id: 'native-abi',
   title: 'better-sqlite3 carrega no Node atual',
   severity: 'critical',
   scope: 'runtime',
-  async probe(env) {
+  async probe(env: any) {
     let Database;
     try {
       ({ default: Database } = await env.importModule('better-sqlite3'));
@@ -128,14 +126,13 @@ const nativeAbi = {
   },
 };
 
-/** @type {Check} */
-const memoryDb = {
+const memoryDb: Check = {
   id: 'memory-db',
   title: 'universal.db acessível',
   severity: 'critical',
   scope: 'runtime',
   dependsOn: 'native-abi',
-  async probe(env) {
+  async probe(env: any) {
     const dbPath = env.workspace.dbPath();
 
     // Ausente ≠ quebrado. Num clone novo (ou num CI) a memória simplesmente nunca foi indexada:
@@ -168,7 +165,7 @@ const memoryDb = {
 };
 
 /** mtime do .md mais recente sob um diretório, ignorando arquivados. */
-function newestMarkdownMtime(env, dir, acc = { t: 0 }) {
+function newestMarkdownMtime(env: any, dir: any, acc = { t: 0 }) {
   let entries;
   try {
     entries = env.fs.readdirSync(dir);
@@ -198,14 +195,13 @@ function newestMarkdownMtime(env, dir, acc = { t: 0 }) {
  *
  * É `warn`, não `critical`: responder sobre memória velha atrapalha, mas não impede trabalho.
  */
-/** @type {Check} */
-const memoryFresh = {
+const memoryFresh: Check = {
   id: 'memory-fresh',
   title: 'índice em dia com memory/',
   severity: 'warn',
   scope: 'runtime',
   dependsOn: 'memory-db',
-  probe(env) {
+  probe(env: any) {
     const dbPath = env.workspace.dbPath();
 
     // `memory-db` passa com aviso quando o banco nunca foi indexado, então a cascata não nos pula:
@@ -241,13 +237,12 @@ const memoryFresh = {
  * pensa" — um FORJA_WORKSPACE esquecido no ambiente aponta o framework para o workspace errado, e
  * tudo parece funcionar.
  */
-/** @type {Check} */
-const workspace = {
+const workspace: Check = {
   id: 'workspace',
   title: 'workspace resolvido',
   severity: 'warn',
   scope: 'runtime',
-  probe(env) {
+  probe(env: any) {
     const { root, source, exists } = env.workspace.info();
 
     if (!exists) {
@@ -263,13 +258,12 @@ const workspace = {
 };
 
 /** Compara o Node em uso com o `engines.node` declarado. Abaixo do mínimo, o resto é loteria. */
-/** @type {Check} */
-const nodeEngines = {
+const nodeEngines: Check = {
   id: 'node-engines',
   title: 'Node dentro de engines',
   severity: 'warn',
   scope: 'runtime',
-  probe(env) {
+  probe(env: any) {
     const current = env.process.versions.node;
     const pkgPath = path.join(env.root, 'package.json');
 
@@ -309,7 +303,7 @@ const nodeEngines = {
 // ---------------------------------------------------------------------------
 
 /** Estamos dentro do repo do framework, e não numa instalação do pacote? */
-export function isFrameworkRepo(env) {
+export function isFrameworkRepo(env: any) {
   try {
     if (!env.fs.existsSync(path.join(env.root, '.git'))) return false;
     const pkg = JSON.parse(env.fs.readFileSync(path.join(env.root, 'package.json'), 'utf8'));
@@ -322,7 +316,7 @@ export function isFrameworkRepo(env) {
 const IMPORT_RE = /^\s*import\s+(?:[\w*{}\n\r\t, ]+from\s+)?['"]([^'"]+)['"]/gm;
 
 /** Pacote npm (não builtin, não relativo). `@scope/x/sub` → `@scope/x`; `x/sub` → `x`. */
-function packageName(specifier) {
+function packageName(specifier: any) {
   if (specifier.startsWith('.') || specifier.startsWith('/')) return null;
   if (specifier.startsWith('node:')) return null;
   const parts = specifier.split('/');
@@ -337,13 +331,12 @@ function packageName(specifier) {
  * Conservador de propósito: só olha import **estático** de script publicado. Import dinâmico não
  * conta (é o padrão do carregamento lazy, e lazy é justamente o que o ADR-0021 pediu).
  */
-/** @type {Check} */
-const runtimeDeps = {
+const runtimeDeps: Check = {
   id: 'runtime-deps',
   title: 'deps de runtime declaradas',
   severity: 'critical',
   scope: 'repo',
-  probe(env) {
+  probe(env: any) {
     if (!isFrameworkRepo(env)) {
       return { status: 'ok', detail: 'fora do repo do framework — não se aplica', fix: null };
     }
@@ -354,12 +347,12 @@ const runtimeDeps = {
 
     // Diretórios publicados que contêm código executável.
     const published = (pkg.files || [])
-      .filter((f) => !f.startsWith('!') && /^(bin|lib|scripts)\//.test(f))
-      .map((f) => path.join(env.root, f.replace(/\/+$/, '')));
+      .filter((f: any) => !f.startsWith('!') && /^(bin|lib|scripts)\//.test(f))
+      .map((f: any) => path.join(env.root, f.replace(/\/+$/, '')));
 
     const offenders = new Map();
 
-    const walk = (dir) => {
+    const walk = (dir: any) => {
       let entries;
       try {
         entries = env.fs.readdirSync(dir);
@@ -416,13 +409,12 @@ const runtimeDeps = {
  * repo. O codegraph indexava código morto e respondia com confiança sobre ele. O path também
  * quebrava para qualquer outro contribuidor.
  */
-/** @type {Check} */
-const mcpJson = {
+const mcpJson: Check = {
   id: 'mcp-json',
   title: '.mcp.json sem path absoluto',
   severity: 'critical',
   scope: 'repo',
-  probe(env) {
+  probe(env: any) {
     if (!isFrameworkRepo(env)) {
       return { status: 'ok', detail: 'fora do repo do framework — não se aplica', fix: null };
     }
@@ -461,13 +453,12 @@ const mcpJson = {
  * quebrou. É `critical`. A allowlist do projeto gerado é **derivada** dos geradores + boilerplates
  * (nunca literal), senão `start:dev`/`test:e2e` e afins dariam falso positivo.
  */
-/** @type {Check} */
-const docsCommands = {
+const docsCommands: Check = {
   id: 'docs-commands',
   title: 'comandos citados na doc existem',
   severity: 'critical',
   scope: 'repo',
-  probe(env) {
+  probe(env: any) {
     if (!isFrameworkRepo(env)) {
       return { status: 'ok', detail: 'fora do repo do framework — não se aplica', fix: null };
     }
@@ -492,13 +483,12 @@ const docsCommands = {
  * Capacidade que ninguém documenta é capacidade obscura. `warn`, não `critical`: um comando
  * não-documentado atrapalha (o operador não sabe que existe), mas não impede trabalho.
  */
-/** @type {Check} */
-const commandsDocumented = {
+const commandsDocumented: Check = {
   id: 'commands-documented',
   title: 'todo comando do registry é documentado',
   severity: 'warn',
   scope: 'repo',
-  probe(env) {
+  probe(env: any) {
     if (!isFrameworkRepo(env)) {
       return { status: 'ok', detail: 'fora do repo do framework — não se aplica', fix: null };
     }
@@ -519,13 +509,12 @@ const commandsDocumented = {
 };
 
 /** Link relativo para o nada é step obscuro. `warn`: atrapalha a navegação, não impede trabalho. */
-/** @type {Check} */
-const docsLinks = {
+const docsLinks: Check = {
   id: 'docs-links',
   title: 'links relativos da doc resolvem',
   severity: 'warn',
   scope: 'repo',
-  probe(env) {
+  probe(env: any) {
     if (!isFrameworkRepo(env)) {
       return { status: 'ok', detail: 'fora do repo do framework — não se aplica', fix: null };
     }

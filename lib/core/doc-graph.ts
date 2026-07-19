@@ -41,7 +41,7 @@ const COMMAND_RE = /(?:\bforja\s+|npm run\s+)([a-z][a-z0-9]*(?::[a-z0-9-]+)+)/g;
 /** Link markdown relativo. Ignora http(s):// e âncoras puras; a âncora de um path é descartada. */
 const LINK_RE = /\]\(([^)]+)\)/g;
 
-function safeRead(env, file) {
+function safeRead(env: any, file: any) {
   try {
     return env.fs.readFileSync(file, 'utf8');
   } catch {
@@ -50,11 +50,11 @@ function safeRead(env, file) {
 }
 
 /** Coleta os `.md` sob uma superfície (arquivo direto ou diretório varrido, menos EXCLUDED_DIRS). */
-function collectMarkdown(env, surface) {
+function collectMarkdown(env: any, surface: any) {
   const abs = path.join(env.root, surface);
   const out: string[] = [];
 
-  const walk = (p) => {
+  const walk = (p: any) => {
     let st;
     try {
       st = env.fs.statSync(p);
@@ -82,7 +82,7 @@ function collectMarkdown(env, surface) {
 }
 
 /** Todos os `.md` das superfícies de instrução, caminhos relativos à raiz. */
-export function docFiles(env) {
+export function docFiles(env: any) {
   const seen = new Set<string>();
   for (const surface of DOC_SURFACES) {
     for (const file of collectMarkdown(env, surface)) {
@@ -96,13 +96,13 @@ export function docFiles(env) {
  * Comandos citados nas superfícies de instrução.
  * @returns {{ file: string, line: number, command: string }[]}
  */
-export function scanCommands(env) {
+export function scanCommands(env: any) {
   const hits: { file: string; line: number; command: string }[] = [];
   for (const rel of docFiles(env)) {
     const src = safeRead(env, path.join(env.root, rel));
     if (src == null) continue;
     const lines = src.split('\n');
-    lines.forEach((text, i) => {
+    lines.forEach((text: any, i: any) => {
       for (const m of text.matchAll(COMMAND_RE)) {
         hits.push({ file: rel, line: i + 1, command: m[1] });
       }
@@ -115,14 +115,14 @@ export function scanCommands(env) {
  * Links markdown relativos nas superfícies de instrução, com o alvo já resolvido à raiz.
  * @returns {{ file: string, line: number, target: string, resolved: string }[]}
  */
-export function scanLinks(env) {
+export function scanLinks(env: any) {
   const hits: { file: string; line: number; target: string; resolved: string }[] = [];
   for (const rel of docFiles(env)) {
     const src = safeRead(env, path.join(env.root, rel));
     if (src == null) continue;
     const dir = path.dirname(rel);
     const lines = src.split('\n');
-    lines.forEach((text, i) => {
+    lines.forEach((text: any, i: any) => {
       for (const m of text.matchAll(LINK_RE)) {
         const raw = m[1].trim();
         if (!raw || raw.startsWith('#')) continue; // âncora pura
@@ -142,7 +142,7 @@ export function scanLinks(env) {
 }
 
 /** Extrai as keys de todo bloco `"scripts": { … }` de um fonte de gerador. */
-function scriptKeys(source) {
+function scriptKeys(source: any) {
   const keys = new Set();
   const block = source.match(/"scripts"\s*:\s*\{([\s\S]*?)\}/g);
   if (!block) return keys;
@@ -155,7 +155,7 @@ function scriptKeys(source) {
 }
 
 /** Todo `package.json` sob um diretório (boilerplates têm vários, aninhados). */
-function findPackageJsons(env, dir, acc: string[] = []) {
+function findPackageJsons(env: any, dir: any, acc: string[] = []) {
   let entries;
   try {
     entries = env.fs.readdirSync(dir);
@@ -188,7 +188,7 @@ function findPackageJsons(env, dir, acc: string[] = []) {
  *
  * @returns {Set<string>}
  */
-export function projectCommands(env) {
+export function projectCommands(env: any) {
   const commands = new Set();
 
   // Fonte 1: blocos "scripts" inline dos geradores.

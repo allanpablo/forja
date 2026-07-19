@@ -67,7 +67,7 @@ const SEVERITY_FALLBACK: Severity = 'critical';
  * @param {unknown} e
  * @returns {NodeJS.ErrnoException}
  */
-export function asErrno(e) {
+export function asErrno(e: any) {
   return /** @type {NodeJS.ErrnoException} */ (e);
 }
 
@@ -75,7 +75,7 @@ export function asErrno(e) {
  * Um probe que estoura é pior que probe nenhum: derrubaria o diagnóstico justamente no ambiente
  * quebrado que ele existe para diagnosticar. O runner blinda cada um e segue para o próximo.
  */
-async function runProbe(check, env) {
+async function runProbe(check: any, env: any) {
   try {
     const probe = await check.probe(env);
     return {
@@ -99,8 +99,10 @@ async function runProbe(check, env) {
  * @param {{ checks: Check[], scope?: Scope|'all', env?: object }} opts
  * @returns {Promise<Result[]>}
  */
-export async function runChecks({ checks, scope = 'all', env = {} }) {
-  const selected = checks.filter((c) => scope === 'all' || c.scope === scope);
+export async function runChecks(
+  { checks, scope = 'all', env = {} }: { checks: Check[]; scope?: Scope | 'all'; env?: any }
+) {
+  const selected = checks.filter((c: any) => scope === 'all' || c.scope === scope);
   const statusById = new Map<string, Status>();
   const results: Result[] = [];
 
@@ -142,7 +144,7 @@ export async function runChecks({ checks, scope = 'all', env = {} }) {
  * @param {Result[]} results
  * @returns {'ok'|'warn'|'fail'}
  */
-export function worstStatus(results) {
+export function worstStatus(results: any) {
   let seenWarn = false;
 
   for (const r of results) {
@@ -161,6 +163,6 @@ export function worstStatus(results) {
  * acusar `@nestjs/core` como dependência não declarada e `./app.module` como import quebrado.
  * Observado em campo ao auditar o tarball da 1.1.3.
  */
-export function stripTemplateLiterals(source) {
+export function stripTemplateLiterals(source: any) {
   return source.replace(/`(?:\\.|[^`\\])*`/gs, '``');
 }

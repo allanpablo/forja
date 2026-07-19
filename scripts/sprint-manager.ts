@@ -16,7 +16,7 @@ if (!cmd) {
 }
 
 const project = projectArg || '.';
-let projectDir;
+let projectDir: any;
 if (project === '.' || project === 'root') {
   projectDir = root;
 } else {
@@ -59,10 +59,10 @@ function startSprint() {
 
   if (toSprint.length === 0) {
     const riceRows = parseRiceBacklog(backlog)
-      .filter((item) => ['P0', 'P1'].includes(item.priority))
+      .filter((item: any) => ['P0', 'P1'].includes(item.priority))
       .slice(0, Number(args[0]) || 5);
 
-    toSprint.push(...riceRows.map((item) => `- [ ] ${item.priority}: ${item.item} (RICE ${item.rice})`));
+    toSprint.push(...riceRows.map((item: any) => `- [ ] ${item.priority}: ${item.item} (RICE ${item.rice})`));
   }
 
   if (toSprint.length === 0) return console.log('Nada para mover para a sprint.');
@@ -100,21 +100,21 @@ function showStatus() {
   console.log(content);
 }
 
-function parseRiceBacklog(content) {
+function parseRiceBacklog(content: any) {
   return content
     .split('\n')
-    .filter((line) => line.startsWith('| P'))
-    .map((line) => line.split('|').map((cell) => cell.trim()))
-    .filter((cells) => cells.length >= 8)
-    .map((cells) => ({
+    .filter((line: any) => line.startsWith('| P'))
+    .map((line: any) => line.split('|').map((cell: any) => cell.trim()))
+    .filter((cells: any) => cells.length >= 8)
+    .map((cells: any) => ({
       priority: cells[1],
       item: cells[2],
       rice: cells[7],
     }))
-    .filter((item) => item.priority && item.item && item.rice);
+    .filter((item: any) => item.priority && item.item && item.rice);
 }
 
-function parseChecklistItems(content) {
+function parseChecklistItems(content: any) {
   const done: any[] = [];
   const pending: any[] = [];
   const lines = content.split('\n');
@@ -129,7 +129,7 @@ function parseChecklistItems(content) {
   return { done, pending };
 }
 
-function appendToHighPriorityBacklog(items) {
+function appendToHighPriorityBacklog(items: any) {
   if (items.length === 0 || !fs.existsSync(backlogFile)) return;
   const backlog = fs.readFileSync(backlogFile, 'utf8');
   const lines = backlog.split('\n');
@@ -139,7 +139,7 @@ function appendToHighPriorityBacklog(items) {
   for (let i = 0; i < lines.length; i += 1) {
     output.push(lines[i]);
     if (!inserted && lines[i].includes('## Alta Prioridade')) {
-      output.push(...items.map((item) => `- [ ] ${item}`));
+      output.push(...items.map((item: any) => `- [ ] ${item}`));
       inserted = true;
     }
   }

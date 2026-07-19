@@ -1,7 +1,7 @@
 # Spec: ts-migration
 
 - **ID**: SPEC-012
-- **Status**: approved
+- **Status**: done
 - **Owner**: apk
 - **Criado em**: 2026-07-18
 - **Sprint alvo**: S?

@@ -118,7 +118,7 @@ Exemplos:
 /**
  * Run subprocess
  */
-function runScript(scriptPath, args: string[] = []) {
+function runScript(scriptPath: any, args: string[] = []) {
   return new Promise<void>((resolve, reject) => {
     const proc = spawn('node', [scriptPath, ...args], {
       stdio: 'inherit',
@@ -137,7 +137,7 @@ function runScript(scriptPath, args: string[] = []) {
   });
 }
 
-function harnessCommand(command) {
+function harnessCommand(command: any) {
   return async function runHarness(args: string[] = []) {
     await runScript(path.join(root, 'scripts', 'agent-harness.mjs'), [command, ...args]);
   };
@@ -146,7 +146,7 @@ function harnessCommand(command) {
 /**
  * Context Build Handler
  */
-async function contextBuild([mode, project, keyword] = []) {
+async function contextBuild([mode, project, keyword]: string[] = []) {
   if (!mode || !project) {
     console.error('Uso: context:build <global|domain|task> <project> [keyword]');
     process.exit(1);
@@ -199,7 +199,7 @@ async function memoryVacuum() {
 /**
  * Memory Sync Handler
  */
-async function memorySync([project] = []) {
+async function memorySync([project]: string[] = []) {
   console.log(`Syncing memory indexes${project ? ` for ${project}` : ''}...`);
 
   try {
@@ -323,7 +323,7 @@ async function main() {
     return;
   }
 
-  const commandInfo = COMMANDS[command];
+  const commandInfo = (COMMANDS as any)[command];
 
   if (!commandInfo) {
     console.error(`Unknown command: ${command}`);

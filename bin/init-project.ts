@@ -63,7 +63,7 @@ const SETUP_CHECKLIST = [
 // HELPERS
 // ============================================================================
 
-function log(msg, level = 'info') {
+function log(msg: any, level = 'info') {
   const prefix = {
     info: '📌',
     success: '✅',
@@ -75,13 +75,13 @@ function log(msg, level = 'info') {
   console.log(`${prefix} ${msg}`);
 }
 
-function logSection(title) {
+function logSection(title: any) {
   console.log(`\n${'═'.repeat(80)}`);
   console.log(`  ${title}`);
   console.log(`${'═'.repeat(80)}\n`);
 }
 
-function execCmd(cmd, opts: { quiet?: boolean; ignoreError?: boolean } = {}) {
+function execCmd(cmd: any, opts: { quiet?: boolean; ignoreError?: boolean } = {}) {
   try {
     return execSync(cmd, { 
       stdio: opts.quiet ? 'pipe' : 'inherit',
@@ -95,18 +95,18 @@ function execCmd(cmd, opts: { quiet?: boolean; ignoreError?: boolean } = {}) {
   }
 }
 
-function ensureDir(dir) {
+function ensureDir(dir: any) {
   if (!fs.existsSync(dir)) {
     fs.mkdirSync(dir, { recursive: true });
   }
 }
 
-function copyFile(src, dest) {
+function copyFile(src: any, dest: any) {
   const content = fs.readFileSync(src, 'utf-8');
   fs.writeFileSync(dest, content, 'utf-8');
 }
 
-function copyFileIfExists(src, dest) {
+function copyFileIfExists(src: any, dest: any) {
   if (fs.existsSync(src)) {
     copyFile(src, dest);
     return true;
@@ -114,7 +114,7 @@ function copyFileIfExists(src, dest) {
   return false;
 }
 
-function copyDir(src, dest) {
+function copyDir(src: any, dest: any) {
   ensureDir(dest);
   const entries = fs.readdirSync(src, { withFileTypes: true });
 
@@ -166,7 +166,7 @@ function parseArgs() {
 // SETUP STEPS
 // ============================================================================
 
-async function step00GitInit(projectDir, opts) {
+async function step00GitInit(projectDir: any, opts: any) {
   if (opts.skipGit) return;
 
   log('Preparando diretório...', 'step');
@@ -194,7 +194,7 @@ async function step00GitInit(projectDir, opts) {
   }
 }
 
-async function step01GenerateStructure(projectDir, opts) {
+async function step01GenerateStructure(projectDir: any, opts: any) {
   log('Gerando estrutura de agentes e memória...', 'step');
 
   // Verifica se já existe código (ex: backend) para decidir se usa --only-memory
@@ -217,7 +217,7 @@ async function step01GenerateStructure(projectDir, opts) {
   }
 }
 
-function addScalingLayers(projectDir) {
+function addScalingLayers(projectDir: any) {
   const memoryDir = path.join(projectDir, 'memory');
   
   const layers = {
@@ -236,7 +236,7 @@ function addScalingLayers(projectDir) {
   log('Camadas de Growth e Scaling adicionadas', 'success');
 }
 
-async function step01bCopyDesignLibrary(projectDir, opts) {
+async function step01bCopyDesignLibrary(projectDir: any, opts: any) {
   if (opts.skipDesign) {
     log('Skipping design library copy (--skip-design)', 'warn');
     return;
@@ -274,7 +274,7 @@ const HARNESS_SCRIPTS = {
   'tools:doctor': 'node scripts/tools-doctor.mjs',
 };
 
-async function step01cEmitHarness(projectDir, opts) {
+async function step01cEmitHarness(projectDir: any, opts: any) {
   log('Emitindo harness de code intelligence (codegraph + tools)...', 'step');
 
   // 1. .mcp.json (codegraph) — aditivo, nao sobrescreve config existente
@@ -318,7 +318,7 @@ async function step01cEmitHarness(projectDir, opts) {
   log('Harness emitido: .mcp.json + code:* + tools:doctor', 'success');
 }
 
-async function step02CopyInstructions(projectDir, opts) {
+async function step02CopyInstructions(projectDir: any, opts: any) {
   log('Copiando instruções para IAs...', 'step');
 
   const instructionsDir = path.join(projectDir, '.ia-instructions');
@@ -332,7 +332,7 @@ async function step02CopyInstructions(projectDir, opts) {
 
   let copied = 0;
   for (const ai of opts.ai) {
-    const label = AI_LABELS[ai];
+    const label = (AI_LABELS as any)[ai];
     if (!label || !canonical) {
       log(`${ai.toUpperCase()}: não encontrado`, 'warn');
       continue;
@@ -363,7 +363,7 @@ Para trocar de IA (ex: se acabar a cota), use o arquivo [models.json](./models.j
 
 ## IAs Configuradas
 
-${opts.ai.map(ai => `- [${ai.toUpperCase()}](./${ai}.md)`).join('\n')}
+${opts.ai.map((ai: any) => `- [${ai.toUpperCase()}](./${ai}.md)`).join('\n')}
 `;
 
   fs.writeFileSync(path.join(instructionsDir, 'README.md'), indexContent);
@@ -372,7 +372,7 @@ ${opts.ai.map(ai => `- [${ai.toUpperCase()}](./${ai}.md)`).join('\n')}
   const modelsJson = {
     active_engine: opts.ai[0] || 'copilot',
     fallback_chain: opts.ai,
-    engines: opts.ai.reduce((acc, ai) => {
+    engines: opts.ai.reduce((acc: any, ai: any) => {
       acc[ai] = {
         name: ai.toUpperCase(),
         instruction_file: `.ia-instructions/${ai}.md`,
@@ -386,7 +386,7 @@ ${opts.ai.map(ai => `- [${ai.toUpperCase()}](./${ai}.md)`).join('\n')}
   log(`${copied} instruções copiadas para .ia-instructions/`, 'success');
 }
 
-async function step03InstallBackend(projectDir, opts) {
+async function step03InstallBackend(projectDir: any, opts: any) {
   if (opts.skipBackend) {
     log('Skipping backend install (--skip-backend)', 'warn');
     return;
@@ -412,7 +412,7 @@ async function step03InstallBackend(projectDir, opts) {
   }
 }
 
-async function step04InitMemoryDb(projectDir, opts) {
+async function step04InitMemoryDb(projectDir: any, opts: any) {
   if (opts.skipDb || opts.skipBackend) {
     log('Skipping DB init', 'warn');
     return;
@@ -436,7 +436,7 @@ async function step04InitMemoryDb(projectDir, opts) {
   }
 }
 
-async function step05BuildContextPack(projectDir, opts) {
+async function step05BuildContextPack(projectDir: any, opts: any) {
   const scriptsDir = path.join(projectDir, 'scripts');
   const scriptPath = path.join(scriptsDir, 'build-context-pack.mjs');
 
@@ -455,7 +455,7 @@ async function step05BuildContextPack(projectDir, opts) {
   }
 }
 
-async function step06UniversalMemorySync(projectDir, opts) {
+async function step06UniversalMemorySync(projectDir: any, opts: any) {
   log('Sincronizando com Memória Universal...', 'step');
 
   const projectName = path.basename(projectDir);
@@ -472,7 +472,7 @@ async function step06UniversalMemorySync(projectDir, opts) {
   log(`Projeto ${projectName} registrado na Memória Universal do workspace`, 'success');
 }
 
-async function step07ShowNextSteps(projectDir, opts) {
+async function step07ShowNextSteps(projectDir: any, opts: any) {
   const relPath = path.relative(process.cwd(), projectDir) || '.';
 
   logSection('✨ SETUP COMPLETO!');

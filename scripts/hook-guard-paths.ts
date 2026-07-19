@@ -21,13 +21,13 @@ import process from 'node:process';
 /** Cada regra explica o porquê: a IA recebe o motivo, não só a negativa. */
 const PROTECTED = [
   {
-    test: (rel) => rel === 'projects' || rel.startsWith('projects/'),
+    test: (rel: any) => rel === 'projects' || rel.startsWith('projects/'),
     reason:
       'projects/ é off-limits (CLAUDE.md): contém produtos em desenvolvimento ativo do usuário. ' +
       'Aplicações reais vivem no workspace externo — use `npm run project:new` (ADR-0019).',
   },
   {
-    test: (rel) => rel.startsWith('docs/archive/'),
+    test: (rel: any) => rel.startsWith('docs/archive/'),
     reason:
       'docs/archive/ é material histórico congelado (ex.: legacy-bin/, mantido só para referência). ' +
       'Se a mudança é real, ela pertence ao código vivo em bin/ ou lib/.',

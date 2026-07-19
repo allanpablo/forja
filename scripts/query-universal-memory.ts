@@ -37,7 +37,7 @@ try {
     console.log(`Nenhum resultado encontrado para: "${query}"`);
   } else {
     console.log(`\nResultados para: "${query}"\n`);
-    results.forEach(r => {
+    results.forEach((r: any) => {
       const scope = r.project ? `[Projeto: ${r.project}]` : '[Global]';
       console.log(`${scope} ${r.title} (${r.path})`);
       console.log(`   > ${r.snippet.replace(/\n/g, ' ')}\n`);

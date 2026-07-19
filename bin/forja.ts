@@ -42,7 +42,7 @@ function printHelp() {
   console.log('Toda execução é auditada em .context/forja-runs.jsonl (workspace, se existir).');
 }
 
-function suggest(input) {
+function suggest(input: any) {
   const names = Object.keys(COMMANDS);
   const prefix = input.split(':')[0];
   const near = names.filter((n) => n.startsWith(prefix) || n.includes(input));
@@ -50,7 +50,7 @@ function suggest(input) {
 }
 
 // Gates transversais (ADR-0020). Retorna lista de erros bloqueantes.
-function runGates(cmd) {
+function runGates(cmd: any) {
   const errors: string[] = [];
   for (const gate of cmd.gates || []) {
     if (gate === 'workspace' || gate === 'workspace-warn') {
@@ -69,7 +69,7 @@ function runGates(cmd) {
 }
 
 // Auditoria nunca bloqueia o comando (NFR da SPEC-025).
-function audit(entry) {
+function audit(entry: any) {
   try {
     const info = getWorkspaceInfo();
     const dir = info.exists ? getWorkspaceContextDir() : path.join(root, '.context');
@@ -87,7 +87,7 @@ if (!name || name === 'help' || name === '--help' || name === '-h') {
   process.exit(0);
 }
 
-const cmd = COMMANDS[name];
+const cmd = (COMMANDS as any)[name];
 if (!cmd) {
   console.error(`Comando desconhecido: ${name}`);
   const near = suggest(name);
@@ -126,7 +126,7 @@ if (cmd.node) {
     cwd: root,
     stdio: 'inherit',
   });
-  if (result.error && /** @type {any} */ (result.error).code === 'ENOENT') {
+  if (result.error && (result.error as any).code === 'ENOENT') {
     console.error(`Binário não encontrado no PATH: ${cmd.bin}. Veja: forja tools:doctor`);
     result.status = 127;
   }

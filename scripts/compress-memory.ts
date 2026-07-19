@@ -36,13 +36,13 @@ function loadConfig() {
   return {};
 }
 
-function getDbSize(dbPath) {
+function getDbSize(dbPath: any) {
   if (!fs.existsSync(dbPath)) return 0;
   const stats = fs.statSync(dbPath);
   return stats.size / (1024 * 1024); // MB
 }
 
-function archiveOldLogs(dbPath, ageInDays) {
+function archiveOldLogs(dbPath: any, ageInDays: any) {
   console.log(`📦 Archiving logs older than ${ageInDays} days...`);
 
   const db = new Database(dbPath);
@@ -112,7 +112,7 @@ function archiveOldLogs(dbPath, ageInDays) {
   }
 }
 
-function cleanExpiredCache(cacheDir, ttlInDays) {
+function cleanExpiredCache(cacheDir: any, ttlInDays: any) {
   console.log(`🧹 Cleaning expired cache (TTL: ${ttlInDays} days)...`);
 
   if (!fs.existsSync(cacheDir)) {
@@ -138,7 +138,7 @@ function cleanExpiredCache(cacheDir, ttlInDays) {
   return removed;
 }
 
-function reportStats(dbPath, beforeSize) {
+function reportStats(dbPath: any, beforeSize: any) {
   const afterSize = getDbSize(dbPath);
   const saved = beforeSize - afterSize;
   const percent = ((saved / beforeSize) * 100).toFixed(1);

@@ -26,7 +26,7 @@ import path from 'node:path';
  * @param {string} node  Caminho do registry, com ou sem extensão.
  * @returns {string}     Caminho absoluto do arquivo que existe (ou o candidato original, que falha visível).
  */
-export function resolveScript(root, node) {
+export function resolveScript(root: any, node: any) {
   const direct = path.join(root, node);
   if (fs.existsSync(direct)) return direct;
   const base = direct.replace(/\.(mjs|cjs|js|ts)$/, '');

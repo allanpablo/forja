@@ -7,7 +7,7 @@
  */
 import { queryAudit, defaultEnv } from '../lib/audit.ts';
 
-function parseArgs(argv) {
+function parseArgs(argv: any) {
   const o: { failed?: boolean; cmd?: string; since?: string } = {};
   for (let i = 0; i < argv.length; i += 1) {
     if (argv[i] === '--failed') o.failed = true;
@@ -27,7 +27,7 @@ try {
     process.exit(0);
   }
 
-  const fails = rows.filter((r) => r.exitCode !== 0).length;
+  const fails = rows.filter((r: any) => r.exitCode !== 0).length;
   console.log(`${rows.length} run(s)${fails ? `, ${fails} reprovação(ões)` : ''}:\n`);
   for (const r of rows.slice(0, 40)) {
     const flag = r.exitCode === 0 ? 'OK  ' : 'FAIL';

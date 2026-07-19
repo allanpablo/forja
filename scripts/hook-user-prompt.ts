@@ -55,7 +55,7 @@ function loadConfig() {
   } catch { return {}; }
 }
 
-function keywordTriggered(prompt) {
+function keywordTriggered(prompt: any) {
   if (process.env.FRAMEWORK_HOOK_INJECT !== '1') return false;
   if (!prompt) return false;
   const lower = prompt.toLowerCase();
@@ -74,7 +74,7 @@ function listSpecSlugs() {
   } catch { return []; }
 }
 
-function detectSlug(prompt) {
+function detectSlug(prompt: any) {
   if (!prompt || process.env.FRAMEWORK_HOOK_INJECT === '0') return null;
   const lower = prompt.toLowerCase();
   // Slug mais longo primeiro: "forja-core-v2" ganha de "forja-core".
@@ -82,11 +82,11 @@ function detectSlug(prompt) {
   return slugs.find(s => lower.includes(s)) || null;
 }
 
-function cacheKey(prompt) {
+function cacheKey(prompt: any) {
   return crypto.createHash('sha1').update(prompt).digest('hex').slice(0, 16);
 }
 
-function getCached(key) {
+function getCached(key: any) {
   const f = path.join('/tmp/framework-hook-cache', `${key}.txt`);
   if (!fs.existsSync(f)) return null;
   const stat = fs.statSync(f);
@@ -94,7 +94,7 @@ function getCached(key) {
   return fs.readFileSync(f, 'utf8');
 }
 
-function setCached(key, content) {
+function setCached(key: any, content: any) {
   const dir = '/tmp/framework-hook-cache';
   fs.mkdirSync(dir, { recursive: true });
   fs.writeFileSync(path.join(dir, `${key}.txt`), content);
@@ -102,7 +102,7 @@ function setCached(key, content) {
 
 // Pack task-mode de uma spec: o contexto mínimo-suficiente para trabalhar
 // naquela feature, sem carregar memory/ inteira.
-function buildTaskContext(slug, capBytes) {
+function buildTaskContext(slug: any, capBytes: any) {
   const pieces: string[] = [];
   const candidates = [
     [`specs/${slug}/spec.md`, 4000],
@@ -125,7 +125,7 @@ function buildTaskContext(slug, capBytes) {
   return out;
 }
 
-function buildContext(prompt, capBytes) {
+function buildContext(prompt: any, capBytes: any) {
   // Estratégia simples: cabeça das ADRs + index global. FTS5 dirigido por prompt seria ideal,
   // mas evitamos abrir SQLite no hot path do hook. O Context Engineer faz isso quando convocado.
   const pieces: string[] = [];

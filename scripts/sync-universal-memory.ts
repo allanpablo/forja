@@ -52,16 +52,16 @@ CREATE VIRTUAL TABLE IF NOT EXISTS search_idx USING fts5(
 );
 `;
 
-function log(msg, level = 'info') {
+function log(msg: any, level = 'info') {
   const prefix = { info: 'INFO', success: 'OK', warn: 'WARN', error: 'ERROR' }[level] || 'INFO';
   console.log(`${prefix} ${msg}`);
 }
 
-function ensureDir(dir) {
+function ensureDir(dir: any) {
   if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
 }
 
-function walk(dir, out: string[] = []) {
+function walk(dir: any, out: string[] = []) {
   if (!fs.existsSync(dir)) return out;
   for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
     if (entry.name === 'node_modules' || entry.name === '.git' || entry.name === '.memory') continue;
@@ -111,7 +111,7 @@ const upsertAsset = db.prepare(`
 
 const now = new Date().toISOString();
 
-function getKind(relPath) {
+function getKind(relPath: any) {
   if (relPath.startsWith('memory/00-global')) return 'global';
   if (relPath.includes('/design-md/') || relPath.startsWith('design-md/')) return 'design';
   if (relPath.includes('90-decisions')) return 'adr';
@@ -120,24 +120,24 @@ function getKind(relPath) {
   return 'general';
 }
 
-function firstHeading(content, fallback) {
+function firstHeading(content: any, fallback: any) {
   const match = content.match(/^#\s+(.+)$/m);
   return match ? match[1].trim() : fallback;
 }
 
-function specStatus(content) {
+function specStatus(content: any) {
   const match = content.match(/-\s+\*\*Status\*\*:\s+([^\n]+)/);
   return match ? match[1].trim() : 'unknown';
 }
 
-function extractSection(content, heading, maxChars = 1200) {
+function extractSection(content: any, heading: any, maxChars = 1200) {
   const escaped = heading.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
   const re = new RegExp(`^##\\s+${escaped}\\s*\\n([\\s\\S]*?)(?=^##\\s+|$)`, 'm');
   const match = content.match(re);
   return match ? match[1].trim().slice(0, maxChars) : '';
 }
 
-function summarizeReadme(relPath) {
+function summarizeReadme(relPath: any) {
   const full = path.join(root, relPath);
   if (!fs.existsSync(full)) return null;
   const content = fs.readFileSync(full, 'utf8');
@@ -149,7 +149,7 @@ function summarizeReadme(relPath) {
     .slice(0, 450);
 }
 
-function readJson(relPath) {
+function readJson(relPath: any) {
   const full = path.join(root, relPath);
   if (!fs.existsSync(full)) return null;
   try {
@@ -215,7 +215,7 @@ function syncAssetCatalog() {
   log(`Asset catalog sincronizado: ${assets.length}`, 'info');
 }
 
-function syncFiles(files, projectId = null) {
+function syncFiles(files: any, projectId = null) {
   for (const abs of files) {
     const rel = path.relative(root, abs);
     const raw = fs.readFileSync(abs, 'utf8');

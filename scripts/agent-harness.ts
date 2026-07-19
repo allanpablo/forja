@@ -74,16 +74,16 @@ const GSD_HANDOFFS = {
   },
 };
 
-function fail(message, code = 1) {
+function fail(message: any, code = 1) {
   console.error(message);
   process.exit(code);
 }
 
-function rel(file) {
+function rel(file: any) {
   return path.relative(root, file);
 }
 
-function readText(file) {
+function readText(file: any) {
   const full = path.resolve(root, file);
   if (!full.startsWith(root)) fail(`Caminho fora do projeto: ${file}`);
   if (!fs.existsSync(full)) fail(`Arquivo nao encontrado: ${file}`);
@@ -92,13 +92,13 @@ function readText(file) {
 
 // --- Codegraph (ADR-0017): code intelligence como gate do GSD ---
 
-function runCodegraph(args) {
+function runCodegraph(args: any) {
   const result = spawnSync('codegraph', args, { cwd: root, encoding: 'utf8' });
   if (result.error && (result.error as any).code === 'ENOENT') {
     return { missing: true };
   }
   if (result.error && (result.error as any).code === 'EPERM') {
-    const quote = (value) => `'${String(value).replace(/'/g, `'\\''`)}'`;
+    const quote = (value: any) => `'${String(value).replace(/'/g, `'\\''`)}'`;
     const fallback = spawnSync('/bin/sh', ['-lc', ['codegraph', ...args.map(quote)].join(' ')], {
       cwd: root,
       encoding: 'utf8',
@@ -230,11 +230,11 @@ function cmdDesignCheck([briefPath]: string[]) {
 
 function cmdDesignSelect([surface = 'agent-console', tone = 'tecnico']: string[]) {
   const normalized = surface.toLowerCase();
-  const refs = SURFACE_MAP[normalized] || SURFACE_MAP.tool;
+  const refs = (SURFACE_MAP as any)[normalized] || SURFACE_MAP.tool;
   console.log(`Superficie: ${surface}`);
   console.log(`Tom: ${tone}`);
   console.log('\nReferencias recomendadas:');
-  refs.forEach((name, index) => {
+  refs.forEach((name: any, index: any) => {
     const file = path.join(root, 'design-md', name, 'README.md');
     const status = fs.existsSync(file) ? rel(file) : 'sem cache local (use o conhecimento publico da referencia)';
     console.log(`${index + 1}. ${name} - ${status}`);
@@ -244,7 +244,7 @@ function cmdDesignSelect([surface = 'agent-console', tone = 'tecnico']: string[]
 
 function cmdHermesHandoff([jsonArg]: string[]) {
   if (!jsonArg) fail('Uso: agent-harness hermes:handoff \'<json ADR-0005>\'');
-  let payload;
+  let payload: any;
   try {
     payload = JSON.parse(jsonArg);
   } catch (error) {
@@ -264,7 +264,7 @@ function cmdHermesHandoff([jsonArg]: string[]) {
   process.exit(result.status ?? 1);
 }
 
-function appendHandoff(payload) {
+function appendHandoff(payload: any) {
   const result = spawnSync('node', ['scripts/agent-router.mjs', 'append', JSON.stringify(payload)], {
     cwd: root,
     encoding: 'utf8',
@@ -325,7 +325,7 @@ function cmdGsdPlan([slug = 'run', ...goalParts]: string[]) {
 
 function cmdGsdHandoff([phase, slug, ...contextParts]: string[]) {
   if (!phase || !slug) fail('Uso: agent-harness gsd:handoff <spec|plan|implement|review> <slug> [contexto]');
-  const template = GSD_HANDOFFS[phase];
+  const template = (GSD_HANDOFFS as any)[phase];
   if (!template) fail(`Fase invalida: ${phase}. Use: ${Object.keys(GSD_HANDOFFS).join('|')}`);
 
   const safeSlug = slug.toLowerCase().replace(/[^a-z0-9._-]+/g, '-');
@@ -459,7 +459,7 @@ function cmdProjectNew([name, ...rest]: string[]) {
 }
 
 // Ficha automática no workspace (ADR-0020): todo projeto nasce rastreado.
-function registerProjectCard(name, projectDir, flags) {
+function registerProjectCard(name: any, projectDir: any, flags: any) {
   try {
     const cardsDir = getWorkspaceProjectsMemoryDir();
     fs.mkdirSync(cardsDir, { recursive: true });

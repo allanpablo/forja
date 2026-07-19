@@ -11,7 +11,7 @@ const root = path.resolve(__dirname, '..');
 const outDir = path.join(root, '.context');
 const defaultLimit = readTokenLimit();
 
-function estimateTokens(content) {
+function estimateTokens(content: any) {
   return Math.ceil(content.length / 4);
 }
 
@@ -30,23 +30,23 @@ function ensureOutDir() {
   fs.mkdirSync(outDir, { recursive: true });
 }
 
-function readIfExists(relPath, maxChars = 12000) {
+function readIfExists(relPath: any, maxChars = 12000) {
   const full = path.join(root, relPath);
   if (!fs.existsSync(full)) return '';
   return fs.readFileSync(full, 'utf8').slice(0, maxChars);
 }
 
-function firstHeading(content, fallback) {
+function firstHeading(content: any, fallback: any) {
   const match = content.match(/^#\s+(.+)$/m);
   return match ? match[1].trim() : fallback;
 }
 
-function specStatus(content) {
+function specStatus(content: any) {
   const match = content.match(/-\s+\*\*Status\*\*:\s+([^\n]+)/);
   return match ? match[1].trim() : 'unknown';
 }
 
-function extractSection(content, heading, maxChars = 2200) {
+function extractSection(content: any, heading: any, maxChars = 2200) {
   const escaped = heading.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
   const re = new RegExp(`^##\\s+${escaped}\\s*\\n([\\s\\S]*?)(?=^##\\s+|$)`, 'm');
   const match = content.match(re);
@@ -81,7 +81,7 @@ function openDb() {
 }
 
 /** @param {number|null} [limitTokens] */
-function recordContextRun(kind, slug, filePath, content, limitTokens: number | null = null) {
+function recordContextRun(kind: any, slug: any, filePath: any, content: any, limitTokens: number | null = null) {
   const db = openDb();
   const tokens = estimateTokens(content);
   const status = limitTokens && tokens > limitTokens ? 'over_budget' : 'ok';
@@ -92,7 +92,7 @@ function recordContextRun(kind, slug, filePath, content, limitTokens: number | n
   db.close();
 }
 
-function upsertSpecSummary(slug, content) {
+function upsertSpecSummary(slug: any, content: any) {
   const db = openDb();
   const title = firstHeading(content, slug);
   const status = specStatus(content);
@@ -116,7 +116,7 @@ function upsertSpecSummary(slug, content) {
   db.close();
 }
 
-function getOpenHandoffs(slug = null) {
+function getOpenHandoffs(slug: any = null) {
   if (!fs.existsSync(getDbPath())) return [];
   const db = openDb();
   let rows;
@@ -145,7 +145,7 @@ function latestAdrs() {
     });
 }
 
-function cmdBudget([target, limitArg]) {
+function cmdBudget([target, limitArg]: string[]) {
   if (!target) {
     console.error('Uso: context-ops budget <slug|arquivo> [limite_tokens]');
     process.exit(1);
@@ -189,7 +189,7 @@ function cmdSprintPack() {
     : '- Nenhuma spec ativa encontrada.';
   md += `\n\n## Handoffs Abertos\n\n`;
   md += handoffs.length
-    ? handoffs.map((h) => `- #${h.id} ${h.from_agent} -> ${h.to_agent} (${h.intent}) ${h.spec_slug || ''}: ${String(h.context).slice(0, 180)}`).join('\n')
+    ? handoffs.map((h: any) => `- #${h.id} ${h.from_agent} -> ${h.to_agent} (${h.intent}) ${h.spec_slug || ''}: ${String(h.context).slice(0, 180)}`).join('\n')
     : '- Nenhum handoff aberto.';
   md += `\n\n## ADRs Recentes\n\n`;
   md += adrs.length ? adrs.map((adr) => `- ${adr.rel}: ${adr.title}`).join('\n') : '- Nenhuma ADR encontrada.';
@@ -203,7 +203,7 @@ function cmdSprintPack() {
   console.log(`Sprint pack gerado: ${path.relative(root, outFile)} (${estimateTokens(md)} tokens estimados)`);
 }
 
-function cmdAgentBrief([role, slug]) {
+function cmdAgentBrief([role, slug]: string[]) {
   if (!role || !slug) {
     console.error('Uso: context-ops agent-brief <role> <slug>');
     process.exit(1);
@@ -240,7 +240,7 @@ function cmdAgentBrief([role, slug]) {
   }
   md += `## Handoffs Relevantes\n\n`;
   md += handoffs.length
-    ? handoffs.map((h) => `- #${h.id} [${h.status}] ${h.from_agent} -> ${h.to_agent} (${h.intent}); aceite: ${String(h.acceptance).slice(0, 220)}`).join('\n')
+    ? handoffs.map((h: any) => `- #${h.id} [${h.status}] ${h.from_agent} -> ${h.to_agent} (${h.intent}); aceite: ${String(h.acceptance).slice(0, 220)}`).join('\n')
     : '- Nenhum handoff registrado para este slug.';
   md += `\n\n## Comandos de Validacao\n\n`;
   md += `\`\`\`bash\nnpm run gsd:check -- ${slug}\nnpm run spec:check -- ${slug}\nnpm run project:check\n\`\`\`\n`;
@@ -251,7 +251,7 @@ function cmdAgentBrief([role, slug]) {
   console.log(`Agent brief gerado: ${path.relative(root, outFile)} (${estimateTokens(md)} tokens estimados)`);
 }
 
-function summarizeReadme(relPath) {
+function summarizeReadme(relPath: any) {
   const content = readIfExists(relPath, 2500);
   const title = firstHeading(content, path.basename(path.dirname(relPath)));
   const lines = content.split('\n')
@@ -263,12 +263,12 @@ function summarizeReadme(relPath) {
   return { title, summary: lines };
 }
 
-function keywordTags(text, candidates) {
+function keywordTags(text: any, candidates: any) {
   const lower = text.toLowerCase();
-  return candidates.filter((tag) => lower.includes(tag.toLowerCase()));
+  return candidates.filter((tag: any) => lower.includes(tag.toLowerCase()));
 }
 
-function inferBoilerplateManifest(name, relPath) {
+function inferBoilerplateManifest(name: any, relPath: any) {
   const readme = readIfExists(relPath, 8000);
   const lower = `${name} ${readme}`.toLowerCase();
   const stack = keywordTags(lower, ['NestJS', 'Next.js', 'React', 'Docker', 'Turborepo', 'RabbitMQ', 'JWT', 'SQLite', 'Postgres']);
@@ -296,7 +296,7 @@ function inferBoilerplateManifest(name, relPath) {
   };
 }
 
-function inferDesignManifest(name, relPath) {
+function inferDesignManifest(name: any, relPath: any) {
   const readme = readIfExists(relPath, 8000);
   const lower = `${name} ${readme}`.toLowerCase();
   const surfaces: string[] = [];
@@ -324,7 +324,7 @@ function inferDesignManifest(name, relPath) {
   };
 }
 
-function readJsonIfExists(relPath) {
+function readJsonIfExists(relPath: any) {
   const full = path.join(root, relPath);
   if (!fs.existsSync(full)) return null;
   try {
