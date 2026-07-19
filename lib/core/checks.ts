@@ -19,32 +19,45 @@
  *    senão uma raiz vira três erros vermelhos e o operador não sabe qual perseguir.
  */
 
-/** @typedef {'critical'|'warn'} Severity */
-/** @typedef {'runtime'|'repo'} Scope */
-/** @typedef {'ok'|'warn'|'fail'|'skipped'} Status */
+export type Severity = 'critical' | 'warn';
+export type Scope = 'runtime' | 'repo';
+export type Status = 'ok' | 'warn' | 'fail' | 'skipped';
 
-/**
- * @typedef {object} Check
- * @property {string}   id
- * @property {string}   title
- * @property {Severity} severity   `critical` trava o gate; `warn` informa.
- * @property {Scope=}   scope      Filtro opcional do runner.
- * @property {string=}  dependsOn  Id de outro check. Se ele não passar, este vira `skipped`.
- * @property {(env: any) => Promise<Probe>|Probe} probe  `env` é injetado e polimórfico entre os
- *   catálogos (health/release/doc); tipagem por-catálogo com generics fica para a Fase 2 (.ts).
- */
+export interface Probe {
+  status: Status;
+  /** O que foi observado, em uma linha. */
+  detail: string;
+  /** Comando exato que corrige. `null` quando não há o que corrigir. */
+  fix?: string | null;
+}
 
-/**
- * @typedef {object} Probe
- * @property {Status}       status
- * @property {string}       detail  O que foi observado, em uma linha.
- * @property {string|null=} fix     Comando exato que corrige. `null` quando não há o que corrigir.
- */
+export interface Check {
+  id: string;
+  title: string;
+  /** `critical` trava o gate; `warn` informa. */
+  severity: Severity;
+  /** Filtro opcional do runner. */
+  scope?: Scope;
+  /** Id de outro check. Se ele não passar, este vira `skipped`. */
+  dependsOn?: string;
+  /**
+   * `env` é injetado e polimórfico entre os catálogos (health/release/doc) — daí `any`. Tipagem
+   * por-catálogo com generics fica para uma fase posterior; o valor aqui é o contrato do resultado.
+   */
+  probe: (env: any) => Promise<Probe> | Probe;
+}
 
-/** @typedef {{ id: string, title: string, severity: Severity, scope?: Scope, status: Status, detail: string, fix: string|null }} Result */
+export interface Result {
+  id: string;
+  title: string;
+  severity: Severity;
+  scope?: Scope;
+  status: Status;
+  detail: string;
+  fix: string | null;
+}
 
-/** @type {Severity} */
-const SEVERITY_FALLBACK = 'critical';
+const SEVERITY_FALLBACK: Severity = 'critical';
 
 /**
  * Estreita um valor capturado num `catch` (que o TS tipa como `unknown`) para a forma de erro do
@@ -88,10 +101,8 @@ async function runProbe(check, env) {
  */
 export async function runChecks({ checks, scope = 'all', env = {} }) {
   const selected = checks.filter((c) => scope === 'all' || c.scope === scope);
-  /** @type {Map<string, Status>} */
-  const statusById = new Map();
-  /** @type {Result[]} */
-  const results = [];
+  const statusById = new Map<string, Status>();
+  const results: Result[] = [];
 
   for (const check of selected) {
     const base = {

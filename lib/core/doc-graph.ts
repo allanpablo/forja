@@ -52,7 +52,7 @@ function safeRead(env, file) {
 /** Coleta os `.md` sob uma superfície (arquivo direto ou diretório varrido, menos EXCLUDED_DIRS). */
 function collectMarkdown(env, surface) {
   const abs = path.join(env.root, surface);
-  const out = [];
+  const out: string[] = [];
 
   const walk = (p) => {
     let st;
@@ -83,7 +83,7 @@ function collectMarkdown(env, surface) {
 
 /** Todos os `.md` das superfícies de instrução, caminhos relativos à raiz. */
 export function docFiles(env) {
-  const seen = new Set();
+  const seen = new Set<string>();
   for (const surface of DOC_SURFACES) {
     for (const file of collectMarkdown(env, surface)) {
       seen.add(path.relative(env.root, file));
@@ -97,7 +97,7 @@ export function docFiles(env) {
  * @returns {{ file: string, line: number, command: string }[]}
  */
 export function scanCommands(env) {
-  const hits = [];
+  const hits: { file: string; line: number; command: string }[] = [];
   for (const rel of docFiles(env)) {
     const src = safeRead(env, path.join(env.root, rel));
     if (src == null) continue;
@@ -116,7 +116,7 @@ export function scanCommands(env) {
  * @returns {{ file: string, line: number, target: string, resolved: string }[]}
  */
 export function scanLinks(env) {
-  const hits = [];
+  const hits: { file: string; line: number; target: string; resolved: string }[] = [];
   for (const rel of docFiles(env)) {
     const src = safeRead(env, path.join(env.root, rel));
     if (src == null) continue;
@@ -155,7 +155,7 @@ function scriptKeys(source) {
 }
 
 /** Todo `package.json` sob um diretório (boilerplates têm vários, aninhados). */
-function findPackageJsons(env, dir, acc = []) {
+function findPackageJsons(env, dir, acc: string[] = []) {
   let entries;
   try {
     entries = env.fs.readdirSync(dir);

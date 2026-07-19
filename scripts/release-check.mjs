@@ -12,7 +12,7 @@
  * Diagnostica e autoriza; nunca publica. `npm publish` continua sendo um ato humano.
  */
 
-import { runReleaseChecks, worstStatus } from '../lib/core/release.mjs';
+import { runReleaseChecks, worstStatus } from '../lib/core/release.ts';
 
 const TAG = { ok: 'OK   ', warn: 'AVISO', fail: 'FALHA', skipped: '—    ' };
 

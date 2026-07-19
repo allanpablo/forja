@@ -5,7 +5,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { COMMANDS, DOMAINS } from '../lib/core/registry.mjs';
+import { COMMANDS, DOMAINS } from '../lib/core/registry.ts';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const root = path.resolve(__dirname, '..');

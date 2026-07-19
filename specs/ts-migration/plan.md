@@ -168,15 +168,18 @@ classe "dist mente") e ADR-0024 (o gate que ganha o `build-fresh`).
 
 ## 7. Rollout
 
-- [ ] **Fase 0 — on-ramp.** `tsconfig` com `checkJs, strict, noEmit`; `types:check` no registry e
+- [x] **Fase 0 — on-ramp.** `tsconfig` com `checkJs, strict, noEmit`; `types:check` no registry e
       no CI. Corrigir os erros com os arquivos ainda `.mjs`. Nada renomeado ainda.
-- [ ] **Fase 1 — resolver.** Trocar o registry para paths sem extensão e o dispatch para o resolver
-      `.ts/.js/.mjs`, **ainda em `.mjs`**. Suíte verde. É a mudança de comportamento de menor risco,
-      isolada e testável antes de qualquer renomeação.
-- [ ] **Fase 2 — renomear leaf-first.** Um módulo por vez (D5), `npm test` verde a cada um.
-- [ ] **Fase 3 — build + publish.** `tsc` emitindo `dist/`; `build-fresh`; `package.json` apontando
-      para `dist/`; `prepublishOnly` build→gate. Validar com `release:check --publish` e
-      `npm publish --dry-run`.
+- [x] **Fase 1 — resolver.** Registry sem extensão (na verdade: registry mantém `.mjs` e o
+      `resolveScript` faz strip + tenta `.ts/.js/.mjs`), dispatch pelo resolver. Suíte verde.
+- [~] **Fase 2 — renomear leaf-first.** Um módulo por vez (D5), `npm test` verde a cada um.
+      **Entregue: `lib/core/` (checks, health, release, doc-graph, registry).** Os typedefs JSDoc
+      viraram `interface Check/Probe/Result` de verdade; `allowImportingTsExtensions` no tsconfig de
+      type-check (build reescreve `.ts→.js`). Achado: no `.ts` estrito, `[]`→`never[]` e o `@type`-
+      comentário não narra como no checkJs — daí a conversão para anotação real. Restam: `scripts/`
+      (agent-harness, context-ops, token-benchmark são os pesados), hooks, `bin/forja`, generators.
+- [x] **Fase 3 — build + publish.** `tsc` emitindo `dist/`; `package.json` apontando para `dist/`;
+      `prepublishOnly` = gate (o gate builda, D4 revisado). Provado por `release:check` (#15).
 - [x] Doc/persona: governança ganha o `build-fresh`; `docs/` e `CONTRIBUTING` ganham o "dev roda
       `.ts`, publicado roda `dist`".
 - [ ] **Prova final**: `release:check` aprova o tarball com `dist/` fresco; reintroduzir um `dist/`

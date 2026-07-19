@@ -23,7 +23,7 @@ import process from 'node:process';
 import { spawnSync } from 'node:child_process';
 
 /** Arquivos cuja edição invalida a integridade do core. */
-const WATCHED = ['lib/core/registry.mjs', 'package.json'];
+const WATCHED = ['lib/core/registry.ts', 'package.json'];
 const SUITE = 'test/forja-core.test.js';
 
 function readStdin() {
@@ -73,7 +73,7 @@ function skip() { process.exit(0); }
   process.stderr.write(
     `\`${rel}\` foi editado e \`${SUITE}\` quebrou — a integridade do registry (ADR-0020) está violada.\n\n` +
     `${failures || detail.slice(-1500)}\n\n` +
-    `Um comando novo precisa de: entrada em lib/core/registry.mjs + alias em package.json + script existente.\n`
+    `Um comando novo precisa de: entrada em lib/core/registry.ts + alias em package.json + script existente.\n`
   );
   process.exit(2);
 })();

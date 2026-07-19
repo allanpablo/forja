@@ -30,15 +30,15 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { getWorkspaceDbPath, getWorkspaceInfo } from '../workspace.mjs';
-import { runChecks as run, worstStatus, stripTemplateLiterals, asErrno } from './checks.mjs';
-import { COMMANDS } from './registry.mjs';
-import { scanCommands, scanLinks, projectCommands } from './doc-graph.mjs';
+import { runChecks as run, worstStatus, stripTemplateLiterals, asErrno } from './checks.ts';
+import { COMMANDS } from './registry.ts';
+import { scanCommands, scanLinks, projectCommands } from './doc-graph.ts';
 
 // Os contratos vivem em checks.mjs — importados, não redefinidos. As cópias locais eram resíduo da
 // extração do runner (SPEC-010) e já divergiam.
-/** @typedef {import('./checks.mjs').Check} Check */
-/** @typedef {import('./checks.mjs').Result} Result */
-/** @typedef {import('./checks.mjs').Status} Status */
+/** @typedef {import('./checks.ts').Check} Check */
+/** @typedef {import('./checks.ts').Result} Result */
+/** @typedef {import('./checks.ts').Status} Status */
 
 // O runner vive em checks.mjs e é compartilhado com o catálogo de release (SPEC-010). Re-exportado
 // aqui para que `tools:doctor` e o hook SessionStart sigam importando de um lugar só.
@@ -568,10 +568,16 @@ export const CHECKS = [
  * `scope: 'runtime'` roda só os checks baratos e portáveis — é o que o hook SessionStart usa, onde
  * há orçamento de 5s e nenhuma tolerância a travar a sessão.
  *
- * @param {{ scope?: import('./checks.mjs').Scope|'all', env?: Partial<Env>, checks?: Check[] }} [opts]
+ * @param {{ scope?: import('./checks.ts').Scope|'all', env?: Partial<Env>, checks?: Check[] }} [opts]
  * @returns {Promise<Result[]>}
  */
-export async function runChecks(opts = {}) {
+export async function runChecks(
+  opts: {
+    scope?: import('./checks.ts').Scope | 'all';
+    env?: any;
+    checks?: import('./checks.ts').Check[];
+  } = {}
+) {
   const { scope = 'all', checks = CHECKS } = opts;
   return run({ checks, scope, env: defaultEnv(opts.env) });
 }
