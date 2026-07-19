@@ -10,7 +10,10 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        node-version: [20.x, 22.x, 24.x]
+        # O job `test` roda o código-FONTE (.ts desde SPEC-012 Fase 2), e strip-types nativo só
+        # existe no Node ≥22.6. Contribuir exige Node moderno. O suporte a Node 20 do pacote
+        # PUBLICADO (que embarca dist/*.js) é provado pelo job `release-gate`, que instala o tarball.
+        node-version: [22.x, 24.x]
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v6
