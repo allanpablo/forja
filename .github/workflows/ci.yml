@@ -26,13 +26,13 @@ jobs:
       - run: npm test
       - name: Core smoke test
         run: |
-          node bin/forja.mjs
-          node bin/forja.mjs spec:check forja-core
+          node bin/forja.ts
+          node bin/forja.ts spec:check forja-core
 
       # O gate do núcleo (ADR-0023) existia e nada o executava automaticamente. Roda na matriz
       # inteira de propósito: o check `native-abi` só tem sentido contra várias versões do Node.
       - name: Doctor do núcleo
-        run: node bin/forja.mjs tools:doctor
+        run: node bin/forja.ts tools:doctor
 
   # O gate do tarball (ADR-0024). Job separado e sem matriz: o custo aqui é o `npm install`
   # compilando o better-sqlite3 do zero, e instalar três vezes não prova mais que instalar uma.
@@ -49,4 +49,4 @@ jobs:
           cache: npm
       - run: npm ci
       - name: Gate do tarball (instalação limpa)
-        run: node bin/forja.mjs release:check
+        run: node bin/forja.ts release:check
