@@ -177,9 +177,12 @@ classe "dist mente") e ADR-0024 (o gate que ganha o `build-fresh`).
       workspace}`, `bin/forja`, todos os `scripts/` incl. hooks). Os typedefs JSDoc viraram `interface`
       real; `allowImportingTsExtensions` no type-check (build reescreve `.ts→.js`). Dois achados
       recorrentes no `.ts` estrito: `[]`→`never[]` (anotação inline) e os casts-comentário
-      `/** @type */ (x)` não narram (viram `as`). **Restam**: os 16 `.js` (entries públicos
-      `init-project`/`create-memory-nest-kit` + generators + scaffolding), que seguem no checkJs; e o
-      `noImplicitAny: true` (endurecimento final — hoje off, ~280 params a tipar).
+      `/** @type */ (x)` não narram (viram `as`). **Também entregue: os 16 `.js`** (entries públicos
+      `init-project`/`create-memory-nest-kit` + generators + scaffolding). Agora **todo o código-fonte
+      do framework é `.ts`**. Armadilha corrigida: o sed que atualizava os `node:` do registry atingiu
+      também o array de fallback do próprio `resolveScript` (`['.ts','.js','.mjs']`→`['.ts','.ts','.ts']`),
+      quebrando a resolução do `dist/*.js`. **Resta**: `noImplicitAny: true` (endurecimento final —
+      hoje off, ~280 params a tipar).
 - [x] **Fase 3 — build + publish.** `tsc` emitindo `dist/`; `package.json` apontando para `dist/`;
       `prepublishOnly` = gate (o gate builda, D4 revisado). Provado por `release:check` (#15).
 - [x] Doc/persona: governança ganha o `build-fresh`; `docs/` e `CONTRIBUTING` ganham o "dev roda

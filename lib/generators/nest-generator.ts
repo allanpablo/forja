@@ -4,7 +4,7 @@
  */
 
 import path from 'node:path';
-import { writeFileSafe, ensureDir, maybeGitkeep } from '../utils/file-helpers.js';
+import { writeFileSafe, ensureDir, maybeGitkeep } from '../utils/file-helpers.ts';
 
 /**
  * Factory de templates NestJS dinâmicos

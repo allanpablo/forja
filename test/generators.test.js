@@ -6,10 +6,10 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { generateMemoryStructure } from '../lib/generators/memory-generator.js';
-import { generateNestStructure } from '../lib/generators/nest-generator.js';
-import { generateReadme } from '../lib/generators/readme-generator.js';
-import { validateProjectStructure } from '../lib/validators/structure-validator.js';
+import { generateMemoryStructure } from '../lib/generators/memory-generator.ts';
+import { generateNestStructure } from '../lib/generators/nest-generator.ts';
+import { generateReadme } from '../lib/generators/readme-generator.ts';
+import { validateProjectStructure } from '../lib/validators/structure-validator.ts';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);

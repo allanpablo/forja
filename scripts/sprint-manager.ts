@@ -40,8 +40,8 @@ function startSprint() {
   const backlog = fs.readFileSync(backlogFile, 'utf8');
   const lines = backlog.split('\n');
   
-  const toSprint = [];
-  const remaining = [];
+  const toSprint: any[] = [];
+  const remaining: any[] = [];
   
   let inPriority = false;
   let hasChecklistPriority = false;
@@ -115,8 +115,8 @@ function parseRiceBacklog(content) {
 }
 
 function parseChecklistItems(content) {
-  const done = [];
-  const pending = [];
+  const done: any[] = [];
+  const pending: any[] = [];
   const lines = content.split('\n');
 
   for (const line of lines) {
@@ -133,7 +133,7 @@ function appendToHighPriorityBacklog(items) {
   if (items.length === 0 || !fs.existsSync(backlogFile)) return;
   const backlog = fs.readFileSync(backlogFile, 'utf8');
   const lines = backlog.split('\n');
-  const output = [];
+  const output: any[] = [];
   let inserted = false;
 
   for (let i = 0; i < lines.length; i += 1) {

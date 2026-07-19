@@ -61,7 +61,7 @@ function ensureDir(dir) {
   if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
 }
 
-function walk(dir, out = []) {
+function walk(dir, out: string[] = []) {
   if (!fs.existsSync(dir)) return out;
   for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
     if (entry.name === 'node_modules' || entry.name === '.git' || entry.name === '.memory') continue;
@@ -184,7 +184,7 @@ function syncSpecSummaries() {
 }
 
 function syncAssetCatalog() {
-  const assets = [];
+  const assets: { type: string; name: string; path: string; summary: string; tags: any }[] = [];
   const boilerRoot = path.join(root, 'boilerplates');
   if (fs.existsSync(boilerRoot)) {
     for (const entry of fs.readdirSync(boilerRoot, { withFileTypes: true })) {

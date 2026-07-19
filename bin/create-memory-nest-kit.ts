@@ -14,11 +14,11 @@
 import path from 'node:path';
 import process from 'node:process';
 import { fileURLToPath } from 'node:url';
-import { generateMemoryStructure } from '../lib/generators/memory-generator.js';
-import { generateNestStructure } from '../lib/generators/nest-generator.js';
-import { generateReadme } from '../lib/generators/readme-generator.js';
-import { validateProjectStructure, printValidationReport } from '../lib/validators/structure-validator.js';
-import { ensureDir, logSuccess, logError } from '../lib/utils/file-helpers.js';
+import { generateMemoryStructure } from '../lib/generators/memory-generator.ts';
+import { generateNestStructure } from '../lib/generators/nest-generator.ts';
+import { generateReadme } from '../lib/generators/readme-generator.ts';
+import { validateProjectStructure, printValidationReport } from '../lib/validators/structure-validator.ts';
+import { ensureDir, logSuccess, logError } from '../lib/utils/file-helpers.ts';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);

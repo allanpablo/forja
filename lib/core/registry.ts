@@ -30,7 +30,7 @@ export function resolveScript(root, node) {
   const direct = path.join(root, node);
   if (fs.existsSync(direct)) return direct;
   const base = direct.replace(/\.(mjs|cjs|js|ts)$/, '');
-  for (const ext of ['.ts', '.js', '.ts']) {
+  for (const ext of ['.ts', '.js', '.mjs']) {
     if (fs.existsSync(base + ext)) return base + ext;
   }
   return direct;
@@ -136,19 +136,19 @@ export const COMMANDS = {
   'sprint:start': {
     domain: 'gsd',
     desc: 'Inicia sprint',
-    node: 'scripts/sprint-manager.js',
+    node: 'scripts/sprint-manager.ts',
     args: ['start'],
   },
   'sprint:status': {
     domain: 'gsd',
     desc: 'Status da sprint atual',
-    node: 'scripts/sprint-manager.js',
+    node: 'scripts/sprint-manager.ts',
     args: ['status'],
   },
   'sprint:complete': {
     domain: 'gsd',
     desc: 'Encerra sprint',
-    node: 'scripts/sprint-manager.js',
+    node: 'scripts/sprint-manager.ts',
     args: ['complete'],
   },
 
@@ -208,19 +208,19 @@ export const COMMANDS = {
   'sync:universal': {
     domain: 'memoria',
     desc: 'Reindexa a memória universal (SQLite FTS5)',
-    node: 'scripts/sync-universal-memory.js',
+    node: 'scripts/sync-universal-memory.ts',
     gates: ['workspace-warn'],
   },
   'query:universal': {
     domain: 'memoria',
     desc: 'Busca FTS5 na memória universal',
-    node: 'scripts/query-universal-memory.js',
+    node: 'scripts/query-universal-memory.ts',
     gates: ['workspace-warn'],
   },
   'memory:compress': {
     domain: 'memoria',
     desc: 'Arquiva runs antigos e compacta memória de projeto',
-    node: 'scripts/compress-project-memory.js',
+    node: 'scripts/compress-project-memory.ts',
   },
   'memory:vacuum': {
     domain: 'memoria',
@@ -235,14 +235,14 @@ export const COMMANDS = {
   'memory:extract': {
     domain: 'memoria',
     desc: 'Extrai conhecimento global da memória',
-    node: 'scripts/extract-global-knowledge.js',
+    node: 'scripts/extract-global-knowledge.ts',
   },
 
   // --- Contexto & token economy ---------------------------------------------
   'context:smart': {
     domain: 'contexto',
     desc: 'Gera smart-context (3 modos, ADR-0003)',
-    node: 'scripts/build-smart-context.js',
+    node: 'scripts/build-smart-context.ts',
     gates: ['workspace-warn'],
   },
   'context:budget': {
@@ -285,7 +285,7 @@ export const COMMANDS = {
   'project:check': {
     domain: 'governanca',
     desc: 'Standards check do framework (pre-commit)',
-    node: 'scripts/check-standards.js',
+    node: 'scripts/check-standards.ts',
   },
   'tools:doctor': {
     domain: 'governanca',
@@ -300,7 +300,7 @@ export const COMMANDS = {
   'project:dashboard': {
     domain: 'governanca',
     desc: 'Gera dashboard estático de status',
-    node: 'scripts/generate-dashboard.js',
+    node: 'scripts/generate-dashboard.ts',
   },
   'audit:sync': {
     domain: 'governanca',
@@ -322,6 +322,6 @@ export const COMMANDS = {
   'init:project': {
     domain: 'geracao',
     desc: 'Gera projeto direto num path (prefira project:new)',
-    node: 'bin/init-project.js',
+    node: 'bin/init-project.ts',
   },
 };

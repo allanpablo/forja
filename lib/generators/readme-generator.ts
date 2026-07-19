@@ -3,7 +3,7 @@
  */
 
 import path from 'node:path';
-import { writeFileSafe } from '../utils/file-helpers.js';
+import { writeFileSafe } from '../utils/file-helpers.ts';
 
 /**
  * Factory para README dinâmico
