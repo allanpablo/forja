@@ -24,10 +24,10 @@ import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { runChecks as run, worstStatus, stripTemplateLiterals } from './checks.mjs';
+import { runChecks as run, worstStatus, stripTemplateLiterals } from './checks.ts';
 
-/** @typedef {import('./checks.mjs').Check} Check */
-import { COMMANDS, resolveScript } from './registry.mjs';
+/** @typedef {import('./checks.ts').Check} Check */
+import { COMMANDS, resolveScript } from './registry.ts';
 
 export { worstStatus };
 
@@ -172,10 +172,10 @@ const registryScripts = {
   severity: 'critical',
   dependsOn: 'install',
   probe(env) {
-    const faltando = [];
+    const faltando: string[] = [];
     let total = 0;
 
-    for (const [name, def] of Object.entries(env.registry)) {
+    for (const [name, def] of Object.entries<any>(env.registry)) {
       const rel = def.node || def.script;
       if (!rel) continue;
       total += 1;
@@ -230,7 +230,7 @@ function pkgCodeRoot(env) {
 }
 
 function publishedSources(env) {
-  const out = [];
+  const out: string[] = [];
   const root = pkgCodeRoot(env);
 
   for (const dir of CODE_DIRS) {
@@ -268,7 +268,7 @@ const IMPORT_RE = /(?:^|\s)(?:import|export)[^'"]*?from\s*['"]([^'"]+)['"]|(?:^|
 
 function importsOf(env, file) {
   const src = stripTemplateLiterals(env.fs.readFileSync(file, 'utf8'));
-  const out = [];
+  const out: string[] = [];
   for (const m of src.matchAll(IMPORT_RE)) out.push(m[1] || m[2]);
   return out;
 }
@@ -289,7 +289,7 @@ const importsResolve = {
   severity: 'critical',
   dependsOn: 'install',
   probe(env) {
-    const quebrados = [];
+    const quebrados: string[] = [];
 
     for (const file of publishedSources(env)) {
       for (const spec of importsOf(env, file)) {
@@ -323,7 +323,7 @@ const depsDeclared = {
   probe(env) {
     const pkg = JSON.parse(env.fs.readFileSync(path.join(env.pkgDir, 'package.json'), 'utf8'));
     const deps = new Set(Object.keys(pkg.dependencies || {}));
-    const faltando = new Map();
+    const faltando = new Map<string, string>();
 
     for (const file of publishedSources(env)) {
       for (const spec of importsOf(env, file)) {
@@ -403,7 +403,7 @@ const smokeCommands = {
     const pkg = JSON.parse(env.fs.readFileSync(path.join(env.pkgDir, 'package.json'), 'utf8'));
     const binRel = typeof pkg.bin === 'string' ? pkg.bin : pkg.bin?.forja;
     const bin = path.join(env.pkgDir, binRel);
-    const quebrados = [];
+    const quebrados: string[] = [];
 
     for (const args of env.smokeCommands) {
       const res = env.spawn(process.execPath, [bin, ...args], { cwd: env.installDir });
@@ -430,7 +430,7 @@ const smokeCommands = {
   },
 };
 
-/** @type {import('./checks.mjs').Check[]} */
+/** @type {import('./checks.ts').Check[]} */
 export const RELEASE_CHECKS = [
   treeClean,
   install,

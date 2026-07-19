@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import path from 'node:path';
 
-import { CHECKS, runChecks, worstStatus } from '../lib/core/health.mjs';
+import { CHECKS, runChecks, worstStatus } from '../lib/core/health.ts';
 
 const checkById = (id) => CHECKS.find((c) => c.id === id);
 

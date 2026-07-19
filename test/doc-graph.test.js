@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import path from 'node:path';
 
-import { scanCommands, scanLinks, projectCommands, docFiles } from '../lib/core/doc-graph.mjs';
+import { scanCommands, scanLinks, projectCommands, docFiles } from '../lib/core/doc-graph.ts';
 
 /**
  * fs de fixture: `files` mapeia path absoluto → conteúdo. Diretórios são inferidos dos paths.

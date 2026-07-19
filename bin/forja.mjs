@@ -16,7 +16,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
-import { COMMANDS, DOMAINS, resolveScript } from '../lib/core/registry.mjs';
+import { COMMANDS, DOMAINS, resolveScript } from '../lib/core/registry.ts';
 import { getWorkspaceInfo, getWorkspaceContextDir } from '../lib/workspace.mjs';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));

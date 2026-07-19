@@ -20,7 +20,7 @@
 
 import { spawnSync } from 'node:child_process';
 
-import { runChecks, worstStatus } from '../lib/core/health.mjs';
+import { runChecks, worstStatus } from '../lib/core/health.ts';
 
 const TOOLS = [
   {

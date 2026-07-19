@@ -10,6 +10,9 @@
     "allowJs": true,
     "checkJs": true,
     "noEmit": true,
+    // Fase 2: fonte importa ./x.ts (nodenext exige extensão; Node roda .ts nativo em dev).
+    // No build vira false + rewriteRelativeImportExtensions reescreve .ts→.js (tsconfig.build.json).
+    "allowImportingTsExtensions": true,
     "strict": true,
     "noImplicitAny": false,
     // On-ramp: catch-var como `any` (comportamento pré-TS-4.4). O valor da migração são os

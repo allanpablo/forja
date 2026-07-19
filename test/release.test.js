@@ -2,8 +2,8 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import path from 'node:path';
 
-import { runChecks, worstStatus } from '../lib/core/checks.mjs';
-import { RELEASE_CHECKS } from '../lib/core/release.mjs';
+import { runChecks, worstStatus } from '../lib/core/checks.ts';
+import { RELEASE_CHECKS } from '../lib/core/release.ts';
 
 const checkById = (id) => RELEASE_CHECKS.find((c) => c.id === id);
 
