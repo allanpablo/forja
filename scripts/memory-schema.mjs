@@ -53,8 +53,22 @@ function ensureSchema({ silent = false } = {}) {
       updated_at TEXT NOT NULL
     );
 
+    -- Projecao consultavel do audit trail (.context/forja-runs.jsonl), SPEC-014. O jsonl e a
+    -- fonte de verdade append-only; esta tabela e reconstruivel por audit:sync. line_hash (hash
+    -- do conteudo da linha) da idempotencia: re-sync nao duplica.
+    CREATE TABLE IF NOT EXISTS audit_runs (
+      line_hash TEXT PRIMARY KEY,
+      ts TEXT,
+      cmd TEXT,
+      args TEXT,
+      exit_code INTEGER,
+      duration_ms INTEGER
+    );
+
     CREATE INDEX IF NOT EXISTS idx_context_runs_kind_slug ON context_runs(kind, slug);
     CREATE INDEX IF NOT EXISTS idx_asset_catalog_type_name ON asset_catalog(type, name);
+    CREATE INDEX IF NOT EXISTS idx_audit_runs_cmd ON audit_runs(cmd);
+    CREATE INDEX IF NOT EXISTS idx_audit_runs_ts ON audit_runs(ts);
   `);
 
   db.close();

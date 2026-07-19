@@ -193,6 +193,11 @@ forja project:check                        # standards do framework (pre-commit)
 forja tools:doctor                         # raio-x do núcleo; exit 1 se quebrou
 forja release:check --publish              # gate do tarball antes de publicar
 forja project:dashboard                    # relatório estático de status
+
+# Governança & auditoria
+forja audit:sync                           # projeta a trilha de auditoria numa tabela consultável
+forja audit:query --failed                 # consulta: --failed, --cmd <x>, --since 7d
+forja governance:dashboard                 # painel HTML estático (gates, SDD, auditoria) — sem servidor
 ```
 
 ## Separação framework × workspace

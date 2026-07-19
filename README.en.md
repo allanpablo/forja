@@ -203,6 +203,11 @@ forja project:check                        # framework standards (pre-commit)
 forja tools:doctor                         # core X-ray; exit 1 if broken
 forja release:check --publish              # tarball gate before publishing
 forja project:dashboard                    # static status report
+
+# Governance & audit
+forja audit:sync                           # project the audit trail into a queryable table
+forja audit:query --failed                 # query: --failed, --cmd <x>, --since 7d
+forja governance:dashboard                 # static HTML panel (gates, SDD, audit) — no server
 ```
 
 ## Framework vs workspace separation
