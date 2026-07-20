@@ -4,6 +4,16 @@ Histórico consolidado das mudanças estruturais do framework. Para decisões ar
 
 ---
 
+## [1.6.1] — 2026-07-20 — Correção: `project:upgrade` no pacote publicado
+
+### Corrigido
+- **`project:upgrade` quebrava com `Cannot find module .../create-memory-nest-kit.ts`** no pacote
+  instalado. O spawn do gerador cravava a extensão `.ts`; em dev funciona, mas o `dist/` publicado
+  tem `.js`. Agora resolve dinamicamente via `resolveScript` (`.ts` em dev, `.js` no publicado). O
+  `project:smoke` tinha o mesmo defeito, também corrigido. Teste de regressão guarda a classe.
+
+---
+
 ## [1.6.0] — 2026-07-20 — A orquestração coerente e a governança num comando
 
 A governança do framework ganha um ponto de entrada e o namesake — orquestração multiagente — deixa
