@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import path from 'node:path';
 
-import { scanCommands, scanLinks, projectCommands, docFiles } from '../lib/core/doc-graph.ts';
+import { scanCommands, scanLinks, projectCommands, docFiles, scanAdrRefs, adrNumbers } from '../lib/core/doc-graph.ts';
 
 /**
  * fs de fixture: `files` mapeia path absoluto → conteúdo. Diretórios são inferidos dos paths.
@@ -167,4 +167,34 @@ test('docFiles: coleta .md das superfícies, exclui archive', () => {
   assert.ok(files.includes('README.md'));
   assert.ok(!files.some((f) => f.includes('archive')), 'archive fora');
   assert.ok(!files.some((f) => f.endsWith('.mjs')), 'só .md');
+});
+
+// ---------------------------------------------------------------------------
+// scanAdrRefs / adrNumbers — referências arquiteturais que não podem pendurar (ADR-0025)
+
+test('adrNumbers lê NNNN-*.md e ignora _template', () => {
+  const e = env({
+    '/repo/memory/90-decisions/0001-x.md': '# ADR',
+    '/repo/memory/90-decisions/0026-y.md': '# ADR',
+    '/repo/memory/90-decisions/_template.md': '# tpl',
+  });
+  assert.deepEqual([...adrNumbers(e)].sort(), ['0001', '0026']);
+});
+
+test('scanAdrRefs acha citações ADR-NNNN em specs, com arquivo e linha', () => {
+  const e = env({ '/repo/specs/x/plan.md': 'linha 1\nver ADR-0026 e ADR-0099\n' });
+  const refs = scanAdrRefs(e);
+  assert.deepEqual(refs.map((r) => r.num).sort(), ['0026', '0099']);
+  assert.equal(refs[0].file, 'specs/x/plan.md');
+  assert.equal(refs[0].line, 2);
+});
+
+test('a referência pendurada é a que não está em adrNumbers (o coração do check)', () => {
+  const e = env({
+    '/repo/memory/90-decisions/0026-y.md': '# ADR',
+    '/repo/specs/x/plan.md': 'ADR-0026 existe, ADR-0099 não\n',
+  });
+  const existing = adrNumbers(e);
+  const dangling = scanAdrRefs(e).filter((r) => !existing.has(r.num));
+  assert.deepEqual(dangling.map((r) => r.ref), ['ADR-0099']);
 });

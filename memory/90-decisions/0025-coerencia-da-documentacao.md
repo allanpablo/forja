@@ -33,6 +33,10 @@ Três checks novos no catálogo de `health.mjs` (`scope: repo`), sobre um scanne
   instrução existe no registry. Comando fantasma faz o agente agir errado — trava.
 - **`commands-documented`** (warn): todo comando do registry é mencionado em ao menos um `.md`.
 - **`docs-links`** (warn): todo link markdown relativo entre arquivos versionados resolve.
+- **`adr-refs`** (warn, adicionado depois): toda citação `ADR-NNNN` em doc/spec/ADR aponta para um
+  ADR que existe. Fecha o último invariante que vivia por disciplina ("toda decisão vira ADR") pelo
+  lado verificável: referência a decisão inexistente é trilha que apodrece. Pegou o `ADR-0026`
+  pendurado (citado pela SPEC-012, nunca escrito) na primeira execução.
 
 Princípios:
 

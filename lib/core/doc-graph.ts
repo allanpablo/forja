@@ -141,6 +141,52 @@ export function scanLinks(env: any) {
   return hits;
 }
 
+/** Superfícies onde um ADR pode ser citado: as de instrução + as specs + os próprios ADRs. */
+const ADR_REF_SURFACES = [...DOC_SURFACES, 'specs', 'memory/90-decisions'];
+const ADR_REF_RE = /ADR-(\d{4})/g;
+
+/** Números de ADR que existem de fato como arquivo (`NNNN-*.md`, sem `_template`). */
+export function adrNumbers(env: any): Set<string> {
+  const dir = path.join(env.root, 'memory', '90-decisions');
+  const out = new Set<string>();
+  let entries: string[];
+  try {
+    entries = env.fs.readdirSync(dir);
+  } catch {
+    return out;
+  }
+  for (const e of entries) {
+    const m = e.match(/^(\d{4})-.*\.md$/);
+    if (m) out.add(m[1]);
+  }
+  return out;
+}
+
+/**
+ * Toda citação `ADR-NNNN` nas superfícies de instrução, specs e ADRs. É o `scanLinks` das
+ * referências arquiteturais: um número que não existe é uma referência pendurada — trilha que apodrece.
+ * @returns {{ file: string, line: number, ref: string, num: string }[]}
+ */
+export function scanAdrRefs(env: any) {
+  const hits: { file: string; line: number; ref: string; num: string }[] = [];
+  const seen = new Set<string>();
+  for (const surface of ADR_REF_SURFACES) {
+    for (const file of collectMarkdown(env, surface)) {
+      const rel = path.relative(env.root, file);
+      if (seen.has(rel)) continue;
+      seen.add(rel);
+      const src = safeRead(env, file);
+      if (src == null) continue;
+      src.split('\n').forEach((text: any, i: any) => {
+        for (const m of text.matchAll(ADR_REF_RE)) {
+          hits.push({ file: rel, line: i + 1, ref: m[0], num: m[1] });
+        }
+      });
+    }
+  }
+  return hits;
+}
+
 /** Extrai as keys de todo bloco `"scripts": { … }` de um fonte de gerador. */
 function scriptKeys(source: any) {
   const keys = new Set();
