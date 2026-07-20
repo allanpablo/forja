@@ -82,3 +82,28 @@ test('builds é skipped sem --full (AC-5 — tier caro é opt-in)', async () => 
   assert.equal(r.status, 'skipped');
   fs.rmSync(projectDir, { recursive: true, force: true });
 });
+
+test('gate-inherited: projeto sem check-memory-maps.mjs reprova (ADR-0030)', async () => {
+  const projectDir = fixtureProject({ 'AGENTS.md': 'ok' });
+  const [r] = await runChecks({ checks: only('gate-inherited'), env: { ...defaultEnv(), projectDir } });
+  assert.equal(r.status, 'fail');
+  fs.rmSync(projectDir, { recursive: true, force: true });
+});
+
+test('gate-inherited: projeto com o gate aprova', async () => {
+  const projectDir = fixtureProject({ 'AGENTS.md': 'ok', 'scripts/check-memory-maps.mjs': '// gate' });
+  const [r] = await runChecks({ checks: only('gate-inherited'), env: { ...defaultEnv(), projectDir } });
+  assert.equal(r.status, 'ok');
+  fs.rmSync(projectDir, { recursive: true, force: true });
+});
+
+import { generateMemoryStructure } from '../lib/generators/memory-generator.ts';
+
+test('o gerador emite o gate herdado scripts/check-memory-maps.mjs (ADR-0030)', () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'forja-gen-gate-'));
+  generateMemoryStructure(dir, {});
+  const gate = path.join(dir, 'scripts', 'check-memory-maps.mjs');
+  assert.ok(fs.existsSync(gate), 'o projeto gerado carrega o gate dos mapas');
+  assert.match(fs.readFileSync(gate, 'utf8'), /30-domains|context\.md/, 'é o gate de coerência mapa↔código');
+  fs.rmSync(dir, { recursive: true, force: true });
+});

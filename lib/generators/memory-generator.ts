@@ -697,6 +697,51 @@ fs.writeFileSync(file, template, 'utf8');
 console.log('Handoff criado: ' + file);
 `,
 
+  'scripts/check-memory-maps.mjs': `import fs from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+
+// Gate herdado do Forja (ADR-0030): os mapas de memoria (context.md) nao mentem sobre o codigo.
+// Self-contained, zero dependencia. Rode no CI: node scripts/check-memory-maps.mjs
+const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
+const domainsDir = path.join(root, 'memory/30-domains');
+const modulesDir = path.join(root, 'backend/src/modules');
+const BT = String.fromCharCode(96);
+const CODE_REF = new RegExp(BT + '([a-z][a-zA-Z0-9/._-]*/[a-zA-Z0-9/._-]*[.]ts)' + BT, 'g');
+
+function dirs(p) {
+  try { return fs.readdirSync(p).filter((e) => fs.statSync(path.join(p, e)).isDirectory()); }
+  catch { return []; }
+}
+function resolves(domain, ref) {
+  const bases = [path.join(modulesDir, domain), path.join(root, 'backend'), root];
+  return bases.some((b) => fs.existsSync(path.join(b, ref)));
+}
+
+let dangling = 0;
+const domains = dirs(domainsDir);
+for (const d of domains) {
+  let src;
+  try { src = fs.readFileSync(path.join(domainsDir, d, 'context.md'), 'utf8'); }
+  catch { continue; }
+  const refs = [...new Set([...src.matchAll(CODE_REF)].map((m) => m[1]))];
+  const bad = refs.filter((r) => !resolves(d, r));
+  if (bad.length) { dangling += bad.length; console.log('x ' + d + ': ' + bad.join(', ') + ' -- o mapa aponta, o arquivo nao existe'); }
+  else { console.log('ok ' + d + ' -- ' + refs.length + ' referencia(s)'); }
+}
+const mapped = new Set(domains);
+for (const m of dirs(modulesDir)) {
+  if (!mapped.has(m)) console.log('! modulo ' + m + ' sem context.md -- economia de token perdida');
+}
+if (dangling) {
+  console.log('');
+  console.log('REPROVADO -- ' + dangling + ' referencia(s) pendurada(s). Corrija o context.md ou o path.');
+  process.exit(1);
+}
+console.log('');
+console.log('OK -- os mapas de memoria batem com o codigo.');
+`,
+
   'scripts/lib/skill-loader.mjs': `import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';

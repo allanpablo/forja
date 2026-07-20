@@ -148,6 +148,7 @@ Mostra:
 | \`append-handoff.mjs\` | Cria novo arquivo de handoff |
 | \`memory-vacuum.mjs\` | Arquiva logs > 30 dias |
 | \`memory-watcher.mjs\` | Auto-sync de markdown → SQLite |
+| \`check-memory-maps.mjs\` | Gate: os mapas (context.md) não citam código morto. Rode no CI |
 
 ## 📚 Documentação Importante
 
