@@ -242,6 +242,11 @@ export const COMMANDS = {
     desc: 'Extrai conhecimento global da memória',
     node: 'scripts/extract-global-knowledge.ts',
   },
+  'memory:audit': {
+    domain: 'memoria',
+    desc: 'Confere que os mapas (context.md) não citam código que não existe (SPEC-017). --project <path>',
+    node: 'scripts/memory-audit.ts',
+  },
 
   // --- Contexto & token economy ---------------------------------------------
   'context:smart': {
