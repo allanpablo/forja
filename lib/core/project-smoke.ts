@@ -19,6 +19,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { runChecks as run, worstStatus } from './checks.ts';
+import { resolveScript } from './registry.ts';
 import type { Check } from './checks.ts';
 // @ts-ignore — validador legado sem tipos exportados; usado só pela forma { isValid, errors }.
 import { validateProjectStructure } from '../validators/structure-validator.ts';
@@ -51,7 +52,8 @@ export async function withGeneratedProject<T>(
   const projectDir = path.join(dir, 'smoke-proj');
 
   try {
-    const gen = path.join(root, 'bin', 'create-memory-nest-kit.ts');
+    // resolveScript acha .ts em dev e .js no dist — cravar .ts quebrava no pacote publicado.
+    const gen = resolveScript(root, 'bin/create-memory-nest-kit');
     const res = spawn(process.execPath, [gen, projectDir, '--force'], { cwd: dir });
     if (res.code !== 0) {
       throw new Error(`o gerador saiu com código ${res.code}:\n${(res.stderr || res.stdout).slice(0, 800)}`);
