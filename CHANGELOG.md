@@ -4,6 +4,32 @@ Histórico consolidado das mudanças estruturais do framework. Para decisões ar
 
 ---
 
+## [1.4.0] — 2026-07-19 — Governança que mede: gate do gerador, economia de token e integridade de ADR
+
+Três fronteiras que viviam por disciplina viram harness — e cada uma provou seu valor pegando um
+problema real na estreia.
+
+### Adicionado
+- **`project:smoke`** (SPEC-015, ADR-0029): o gate do projeto gerado. Gera um projeto num tmp isolado
+  e prova que é coerente — zero placeholder `{{...}}` vazado, `package.json` válido, estrutura íntegra
+  (reusa o `structure-validator`). Tier `--full` (opt-in): `npm install` + `npm run build` do backend
+  gerado. É o `release:check` da saída do gerador, um nível acima do tarball.
+- **`token:economy`** (fecha a dívida do ADR-0027; mede ADR-0009): mede a economia de token em dois
+  eixos, com file-sets explícitos. **Eixo arquitetura** (clean vs flat, mesma feature): camadas
+  custam **+56%** numa feature pequena — a versão ingênua de "Clean Architecture economiza tokens"
+  não se sustenta. **Eixo memória** (frio vs quente): o `context.md` (mapa) faz o contexto mínimo
+  custar **−61%** vs varrer a fatia no frio — e isso **compõe** a cada tarefa. A economia do Forja é
+  da memória persistente, amortizada no tempo, não das camadas. Narrativa corrigida no
+  `WHEN-CLEAN-WHEN-LEAN.md` e no ADR-0027.
+- **`adr-refs`** (check no `tools:doctor`, ADR-0025): toda citação `ADR-NNNN` aponta para um ADR que
+  existe. Na 1ª execução pegou o `ADR-0026` pendurado (citado pela SPEC-012, nunca escrito) — fechado
+  escrevendo o **ADR-0026** (arquitetura da migração TS: resolver, runtime duplo, gate-builda-dist).
+
+### Nota
+- Nada muda para quem já tem projetos gerados; são comandos e gates novos do framework.
+
+---
+
 ## [1.3.2] — 2026-07-19 — Migração TypeScript concluída (interno)
 
 **Sem mudança para quem instala** — o `dist/*.js` publicado é idêntico ao da 1.3.1. Fecha a SPEC-012.
