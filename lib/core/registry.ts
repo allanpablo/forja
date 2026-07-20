@@ -249,7 +249,7 @@ export const COMMANDS = {
   },
   'memory:audit': {
     domain: 'memoria',
-    desc: 'Confere que os mapas (context.md) não citam código que não existe (SPEC-017). --project <path>',
+    desc: 'Coerência mapa↔código: mapa não cita código morto (falha) + módulo sem mapa (aviso). SPEC-017',
     node: 'scripts/memory-audit.ts',
   },
 
@@ -297,7 +297,7 @@ export const COMMANDS = {
   },
   'token:economy': {
     domain: 'contexto',
-    desc: 'Mede a economia de token em dois eixos: arquitetura (clean vs flat) e memória (frio vs quente). --json para a tabela',
+    desc: 'Economia de token: eixos arquitetura + memória; --project mede seus domínios reais (ADR-0009/0027)',
     node: 'scripts/token-economy.ts',
   },
 

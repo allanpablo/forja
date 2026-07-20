@@ -65,3 +65,34 @@ test('só conta paths de código (com / e .ts), não prosa entre crases', () => 
   assert.deepEqual(a.dangling, []);
   fs.rmSync(root, { recursive: true, force: true });
 });
+
+// direção reversa: módulo sem mapa (a economia perdida em silêncio)
+import { modulesOf, modulesWithoutMap } from '../lib/memory-audit.ts';
+
+test('modulesOf lista os diretórios sob backend/src/modules', () => {
+  const root = fixtureProject({
+    'backend/src/modules/orders/x.ts': 'x',
+    'backend/src/modules/billing/y.ts': 'y',
+  });
+  assert.deepEqual(modulesOf(root), ['billing', 'orders']);
+  fs.rmSync(root, { recursive: true, force: true });
+});
+
+test('modulesWithoutMap pega módulo de código sem context.md', () => {
+  const root = fixtureProject({
+    'memory/30-domains/orders/context.md': '# orders',
+    'backend/src/modules/orders/x.ts': 'x',
+    'backend/src/modules/billing/y.ts': 'y', // sem mapa
+  });
+  assert.deepEqual(modulesWithoutMap(root), ['billing']);
+  fs.rmSync(root, { recursive: true, force: true });
+});
+
+test('modulesWithoutMap: todos mapeados → []', () => {
+  const root = fixtureProject({
+    'memory/30-domains/orders/context.md': '# orders',
+    'backend/src/modules/orders/x.ts': 'x',
+  });
+  assert.deepEqual(modulesWithoutMap(root), []);
+  fs.rmSync(root, { recursive: true, force: true });
+});

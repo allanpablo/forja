@@ -43,6 +43,35 @@ function refResolves(projectRoot: string, domain: string, ref: string, env: Audi
   return bases.some((base) => env.fs.existsSync(path.join(base, ref)));
 }
 
+/** Módulos de código de um projeto: os diretórios sob `backend/src/modules/`. */
+export function modulesOf(projectRoot: string, env: AuditEnv = defaultEnv): string[] {
+  const dir = path.join(projectRoot, 'backend', 'src', 'modules');
+  try {
+    return env.fs
+      .readdirSync(dir)
+      .filter((e: string) => {
+        try {
+          return env.fs.statSync(path.join(dir, e)).isDirectory();
+        } catch {
+          return false;
+        }
+      })
+      .sort();
+  } catch {
+    return [];
+  }
+}
+
+/**
+ * A direção reversa da coerência: módulo de código **sem** `context.md`. Não é uma mentira (o mapa
+ * não existe para mentir), mas é a economia de token perdida em silêncio — um domínio que cresceu e
+ * ninguém mapeou. `warn`, não `fail`.
+ */
+export function modulesWithoutMap(projectRoot: string, env: AuditEnv = defaultEnv): string[] {
+  const mapped = new Set(domainsOf(projectRoot, env));
+  return modulesOf(projectRoot, env).filter((m) => !mapped.has(m));
+}
+
 /** Audita os mapas de todos os domínios de um projeto. */
 export function auditMemoryMaps(projectRoot: string, env: AuditEnv = defaultEnv): DomainAudit[] {
   const out: DomainAudit[] = [];
