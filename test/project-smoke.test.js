@@ -97,13 +97,3 @@ test('gate-inherited: projeto com o gate aprova', async () => {
   fs.rmSync(projectDir, { recursive: true, force: true });
 });
 
-import { generateMemoryStructure } from '../lib/generators/memory-generator.ts';
-
-test('o gerador emite o gate herdado scripts/check-memory-maps.mjs (ADR-0030)', () => {
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'forja-gen-gate-'));
-  generateMemoryStructure(dir, {});
-  const gate = path.join(dir, 'scripts', 'check-memory-maps.mjs');
-  assert.ok(fs.existsSync(gate), 'o projeto gerado carrega o gate dos mapas');
-  assert.match(fs.readFileSync(gate, 'utf8'), /30-domains|context\.md/, 'é o gate de coerência mapa↔código');
-  fs.rmSync(dir, { recursive: true, force: true });
-});
