@@ -185,7 +185,7 @@ forja code:query "<termo>"                 # também: code:index · code:sync ·
 forja sync:universal                       # reindexa SQLite FTS5 do workspace
 forja query:universal "<query>"            # busca FTS5
 forja context:smart                        # smart-context (3 modos, ADR-0003)
-forja token:economy                        # mede clean-arch vs flat na mesma feature (ADR-0027)
+forja token:economy                        # mede a economia de token: arquitetura + memória (ADR-0009/0027)
 forja memory:compress                      # arquiva runs antigos + VACUUM
 forja memory:extract                       # extrai conhecimento global da memória
 

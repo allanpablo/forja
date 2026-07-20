@@ -282,7 +282,7 @@ export const COMMANDS = {
   },
   'token:economy': {
     domain: 'contexto',
-    desc: 'Mede clean-arch vs flat na mesma feature, por cenário (ADR-0027). --json para a tabela crua',
+    desc: 'Mede a economia de token em dois eixos: arquitetura (clean vs flat) e memória (frio vs quente). --json para a tabela',
     node: 'scripts/token-economy.ts',
   },
 

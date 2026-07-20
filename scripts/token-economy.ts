@@ -1,11 +1,19 @@
 #!/usr/bin/env node
 /**
- * token-economy — mede, não argumenta (fecha a dívida do ADR-0027).
+ * token-economy — mede, não argumenta (fecha a dívida do ADR-0027; ADR-0009 e ADR-0003).
  *
- * O ADR-0027 afirmou que o padrão em camadas de `orders/` "economiza tokens" — e foi honesto ao
- * admitir que a medida crua não *prova* nada. Este script fecha a dívida: compara a MESMA feature
- * (place + ship, com a invariante "não envia sem pagamento") em dois estilos, por cenário, com
- * file-sets EXPLÍCITOS. O número pode confirmar ou matar a claim — é o ponto de ser falsificável.
+ * Dois eixos, porque a economia de token do Forja tem dois eixos e eles são diferentes:
+ *
+ *   1. ARQUITETURA (clean vs flat) — camadas custam tokens. Numa feature pequena, o flat é mais
+ *      barato. É honesto, e desmente a versão ingênua de "Clean Architecture economiza tokens".
+ *
+ *   2. MEMÓRIA (frio vs quente) — o `context.md` é o mapa. Sem ele, um agente varre o código da
+ *      fatia para localizar a regra; com ele, vai direto ao agregado. AQUI está a economia real do
+ *      framework (ADR-0009), e ela COMPÕE: paga-se o scaffold uma vez, e o mapa economiza a cada
+ *      tarefa futura pela vida do projeto.
+ *
+ * O `token:economy` sozinho não captura o custo de gerar do zero (isso é custo líquido, único). Ele
+ * captura o regime permanente — o projeto já levantado, onde a memória persistente paga de volta.
  *
  * Token ≈ bytes/4 (o mesmo proxy do resto do framework). Não é preciso; é reproduzível e honesto.
  */
@@ -22,95 +30,98 @@ const CLEAN_CTX = 'boilerplates/06-clean-arch/memory/30-domains/orders/context.m
 const SHARED = 'boilerplates/06-clean-arch/backend/src/shared/result.ts';
 const FLAT = 'benchmarks/clean-vs-flat/orders-flat';
 
+/** Todo o código da fatia Orders (clean) — o que se varre "no frio", sem mapa. */
+const CLEAN_CODE = [
+  `${CLEAN}/domain/order.entity.ts`,
+  `${CLEAN}/domain/order-status.vo.ts`,
+  `${CLEAN}/domain/money.vo.ts`,
+  `${CLEAN}/domain/order.repository.ts`,
+  `${CLEAN}/application/place-order.usecase.ts`,
+  `${CLEAN}/application/ship-order.usecase.ts`,
+  `${CLEAN}/infrastructure/order.orm-entity.ts`,
+  `${CLEAN}/infrastructure/typeorm-order.repository.ts`,
+  `${CLEAN}/presentation/orders.controller.ts`,
+  `${CLEAN}/presentation/orders.http.dto.ts`,
+  `${CLEAN}/orders.module.ts`,
+  SHARED,
+];
+
+interface Variant {
+  label: string;
+  files: string[];
+}
 interface Scenario {
+  axis: 'arquitetura' | 'memória';
   name: string;
   question: string;
-  clean: string[];
-  flat: string[];
+  a: Variant; // o candidato "mais estruturado" (clean / quente)
+  b: Variant; // o "mais simples" (flat / frio)
 }
 
 const SCENARIOS: Scenario[] = [
   {
+    axis: 'arquitetura',
     name: 'entender a feature inteira',
     question: 'ler todo o código da fatia para entender o que ela faz',
-    clean: [
-      `${CLEAN}/domain/order.entity.ts`,
-      `${CLEAN}/domain/order-status.vo.ts`,
-      `${CLEAN}/domain/money.vo.ts`,
-      `${CLEAN}/domain/order.repository.ts`,
-      `${CLEAN}/application/place-order.usecase.ts`,
-      `${CLEAN}/application/ship-order.usecase.ts`,
-      `${CLEAN}/infrastructure/order.orm-entity.ts`,
-      `${CLEAN}/infrastructure/typeorm-order.repository.ts`,
-      `${CLEAN}/presentation/orders.controller.ts`,
-      `${CLEAN}/presentation/orders.http.dto.ts`,
-      `${CLEAN}/orders.module.ts`,
-      SHARED,
-    ],
-    flat: [
-      `${FLAT}/order.entity.ts`,
-      `${FLAT}/orders.service.ts`,
-      `${FLAT}/orders.controller.ts`,
-    ],
+    a: { label: 'clean', files: CLEAN_CODE },
+    b: {
+      label: 'flat',
+      files: [`${FLAT}/order.entity.ts`, `${FLAT}/orders.service.ts`, `${FLAT}/orders.controller.ts`],
+    },
   },
   {
+    axis: 'arquitetura',
     name: 'mudar a regra de envio',
     question: 'alterar a invariante "não envia sem pagamento" — o contexto mínimo suficiente',
-    // Clean: o mapa (context.md) diz que a regra vive no agregado + na máquina de estados. O agente
-    // NÃO carrega application/infra/presentation — a regra está isolada.
-    clean: [CLEAN_CTX, `${CLEAN}/domain/order.entity.ts`, `${CLEAN}/domain/order-status.vo.ts`],
-    // Flat: a regra é um `if` no meio do service gordo, misturada com orquestração e persistência.
-    // Não há mapa; lê-se o service inteiro para achar e mudar a regra.
-    flat: [`${FLAT}/orders.service.ts`],
+    a: { label: 'clean', files: [CLEAN_CTX, `${CLEAN}/domain/order.entity.ts`, `${CLEAN}/domain/order-status.vo.ts`] },
+    b: { label: 'flat', files: [`${FLAT}/orders.service.ts`] },
+  },
+  {
+    axis: 'memória',
+    name: 'trabalhar no domínio — com vs sem o mapa da memória',
+    question: 'localizar e mexer na regra numa fatia já existente (ADR-0009) — o regime permanente',
+    // Quente: a memória (context.md) aponta o agregado + a máquina de estados. Vai direto.
+    a: { label: 'quente (memória)', files: [CLEAN_CTX, `${CLEAN}/domain/order.entity.ts`, `${CLEAN}/domain/order-status.vo.ts`] },
+    // Frio: sem mapa, varre o código da fatia para descobrir onde a regra vive.
+    b: { label: 'frio (sem memória)', files: CLEAN_CODE },
   },
 ];
 
-function tokensOf(rel: string): number {
+const tokensOf = (rel: string): number => {
   try {
     return Math.round(fs.readFileSync(path.join(root, rel), 'utf8').length / 4);
   } catch {
     return 0;
   }
-}
+};
+const sum = (files: string[]) => files.reduce((acc, f) => acc + tokensOf(f), 0);
+const pct = (a: number, b: number) => (b === 0 ? '—' : `${a <= b ? '−' : '+'}${Math.abs(Math.round(((a - b) / b) * 100))}%`);
 
-function sum(files: string[]): { tokens: number; count: number } {
-  let tokens = 0;
-  for (const f of files) tokens += tokensOf(f);
-  return { tokens, count: files.length };
-}
+console.log('\nToken economy — o custo do CONTEXTO por cenário (ADR-0027, ADR-0009)\n');
+console.log('Token ≈ bytes/4. Não mede o custo de gerar do zero (custo único); mede o regime permanente.\n');
 
-const pct = (clean: number, flat: number) =>
-  flat === 0 ? '—' : `${clean <= flat ? '−' : '+'}${Math.abs(Math.round(((clean - flat) / flat) * 100))}%`;
-
-console.log('\nToken economy — clean-arch vs flat, mesma feature (ADR-0027)\n');
-console.log('Token ≈ bytes/4. Mede o custo do CONTEXTO por cenário, não o tamanho do repo.\n');
-
-const rows: any[] = [];
+const out: any[] = [];
 for (const s of SCENARIOS) {
-  const c = sum(s.clean);
-  const f = sum(s.flat);
-  rows.push({ cenário: s.name, clean_tok: c.tokens, clean_files: c.count, flat_tok: f.tokens, flat_files: f.count, clean_vs_flat: pct(c.tokens, f.tokens) });
-  console.log(`■ ${s.name}`);
+  const a = sum(s.a.files);
+  const b = sum(s.b.files);
+  out.push({ eixo: s.axis, cenário: s.name, [s.a.label]: a, [s.b.label]: b, a_vs_b: pct(a, b) });
+  console.log(`■ [${s.axis}] ${s.name}`);
   console.log(`  ${s.question}`);
-  console.log(`  clean:  ${String(c.tokens).padStart(5)} tokens  (${c.count} arquivos)`);
-  console.log(`  flat:   ${String(f.tokens).padStart(5)} tokens  (${f.count} arquivo${f.count > 1 ? 's' : ''})`);
-  console.log(`  clean vs flat: ${pct(c.tokens, f.tokens)}\n`);
+  console.log(`  ${s.a.label.padEnd(18)} ${String(a).padStart(5)} tok  (${s.a.files.length} arq.)`);
+  console.log(`  ${s.b.label.padEnd(18)} ${String(b).padStart(5)} tok  (${s.b.files.length} arq.)`);
+  console.log(`  ${s.a.label} vs ${s.b.label}: ${pct(a, b)}\n`);
 }
 
-// Veredito honesto, derivado dos números — não uma afirmação.
-const full = rows[0];
-const change = rows[1];
-console.log('Veredito (derivado dos números acima):');
-console.log(`  • Para ENTENDER a feature inteira, o clean custa ${full.clean_vs_flat} vs o flat —`);
-console.log(`    mais arquivos, mais tokens. A camada cobra adiantado.`);
-console.log(`  • Para MUDAR a regra isolada, o contexto mínimo do clean é ${change.clean_vs_flat} vs o flat.`);
-console.log(`    ${change.clean_tok <= change.flat_tok
-  ? 'Aqui a localização paga: o mapa + o agregado isolado batem o service gordo.'
-  : 'Aqui o flat ainda ganha: a feature é pequena demais para a camada compensar.'}`);
-console.log('\n  A economia do clean-arch é uma função do TAMANHO da feature e do nº de casos de uso,');
-console.log('  não do total de arquivos. Numa feature pequena, o flat é mais barato — e tudo bem.');
-console.log('  É exatamente o critério do WHEN-CLEAN-WHEN-LEAN, agora medido em vez de afirmado.\n');
+const arch = out[1]; // mudar a regra, clean vs flat
+const mem = out[2]; // frio vs quente
+console.log('Veredito (derivado dos números):');
+console.log(`  • EIXO ARQUITETURA: numa feature pequena, camadas custam MAIS token (${arch.a_vs_b} para`);
+console.log(`    a mudança isolada). "Clean Architecture economiza tokens" não se sustenta nessa escala —`);
+console.log(`    a justificativa das camadas é isolamento e testabilidade, não token.`);
+console.log(`  • EIXO MEMÓRIA: o mapa (context.md) faz o contexto mínimo custar ${mem.a_vs_b} vs varrer`);
+console.log(`    a fatia no frio. É AQUI que a economia mora — e ela COMPÕE: o scaffold é custo único,`);
+console.log(`    o mapa economiza a cada tarefa futura. Depois do projeto levantado, a memória paga de volta.\n`);
 
 if (process.argv.includes('--json')) {
-  console.log(JSON.stringify(rows, null, 2));
+  console.log(JSON.stringify(out, null, 2));
 }

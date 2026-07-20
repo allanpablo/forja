@@ -68,24 +68,34 @@ arquiteturas — o boilerplate flat não tinha um equivalente rico ao Order, ent
 ### Follow-up resolvido — o benchmark same-feature (`forja token:economy`)
 
 A dívida acima foi fechada: existe um `benchmarks/clean-vs-flat/orders-flat/` (a MESMA feature —
-place + ship + "não envia sem pagamento" — no estilo flat) e o comando `token:economy` mede os dois
-por cenário. Os números **desmentem a versão ingênua da claim**:
+place + ship + "não envia sem pagamento" — no estilo flat) e o comando `token:economy` mede **dois
+eixos**, porque a economia de token do Forja tem dois eixos e eles são diferentes:
+
+**Eixo 1 — arquitetura (clean vs flat).** Desmente a versão ingênua da claim:
 
 | Cenário | Clean | Flat | Clean vs flat |
 |---|---|---|---|
 | Entender a feature inteira | ~3684 tok (12 arq.) | ~1298 tok (3 arq.) | **+184%** |
 | Mudar a regra de envio (contexto mínimo) | ~1419 tok (3 arq.) | ~910 tok (1 arq.) | **+56%** |
 
-**Para uma feature pequena, o clean-arch custa MAIS tokens — inclusive na mudança localizada.** A
-camada cobra adiantado e, com dois casos de uso, não se paga. A economia de token do clean-arch é
-função do **tamanho da feature e do nº de casos de uso**, não do total de arquivos; o cruzamento onde
-ela compensa fica além de uma `orders` de duas operações.
+Para uma feature pequena, **o clean-arch custa MAIS tokens** — inclusive na mudança localizada. A
+camada cobra adiantado e, com dois casos de uso, não se paga. **A justificativa de `orders` em
+camadas passa a ser isolamento e testabilidade, não token.**
 
-O que isso muda na decisão: **a justificativa de `orders` em camadas passa a ser isolamento e
-testabilidade, não token.** Token é consequência a partir de certa escala — não a razão. O critério
-do `WHEN-CLEAN-WHEN-LEAN` (invariante, máquina de estados, testável sem framework) segue válido; só a
-*narrativa de token* foi corrigida para o que a medição sustenta. O número é reproduzível — se um dia
-a feature crescer e o cruzamento chegar, o mesmo comando mostra.
+**Eixo 2 — memória (frio vs quente).** É aqui que a economia real do framework mora (ADR-0009):
+
+| Cenário | Quente (com `context.md`) | Frio (sem mapa) | Economia |
+|---|---|---|---|
+| Localizar e mexer numa regra da fatia | ~1419 tok (3 arq.) | ~3684 tok (12 arq.) | **−61%** |
+
+O `context.md` é o mapa: com ele, o agente vai direto ao agregado + à máquina de estados; sem ele,
+varre a fatia inteira para descobrir onde a regra vive. **E essa economia COMPÕE**: gerar do zero é
+custo único (o scaffold), mas o mapa poupa a cada tarefa futura, pela vida do projeto. O
+`token:economy` não mede o custo de gerar — mede o regime permanente, depois do projeto levantado.
+
+Conclusão corrigida: a economia de token do Forja **não é das camadas — é da memória persistente**,
+amortizada no tempo. As camadas se pagam só a partir de certa escala (tamanho da feature × nº de
+casos de uso); a memória se paga desde a segunda tarefa. Tudo reproduzível: `forja token:economy`.
 
 ## Alternativas consideradas
 
