@@ -187,6 +187,24 @@ const structure: Check = {
 };
 
 /**
+ * O projeto gerado **herda o gate** dos mapas (ADR-0030): `scripts/check-memory-maps.mjs` viaja com
+ * ele. Sem isso, a coerência mapa↔código do usuário volta a viver por disciplina. Este check prova
+ * que a propagação aconteceu — o framework não só tem gates, ele os transmite.
+ */
+const gateInherited: Check = {
+  id: 'gate-inherited',
+  title: 'o projeto gerado carrega o gate dos mapas (ADR-0030)',
+  severity: 'critical',
+  dependsOn: 'generated',
+  probe(env: SmokeEnv) {
+    const gate = path.join(env.projectDir!, 'scripts', 'check-memory-maps.mjs');
+    return env.fs.existsSync(gate)
+      ? { status: 'ok', detail: 'scripts/check-memory-maps.mjs presente — o invariante viaja com o projeto', fix: null }
+      : { status: 'fail', detail: 'o projeto gerado não trouxe o gate dos mapas', fix: 'confira o scriptTemplates do memory-generator' };
+  },
+};
+
+/**
  * A prova final, e a mais cara: o backend gerado **buildar de verdade**. Só no tier `--full` —
  * `npm install` de um projeto NestJS é lento e usa rede, então roda antes de release, não a cada
  * commit. É o análogo do clean-install do `release:check`, na saída do gerador.
@@ -217,7 +235,7 @@ const builds: Check = {
 };
 
 /** @type {Check[]} */
-export const SMOKE_CHECKS: Check[] = [generated, noPlaceholders, jsonValid, structure, builds];
+export const SMOKE_CHECKS: Check[] = [generated, noPlaceholders, jsonValid, structure, gateInherited, builds];
 
 export function defaultEnv(overrides: Partial<SmokeEnv> = {}): SmokeEnv {
   return {
