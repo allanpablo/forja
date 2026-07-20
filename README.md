@@ -179,6 +179,7 @@ forja gsd:check <slug>                     # gates básicos do runbook
 # Análise de código (codegraph)
 forja code:check                           # índice confiável (worktree + freshness)
 forja code:impact <símbolo>                # chamadores + blast radius antes de editar
+forja code:context <domínio>               # pacote de contexto mínimo (o mapa; --code p/ o código)
 forja code:query "<termo>"                 # também: code:index · code:sync · code:status
 
 # Memória & contexto (workspace)
