@@ -280,6 +280,11 @@ export const COMMANDS = {
     desc: 'Benchmark de consumo de tokens',
     node: 'scripts/token-benchmark.ts',
   },
+  'token:economy': {
+    domain: 'contexto',
+    desc: 'Mede clean-arch vs flat na mesma feature, por cenário (ADR-0027). --json para a tabela crua',
+    node: 'scripts/token-economy.ts',
+  },
 
   // --- Governança & qualidade ---------------------------------------------------
   'project:check': {

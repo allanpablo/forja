@@ -24,16 +24,33 @@ Use o padrão de `products/` (uma camada) quando **todas** forem verdade:
 - O "modelo" é a tabela: não há comportamento a proteger.
 - Não há transição de estado que importe.
 
-## Por que isso é economia de token, não estética
+## O que a medição diz (e o que ela desmente)
 
-Um agente que vai adicionar uma regra ao contexto `orders` lê o `context.md` do domínio (linguagem
-ubíqua) e a **assinatura** do use-case — e sabe o que fazer sem carregar a implementação inteira. As
-camadas dão pontos de entrada previsíveis: a regra vai no agregado, o caso de uso na aplicação, o
-mapeamento na infra. Menos exploração, menos tokens.
+Rode `forja token:economy` — ele mede a **mesma feature** (place + ship, com a invariante "não envia
+sem pagamento") nos dois estilos, por cenário. Os números, hoje, para a fatia `orders`:
 
-O mesmo agente, num CRUD, não deveria pagar esse preço de leitura. Por isso `products/` é raso: para
-um `GET /products`, quatro camadas seriam quatro arquivos a mais para ler, sem nada a proteger — o
-**oposto** de economia de token, com nome de arquitetura.
+| Cenário | Clean (camadas) | Flat (uma camada) | Clean vs flat |
+|---|---|---|---|
+| Entender a feature inteira | ~3684 tok (12 arq.) | ~1298 tok (3 arq.) | **+184%** |
+| Mudar a regra de envio (contexto mínimo) | ~1419 tok (3 arq.) | ~910 tok (1 arq.) | **+56%** |
+
+**Para uma feature pequena, o clean-arch custa MAIS tokens — nos dois cenários.** A camada cobra
+adiantado, e para duas operações ela não se paga. Se alguém te vendeu "Clean Architecture economiza
+tokens" como regra geral, os números acima desmentem — e tudo bem que desmintam.
+
+Então **por que promover `orders` a camadas não é desperdício?** Porque a economia de token não é
+função do total de arquivos; é função do **tamanho da feature e do número de casos de uso**. O ganho
+aparece quando o service flat cresce: com dez casos de uso, mudar uma regra obriga a ler um service
+gordo inteiro (tudo misturado), enquanto no clean o agregado isolado continua pequeno e o `context.md`
+aponta direto para ele. O cruzamento existe; para a `orders` de duas operações, ele ainda não chegou.
+
+O que justifica as camadas em `orders` **não é token** — é **isolamento e testabilidade**: a
+invariante tem um lar único, testável sem subir o Nest, e sobrevive à troca de ORM. Token é
+consequência a partir de certa escala, não a razão. Por isso o critério acima fala de invariante e
+máquina de estados, não de contagem de linhas.
+
+O `products/` raso segue certo pelo mesmo motivo invertido: um CRUD não tem invariante para isolar,
+então as camadas seriam só custo — de token, medido, e de leitura.
 
 ## A regra de ouro
 

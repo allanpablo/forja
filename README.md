@@ -185,6 +185,7 @@ forja code:query "<termo>"                 # também: code:index · code:sync ·
 forja sync:universal                       # reindexa SQLite FTS5 do workspace
 forja query:universal "<query>"            # busca FTS5
 forja context:smart                        # smart-context (3 modos, ADR-0003)
+forja token:economy                        # mede clean-arch vs flat na mesma feature (ADR-0027)
 forja memory:compress                      # arquiva runs antigos + VACUUM
 forja memory:extract                       # extrai conhecimento global da memória
 
@@ -281,10 +282,11 @@ gerados.
 
 **Próximos passos** (por dependência, não por desejo)
 
-- [ ] **Fechar a migração TypeScript** — publicar `dist/` e renomear `.mjs → .ts`. Pipeline provado;
-  a fonte segue `.mjs` (Node ≥ 20) até lá.
-- [ ] **Benchmark de token do clean-arch** — a economia é argumentada, não provada (ADR-0027):
-  medir a mesma feature nas duas arquiteturas via `context:smart`. Provar ou recalibrar.
+- [x] **Migração TypeScript fechada** — fonte 100% `.ts`, publica `dist/`, `noImplicitAny` ON
+  (SPEC-012, v1.3.x).
+- [x] **Benchmark de token do clean-arch** — medido, não mais argumentado (`forja token:economy`,
+  ADR-0027). Veredito honesto: para feature pequena o flat é mais barato; a economia do clean-arch é
+  função da escala, e a justificativa das camadas é **isolamento**, não token.
 - [ ] **`release-auditor` consome o gate** — a terceira superfície do ADR-0024: o agente roda
   `release:check` em vez de reimplementar o procedimento em prosa.
 - [ ] **Boilerplates além de NestJS** — o processo é agnóstico de stack; os templates vão atrás.
