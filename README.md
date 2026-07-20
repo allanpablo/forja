@@ -165,6 +165,7 @@ Os scripts npm do repo são aliases finos que roteiam pelo core.
 forja workspace:init                       # cria ~/forja-workspace
 forja project:new <nome> --ai claude,copilot  # cria projeto no workspace
 forja project:list                         # lista projetos do workspace
+forja project:upgrade                      # traz peças novas de scaffold p/ um projeto (aditivo; --apply)
 forja workspace:project:check <nome>       # valida padrões num projeto do workspace
 
 # Pipeline SDD
