@@ -66,6 +66,11 @@ Handoffs entre eles passam pela tabela `handoffs` em `~/forja-workspace/memory/s
 **Faz**: roda `project:check`, audita handoffs por completude, valida 12-Factor/LGPD/segurança, bloqueia se algo falta.
 **Não faz**: aprovar "ficou bom" sem referência verificável.
 
+## 7. Release Auditor
+**Quando**: antes de publicar no npm — o especialista de release da governança.
+**Faz**: roda `release:check --publish`, interpreta o parecer e autoriza (ou barra) a publicação. Pega quebras que só apareceriam na máquina de quem instala (SPEC-010, ADR-0024).
+**Não faz**: publicar — `npm publish` é ato humano. Ele diagnostica e autoriza.
+
 ---
 
 ## Fluxo SDD padrão

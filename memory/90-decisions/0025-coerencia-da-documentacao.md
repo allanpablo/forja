@@ -37,6 +37,12 @@ Três checks novos no catálogo de `health.mjs` (`scope: repo`), sobre um scanne
   ADR que existe. Fecha o último invariante que vivia por disciplina ("toda decisão vira ADR") pelo
   lado verificável: referência a decisão inexistente é trilha que apodrece. Pegou o `ADR-0026`
   pendurado (citado pela SPEC-012, nunca escrito) na primeira execução.
+- **`agent-topology`** (warn, SPEC-019): a topologia de orquestração é descrita em três fontes
+  (`VALID_AGENTS` do router, `.claude/agents/*.md`, `AGENTS.md`) e pode divergir em silêncio — o
+  namesake do framework (orquestração multiagente) vivendo por disciplina. O check cruza as três:
+  sub-agent sem rota, papel roteável sem executor, agente não documentado. `user`/`worker` são
+  endpoints isentos. Pegou o `release-auditor` (executável, sem rota) na primeira execução. Mesma
+  classe dos checks acima, aplicada a quem-orquestra-quem.
 
 Princípios:
 

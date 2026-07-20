@@ -42,7 +42,7 @@ ensureSchema({ silent: true });
 const dbPath = getDbPath();
 
 const REQUIRED = ['from', 'to', 'intent', 'context', 'acceptance', 'constraints', 'return'];
-const VALID_AGENTS = ['orchestrator', 'context-engineer', 'sdd-architect', 'product', 'marketing', 'governance', 'worker', 'user'];
+const VALID_AGENTS = ['orchestrator', 'context-engineer', 'sdd-architect', 'product', 'marketing', 'governance', 'release-auditor', 'worker', 'user'];
 const VALID_INTENTS = ['implement', 'review', 'plan', 'research', 'spec', 'route'];
 const BUSY_ATTEMPTS = 8;
 const BUSY_DELAY_MS = 150;
