@@ -4,6 +4,32 @@ Histórico consolidado das mudanças estruturais do framework. Para decisões ar
 
 ---
 
+## [1.5.0] — 2026-07-19 — A memória como sistema fechado: medir → entregar → proteger → propagar
+
+A economia de token do Forja sempre foi a memória persistente (ADR-0009), mas era uma promessa. Esta
+release a torna um ciclo completo e verificável — cada peça fecha um elo.
+
+### Adicionado
+- **`code:context <domínio>`** (SPEC-016): **entrega** o mapa da memória como pacote pronto para
+  colar (o `context.md`), com `--code` para o código da fatia e o custo em token à mostra. É o −61%
+  medido no `token:economy` virado ferramenta. Compõe com `code:impact` para o blast radius.
+- **`memory:audit`** (SPEC-017): **protege** o mapa nas duas direções — reprova se um `context.md`
+  cita código que não existe (mapa que mente é pior que mapa nenhum) e avisa sobre módulo de código
+  sem mapa (economia perdida em silêncio). O `adr-refs` aplicado aos mapas de memória.
+- **`token:economy --project <path>`**: mede o eixo memória nos **domínios reais do usuário** (mapa
+  vs código, por domínio) — o número fica dele, não da fixture.
+- **`project:upgrade`** (SPEC-018): a metade que faltava do scaffolder. Traz peças novas de scaffold
+  para um projeto já gerado — **aditivo, nunca sobrescreve** (o código do usuário é intocável).
+  Dry-run por padrão; `--apply` copia.
+- **O projeto gerado herda o gate** (ADR-0030): o gerador emite `scripts/check-memory-maps.mjs`, um
+  `memory:audit` self-contained (Node puro, zero dep), e o `project:smoke` prova a propagação. O
+  invariante da coerência mapa↔código passa a viajar com cada projeto.
+
+### Nota
+- Comandos e gates novos do framework; nada muda para projetos já gerados até rodarem `project:upgrade`.
+
+---
+
 ## [1.4.0] — 2026-07-19 — Governança que mede: gate do gerador, economia de token e integridade de ADR
 
 Três fronteiras que viviam por disciplina viram harness — e cada uma provou seu valor pegando um

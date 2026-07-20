@@ -1,6 +1,6 @@
 {
   "name": "forjajs",
-  "version": "1.4.0",
+  "version": "1.5.0",
   "description": "Forja — framework CLI-first de orquestração multiagente, memória hierárquica e geração de projetos com IA",
   "type": "module",
   "main": "index.js",
