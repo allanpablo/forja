@@ -62,9 +62,30 @@ rica com lógica pobre, não arquitetura com arquitetura.
 
 **Conclusão honesta**: o ganho é **navegacional** (não recarregar código não-relacionado + o mapa),
 não de tamanho de arquivo. A medida crua feita aqui é um proxy fraco e **não prova** a economia. A
-prova rigorosa precisa do `context:smart`/`token:benchmark` sobre uma **mesma tarefa** num projeto
-gerado, com a mesma feature nas duas arquiteturas — o boilerplate flat não tem um equivalente rico ao
-Order, então esse benchmark é trabalho de follow-up, não algo a forjar agora.
+prova rigorosa precisa do benchmark sobre uma **mesma tarefa**, com a mesma feature nas duas
+arquiteturas — o boilerplate flat não tinha um equivalente rico ao Order, então ficou como follow-up.
+
+### Follow-up resolvido — o benchmark same-feature (`forja token:economy`)
+
+A dívida acima foi fechada: existe um `benchmarks/clean-vs-flat/orders-flat/` (a MESMA feature —
+place + ship + "não envia sem pagamento" — no estilo flat) e o comando `token:economy` mede os dois
+por cenário. Os números **desmentem a versão ingênua da claim**:
+
+| Cenário | Clean | Flat | Clean vs flat |
+|---|---|---|---|
+| Entender a feature inteira | ~3684 tok (12 arq.) | ~1298 tok (3 arq.) | **+184%** |
+| Mudar a regra de envio (contexto mínimo) | ~1419 tok (3 arq.) | ~910 tok (1 arq.) | **+56%** |
+
+**Para uma feature pequena, o clean-arch custa MAIS tokens — inclusive na mudança localizada.** A
+camada cobra adiantado e, com dois casos de uso, não se paga. A economia de token do clean-arch é
+função do **tamanho da feature e do nº de casos de uso**, não do total de arquivos; o cruzamento onde
+ela compensa fica além de uma `orders` de duas operações.
+
+O que isso muda na decisão: **a justificativa de `orders` em camadas passa a ser isolamento e
+testabilidade, não token.** Token é consequência a partir de certa escala — não a razão. O critério
+do `WHEN-CLEAN-WHEN-LEAN` (invariante, máquina de estados, testável sem framework) segue válido; só a
+*narrativa de token* foi corrigida para o que a medição sustenta. O número é reproduzível — se um dia
+a feature crescer e o cruzamento chegar, o mesmo comando mostra.
 
 ## Alternativas consideradas
 
