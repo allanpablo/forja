@@ -32,7 +32,7 @@ import { fileURLToPath } from 'node:url';
 import { getWorkspaceDbPath, getWorkspaceInfo } from '../workspace.ts';
 import { runChecks as run, worstStatus, stripTemplateLiterals, asErrno } from './checks.ts';
 import { COMMANDS } from './registry.ts';
-import { scanCommands, scanLinks, projectCommands } from './doc-graph.ts';
+import { scanCommands, scanLinks, projectCommands, scanAdrRefs, adrNumbers } from './doc-graph.ts';
 
 // Os contratos vivem em checks.mjs — importados, não redefinidos. As cópias locais eram resíduo da
 // extração do runner (SPEC-010) e já divergiam.
@@ -536,6 +536,37 @@ const docsLinks: Check = {
   },
 };
 
+/**
+ * Referência a decisão que não existe é trilha que apodrece. Uma spec ou doc cita `ADR-0026`, o ADR
+ * nunca foi escrito (ou foi renumerado), e o paper trail mente em silêncio. `warn`, não `critical`:
+ * confunde o registro, não impede o framework de trabalhar — mesma família de `docs-links`.
+ */
+const adrRefs: Check = {
+  id: 'adr-refs',
+  title: 'toda citação ADR-NNNN aponta para um ADR existente',
+  severity: 'warn',
+  scope: 'repo',
+  probe(env: any) {
+    if (!isFrameworkRepo(env)) {
+      return { status: 'ok', detail: 'fora do repo do framework — não se aplica', fix: null };
+    }
+
+    const existing = adrNumbers(env);
+    const dangling = scanAdrRefs(env).filter((r) => !existing.has(r.num));
+
+    if (dangling.length) {
+      const amostra = dangling.slice(0, 5).map((d) => `${d.ref} (${d.file}:${d.line})`).join(', ');
+      return {
+        status: 'warn',
+        detail: `${dangling.length} citação(ões) de ADR inexistente: ${amostra}`,
+        fix: 'escreva o ADR referenciado ou corrija o número no arquivo:linha indicado',
+      };
+    }
+
+    return { status: 'ok', detail: `toda referência a ADR resolve (${existing.size} ADRs)`, fix: null };
+  },
+};
+
 /** @type {Check[]} */
 export const CHECKS = [
   nativeAbi,
@@ -548,6 +579,7 @@ export const CHECKS = [
   docsCommands,
   commandsDocumented,
   docsLinks,
+  adrRefs,
 ];
 
 /**
