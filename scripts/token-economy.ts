@@ -21,9 +21,37 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { domainsOf, buildContextPack } from '../lib/code-context.ts';
 
 const __filename = fileURLToPath(import.meta.url);
 const root = path.resolve(path.dirname(__filename), '..');
+
+/**
+ * Modo `--project <path>`: mede o eixo memória nos domínios REAIS do usuário, não na fixture. Para
+ * cada domínio, o mapa (`context.md`) vs ler todo o código da fatia — o número fica dele.
+ */
+function projectMode(projectRoot: string): void {
+  const domains = domainsOf(projectRoot);
+  console.log(`\nToken economy — eixo memória nos domínios de ${projectRoot} (ADR-0009)\n`);
+  if (!domains.length) {
+    console.log(`Nenhum domínio em ${path.join(projectRoot, 'memory/30-domains')}. Rode dentro de um projeto gerado.`);
+    return;
+  }
+  console.log('Para cada domínio: ler o mapa (context.md) vs ler todo o código da fatia.\n');
+  const rows: any[] = [];
+  for (const domain of domains) {
+    const pack = buildContextPack({ projectRoot, domain, includeCode: true });
+    const economy = pack.codeTokens === 0 ? '—' : `−${Math.round(((pack.codeTokens - pack.mapTokens) / pack.codeTokens) * 100)}%`;
+    rows.push({ domínio: domain, mapa_tok: pack.mapTokens, código_tok: pack.codeTokens, mapa_vs_código: economy });
+    console.log(`■ ${domain}`);
+    console.log(`  mapa (context.md):  ${String(pack.mapTokens).padStart(5)} tok`);
+    console.log(`  código da fatia:    ${String(pack.codeTokens).padStart(5)} tok  (${pack.code.length} arq.)`);
+    console.log(`  o mapa custa ${economy} do código — é o resumo que substitui a leitura da árvore\n`);
+  }
+  console.log('O mapa é o resumo do domínio: lê-lo custa uma fração de ler a fatia inteira. Essa é a');
+  console.log('economia da memória, medida no SEU projeto. (Sem mapa? rode `forja memory:audit`.)\n');
+  if (process.argv.includes('--json')) console.log(JSON.stringify(rows, null, 2));
+}
 
 const CLEAN = 'boilerplates/06-clean-arch/backend/src/modules/orders';
 const CLEAN_CTX = 'boilerplates/06-clean-arch/memory/30-domains/orders/context.md';
@@ -96,6 +124,13 @@ const tokensOf = (rel: string): number => {
 };
 const sum = (files: string[]) => files.reduce((acc, f) => acc + tokensOf(f), 0);
 const pct = (a: number, b: number) => (b === 0 ? '—' : `${a <= b ? '−' : '+'}${Math.abs(Math.round(((a - b) / b) * 100))}%`);
+
+// `--project <path>`: mede o eixo memória no projeto real e sai. Sem ele, o benchmark de fixture.
+const projIdx = process.argv.indexOf('--project');
+if (projIdx >= 0) {
+  projectMode(path.resolve(process.argv[projIdx + 1] || process.cwd()));
+  process.exit(0);
+}
 
 console.log('\nToken economy — o custo do CONTEXTO por cenário (ADR-0027, ADR-0009)\n');
 console.log('Token ≈ bytes/4. Não mede o custo de gerar do zero (custo único); mede o regime permanente.\n');

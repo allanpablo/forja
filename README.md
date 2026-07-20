@@ -187,10 +187,10 @@ forja code:query "<termo>"                 # também: code:index · code:sync ·
 forja sync:universal                       # reindexa SQLite FTS5 do workspace
 forja query:universal "<query>"            # busca FTS5
 forja context:smart                        # smart-context (3 modos, ADR-0003)
-forja token:economy                        # mede a economia de token: arquitetura + memória (ADR-0009/0027)
+forja token:economy [--project <path>]     # economia de token; --project mede seus domínios reais (ADR-0009)
 forja memory:compress                      # arquiva runs antigos + VACUUM
 forja memory:extract                       # extrai conhecimento global da memória
-forja memory:audit                         # os mapas (context.md) não citam código inexistente (SPEC-017)
+forja memory:audit                         # coerência mapa↔código: mapa não mente + módulo sem mapa (SPEC-017)
 
 # Qualidade & release
 forja project:check                        # standards do framework (pre-commit)

@@ -10,7 +10,7 @@
  */
 
 import path from 'node:path';
-import { auditMemoryMaps } from '../lib/memory-audit.ts';
+import { auditMemoryMaps, modulesWithoutMap } from '../lib/memory-audit.ts';
 
 function main() {
   const i = process.argv.indexOf('--project');
@@ -35,11 +35,21 @@ function main() {
     }
   }
 
+  // Direção reversa: módulo de código sem mapa. Aviso, não falha — é economia perdida, não mentira.
+  const semMapa = modulesWithoutMap(projectRoot);
+  if (semMapa.length) {
+    console.log('');
+    for (const m of semMapa) {
+      console.log(`⚠ módulo "${m}" não tem context.md — a economia de token da memória está perdida para ele`);
+    }
+    console.log(`  crie memory/30-domains/${semMapa[0]}/context.md (o mapa do domínio).`);
+  }
+
   if (totalDangling) {
     console.log(`\nREPROVADO — ${totalDangling} referência(s) pendurada(s). O mapa mente; corrija o context.md ou o path.`);
     process.exit(1);
   }
-  console.log('\nAPROVADO — todo mapa de memória aponta para código que existe.');
+  console.log(`\nAPROVADO — todo mapa aponta para código que existe${semMapa.length ? ` (${semMapa.length} módulo(s) ainda sem mapa — veja acima)` : ''}.`);
 }
 
 main();
