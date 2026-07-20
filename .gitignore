@@ -56,6 +56,7 @@ dashboard/web/node_modules/
 !/specs/project-smoke
 !/specs/code-context
 !/specs/memory-audit
+!/specs/project-upgrade
 
 # Runbooks GSD e context packs são gerados/efêmeros e podem carregar dados de
 # produto. São regeneráveis (gsd:plan, context:build), então ficam fora do git.

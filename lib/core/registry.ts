@@ -69,6 +69,11 @@ export const COMMANDS = {
     node: 'scripts/agent-harness.ts',
     args: ['project:list'],
   },
+  'project:upgrade': {
+    domain: 'workspace',
+    desc: 'Traz peças novas de scaffold para um projeto gerado — aditivo (SPEC-018). --apply para copiar',
+    node: 'scripts/project-upgrade.ts',
+  },
   'workspace:project:check': {
     domain: 'workspace',
     desc: 'Valida padrões em um projeto do workspace',
