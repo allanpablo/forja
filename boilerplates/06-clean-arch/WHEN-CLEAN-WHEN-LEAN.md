@@ -52,6 +52,18 @@ máquina de estados, não de contagem de linhas.
 O `products/` raso segue certo pelo mesmo motivo invertido: um CRUD não tem invariante para isolar,
 então as camadas seriam só custo — de token, medido, e de leitura.
 
+## Onde a economia de token realmente está: a memória, não as camadas
+
+Se as camadas custam token, de onde vem a economia que o Forja promete? Da **memória persistente**,
+não da arquitetura. O `token:economy` mede também esse eixo: para mexer numa regra da fatia, ler o
+`context.md` (o mapa do domínio) + ir direto ao agregado custa **−61%** vs varrer a fatia inteira no
+frio, sem mapa. E essa economia **compõe**: gerar o projeto do zero é custo único; o mapa poupa a
+cada tarefa futura, pela vida do projeto. É a tese do ADR-0009, agora medida.
+
+Ou seja: você paga tokens para levantar o scaffold, e a memória devolve a partir da segunda tarefa.
+As camadas de `orders` são sobre isolamento; a economia de token é da memória. São coisas diferentes,
+e confundi-las foi o erro que a medição corrigiu.
+
 ## A regra de ouro
 
 **Comece enxuto. Promova quando a primeira invariante aparecer.** Um `products/` que ganha uma regra
