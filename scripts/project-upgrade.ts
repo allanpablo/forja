@@ -15,6 +15,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { planUpgrade, applyUpgrade } from '../lib/project-upgrade.ts';
+import { resolveScript } from '../lib/core/registry.ts';
 
 const __filename = fileURLToPath(import.meta.url);
 const repoRoot = path.resolve(path.dirname(__filename), '..');
@@ -37,7 +38,10 @@ function main() {
     const env = { ...process.env };
     delete env.NODE_PATH;
     for (const k of Object.keys(env)) if (k.startsWith('npm_')) delete env[k];
-    execFileSync(process.execPath, [path.join(repoRoot, 'bin', 'create-memory-nest-kit.ts'), fresh, '--force'], {
+    // resolveScript acha .ts em dev e dist/bin/create-memory-nest-kit.js no publicado — cravar .ts
+    // quebrava o comando instalado com module-not-found (o dist não tem .ts).
+    const generator = resolveScript(repoRoot, 'bin/create-memory-nest-kit');
+    execFileSync(process.execPath, [generator, fresh, '--force'], {
       cwd: tmp,
       env,
       stdio: 'pipe',
