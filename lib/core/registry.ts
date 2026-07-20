@@ -179,6 +179,11 @@ export const COMMANDS = {
     node: 'scripts/agent-harness.ts',
     args: ['code:impact'],
   },
+  'code:context': {
+    domain: 'code',
+    desc: 'Pacote de contexto mínimo de um domínio: o mapa (context.md), + código com --code (ADR-0009)',
+    node: 'scripts/code-context.ts',
+  },
   'code:index': {
     domain: 'code',
     desc: 'Inicializa índice codegraph',
