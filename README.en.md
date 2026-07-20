@@ -88,11 +88,16 @@ process followed?", the answer is a file, not a promise.
 - **Hierarchical memory** — global → domain → task → summary, with FTS5 search and *smart-context*
   in 3 modes (ADR-0003).
 - **SDD + GSD pipeline** — `spec → plan → tasks → check`, decisions recorded as ADRs.
-- **Project generation** — `project:new` scaffolds a full project in the workspace (memory, agents,
-  multi-AI instructions, a NestJS backend as the default boilerplate) and registers the project
-  record automatically.
-- **Release gates** — `tools:doctor` fails when the core is broken (native ABI, memory, runtime
-  deps); `release:check` proves a clean install works before `npm publish` (ADR-0023, ADR-0024).
+- **Self-verification (invariants that run)** — the framework proves itself: a family of gates guards
+  each frontier (core, tarball, doc coherence, agent topology, generated project), and `check:all`
+  runs the whole battery into a single verdict. Governance stops depending on discipline — it becomes
+  harness.
+- **Token economy measured, not asserted** — memory (the `context.md` as a map) saves ~60% vs
+  exploring cold, and `token:economy` **proves** it across your domains. `code:context` delivers the
+  map ready to paste; `memory:audit` guarantees it doesn't lie about the code.
+- **Project generation** — `project:new` scaffolds a full project (memory, agents, multi-AI
+  instructions, a NestJS backend as the default boilerplate) and registers the record; `project:upgrade`
+  brings new scaffold pieces to already-generated projects without touching the user's code.
 - **3 integrated capabilities** (ADR-0016): **codegraph** (code analysis via MCP), **harness**
   (agent-team design), **ai-engineering** (knowledge base).
 
@@ -117,7 +122,10 @@ forja spec:check my-feature
 ```
 
 > Cloned the repo instead of installing? The same commands run as
-> `node bin/forja.mjs <command>` — the npm scripts are just thin aliases of the core.
+> `node bin/forja.ts <command>` — the npm scripts are just thin aliases of the core.
+> The source is TypeScript and runs natively: **dev needs Node ≥ 22.6** (type stripping). The
+> *published* package ships `dist/*.js` and runs on **Node ≥ 20** — the `release-gate` proves it
+> every release (SPEC-012).
 
 Step by step on **create vs update** a project: [`docs/processo-projeto.md`](docs/processo-projeto.md).
 
@@ -160,7 +168,7 @@ Every process command goes through a single entry point (ADR-0020):
 
 ```bash
 forja                              # help grouped by domain
-forja <command> [args]             # in a cloned repo: node bin/forja.mjs <command>
+forja <command> [args]             # in a cloned repo: node bin/forja.ts <command>
 ```
 
 The core applies **gates** before running (e.g. product commands fail fast without a workspace) and
@@ -230,8 +238,8 @@ See ADR-0019 for the architectural decision.
 ## Repository structure (framework)
 
 ```
-bin/          CLIs (init-project, create-memory-nest-kit)
-lib/          Reusable modules (workspace, generators, validators, context-builder)
+bin/          CLIs (forja — the core; init-project, create-memory-nest-kit)
+lib/          Reusable modules; lib/core/ is the invariant engine (registry, checks, health, release, doc-graph, gates)
 scripts/      Automation (sprint-manager, agent-router, sync-universal-memory, …)
 specs/        The framework's own SDD pipeline (spec → plan → tasks)
 boilerplates/ Stack templates (api-rest, saas, ecommerce, microservices, monorepo)
@@ -279,30 +287,32 @@ output, code, and ADRs are readable regardless of language.
 The throughline: **turn knowledge that lives as convention into an executable invariant.** Each item
 below either closes a framework frontier with a gate, or carries that pattern into generated projects.
 
-**Recently shipped** (v1.2.0)
+**Shipped** (through v1.6.0)
 
-- [x] **Core gate** — `tools:doctor` fails (exit 1) when what blocks the framework is broken (ABI,
-  memory, runtime deps) — ADR-0023.
-- [x] **Tarball gate** — `release:check` proves a clean install works before `npm publish`; the three
-  historical release bugs fail the gate — ADR-0024.
-- [x] **Doc coherence gate** — docs can't cite a ghost command or a link to nowhere; checked in CI — ADR-0025.
-- [x] **TypeScript as a gate** — strict `checkJs` in CI; core contracts typed. Found three latent bugs
-  no test caught (SPEC-012, in progress).
-- [x] **Calibrated Clean Architecture boilerplate** — layers where they pay off, lean where they don't
-  (`boilerplates/06-clean-arch`, ADR-0027).
+- [x] **Gate family** — every framework frontier is guarded by an invariant that runs: core
+  (`tools:doctor`, ADR-0023), tarball (`release:check`, ADR-0024), doc + ADR + agent-topology
+  coherence (ADR-0025, SPEC-019), generated project (`project:smoke`, ADR-0029). And `check:all`
+  runs the whole battery into one verdict (SPEC-020).
+- [x] **TypeScript migration complete** — source 100% `.ts`, ships `dist/`, `noImplicitAny` ON. Found
+  latent bugs no test caught (SPEC-012).
+- [x] **Memory economy as a system** — **measured** (`token:economy` proves ~60% vs cold),
+  **delivered** (`code:context`), **protected** (`memory:audit`, both directions), and **propagated**:
+  the generated project inherits the maps gate (ADR-0030).
+- [x] **`project:upgrade`** — update an already-generated project without losing code: additive, never
+  overwrites (SPEC-018).
+- [x] **Calibrated Clean Architecture** — layers where they pay off, lean where they don't; and the
+  token claim **measured and corrected** — the saving is memory's, not the layers' (ADR-0027).
 
 **Next** (by dependency, not by wish)
 
-- [ ] **Finish the TypeScript migration** — publish `dist/` and rename `.mjs → .ts`. Pipeline proven;
-  source stays `.mjs` (Node ≥ 20) until then.
-- [ ] **Token benchmark for clean-arch** — the saving is argued, not proven (ADR-0027): measure the
-  same feature in both architectures via `context:smart`. Prove it or recalibrate.
+- [ ] **Generated backend `builds` under new toolchains** — `check:all --full` flags that
+  `better-sqlite3` won't compile on very new Node (no prebuild); pin the version or document the build
+  requirement.
 - [ ] **`release-auditor` consumes the gate** — the third surface from ADR-0024: the agent runs
   `release:check` instead of reimplementing the procedure in prose.
 - [ ] **Boilerplates beyond NestJS** — the process is stack-agnostic; the templates will follow.
-- [ ] **Queryable audit + generated dashboard** — promote `.context/forja-runs.jsonl` to an FTS5
-  table, and generate a **static** governance page on demand (read-only, no server — the ADR-0022
-  lesson that froze the server-dashboard).
+- [ ] **(vision) the orchestration engine** — the handoff chain that **runs**, not just is coherent
+  (SPEC-019 left it as future). The namesake executing: a 2.0 candidate.
 
 Suggestions? Open an issue — a non-trivial feature here starts from a spec, yours included.
 
