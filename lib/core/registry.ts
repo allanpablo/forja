@@ -322,6 +322,11 @@ export const COMMANDS = {
     desc: 'Gate do projeto gerado: gera isolado e prova que é coerente (SPEC-015). --full instala e builda o backend',
     node: 'scripts/project-smoke.ts',
   },
+  'check:all': {
+    domain: 'governanca',
+    desc: 'Roda a bateria inteira de gates e dá um veredito (SPEC-020). --full inclui tarball e build',
+    node: 'scripts/gates.ts',
+  },
   'project:dashboard': {
     domain: 'governanca',
     desc: 'Gera dashboard estático de status',
