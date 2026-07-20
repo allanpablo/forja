@@ -4,6 +4,28 @@ Histórico consolidado das mudanças estruturais do framework. Para decisões ar
 
 ---
 
+## [1.6.0] — 2026-07-20 — A orquestração coerente e a governança num comando
+
+A governança do framework ganha um ponto de entrada e o namesake — orquestração multiagente — deixa
+de viver por prosa.
+
+### Adicionado
+- **`check:all`** (SPEC-020): roda a **bateria inteira de gates** e dá um veredito só. Tier barato:
+  coerência (`tools:doctor`) + `project:smoke`; `--full`: + tarball (`release:check`) + build do
+  gerado. Compõe os runners existentes — zero check reimplementado. "A casa está coerente?" num
+  comando, não num checklist lembrado.
+- **`agent-topology`** (check no `tools:doctor`, SPEC-019): a topologia de orquestração é descrita em
+  três fontes (`VALID_AGENTS`, `.claude/agents/*.md`, `AGENTS.md`) e pode divergir em silêncio. O
+  check as cruza e reprova quando não concordam. Pegou o `release-auditor` (sub-agent executável sem
+  rota) na 1ª execução — agora first-class no router e documentado (AGENTS.md §7).
+
+### Corrigido / interno
+- **`generators.test` migrado para `node:test`**: o harness custom legado não contava suas falhas no
+  tally do CI e vazava um `/tmp` por execução (588 diretórios acumulados). Agora é `node:test` com
+  cleanup — falha derruba o CI de verdade.
+
+---
+
 ## [1.5.0] — 2026-07-19 — A memória como sistema fechado: medir → entregar → proteger → propagar
 
 A economia de token do Forja sempre foi a memória persistente (ADR-0009), mas era uma promessa. Esta
