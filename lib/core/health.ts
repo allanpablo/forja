@@ -33,6 +33,7 @@ import { getWorkspaceDbPath, getWorkspaceInfo } from '../workspace.ts';
 import { runChecks as run, worstStatus, stripTemplateLiterals, asErrno } from './checks.ts';
 import { COMMANDS } from './registry.ts';
 import { scanCommands, scanLinks, projectCommands, scanAdrRefs, adrNumbers } from './doc-graph.ts';
+import { topologyIssues } from '../agent-topology.ts';
 
 // Os contratos vivem em checks.mjs — importados, não redefinidos. As cópias locais eram resíduo da
 // extração do runner (SPEC-010) e já divergiam.
@@ -567,6 +568,40 @@ const adrRefs: Check = {
   },
 };
 
+/**
+ * A topologia de orquestração é descrita em três lugares (router, `.claude/agents`, `AGENTS.md`) e
+ * pode divergir em silêncio (SPEC-019): um sub-agent que o router não roteia, um papel roteável sem
+ * executor, um agente não documentado. É a coerência da orquestração — o namesake do framework —
+ * feita invariante. `warn`: confunde a topologia, não trava o núcleo. Mesma família de `adr-refs`.
+ */
+const agentTopology: Check = {
+  id: 'agent-topology',
+  title: 'a topologia de agentes concorda entre router, .claude/agents e AGENTS.md',
+  severity: 'warn',
+  scope: 'repo',
+  probe(env: any) {
+    if (!isFrameworkRepo(env)) {
+      return { status: 'ok', detail: 'fora do repo do framework — não se aplica', fix: null };
+    }
+
+    const { unrouted, missingExecutor, undocumented } = topologyIssues({ fs: env.fs, root: env.root });
+    const problemas = [];
+    if (unrouted.length) problemas.push(`sem rota no router: ${unrouted.join(', ')}`);
+    if (missingExecutor.length) problemas.push(`roteável sem .claude/agent: ${missingExecutor.join(', ')}`);
+    if (undocumented.length) problemas.push(`não documentado no AGENTS.md: ${undocumented.join(', ')}`);
+
+    if (problemas.length) {
+      return {
+        status: 'warn',
+        detail: `topologia incoerente — ${problemas.join('; ')}`,
+        fix: 'alinhe VALID_AGENTS (agent-router.ts), .claude/agents/ e AGENTS.md',
+      };
+    }
+
+    return { status: 'ok', detail: 'router, .claude/agents e AGENTS.md concordam', fix: null };
+  },
+};
+
 /** @type {Check[]} */
 export const CHECKS = [
   nativeAbi,
@@ -580,6 +615,7 @@ export const CHECKS = [
   commandsDocumented,
   docsLinks,
   adrRefs,
+  agentTopology,
 ];
 
 /**
