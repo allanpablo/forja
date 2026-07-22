@@ -20,9 +20,28 @@ import { fileURLToPath } from 'node:url';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-const repoRoot = path.resolve(__dirname, '..');
-const specsDir = path.join(repoRoot, 'specs');
-const templatesDir = path.join(specsDir, '_templates');
+
+/**
+ * Duas raízes, de propósito (bug da v1.6.1: eram uma só, e no pacote instalado tudo apontava para
+ * `node_modules/forjajs/dist` — spec:new escrevia DENTRO do pacote e não achava os templates):
+ *
+ *   - `pkgRoot`   → de onde vêm os TEMPLATES. No dev é a raiz do repo (`scripts/..`); no publicado os
+ *     templates viajam na raiz do pacote, um nível acima do `dist/` (`dist/scripts/../..`). O probe
+ *     acha qual das duas tem `specs/_templates` de verdade.
+ *   - `targetRoot` → onde as SPECS nascem: o projeto de quem invocou (`process.cwd()`, propagado pelo
+ *     dispatcher). No repo do framework, cwd é a raiz do repo — comportamento inalterado.
+ */
+export function resolvePkgRoot(scriptDir: string, fsImpl: typeof fs = fs): string {
+  for (const cand of [path.resolve(scriptDir, '..'), path.resolve(scriptDir, '..', '..')]) {
+    if (fsImpl.existsSync(path.join(cand, 'specs', '_templates'))) return cand;
+  }
+  return path.resolve(scriptDir, '..');
+}
+
+const pkgRoot = resolvePkgRoot(__dirname);
+const targetRoot = process.cwd();
+const specsDir = path.join(targetRoot, 'specs');
+const templatesDir = path.join(pkgRoot, 'specs', '_templates');
 
 const STAGES = ['spec', 'plan', 'tasks'];
 const STATUS_RE = /-\s*\*\*Status\*\*:\s*([a-z]+)[^\n]*/i;
@@ -109,24 +128,27 @@ export function addSpecToAllowlist(content: any, slug: any) {
 }
 
 function gitignorePath() {
-  return process.env.FORJA_GITIGNORE || path.join(repoRoot, '.gitignore');
+  return process.env.FORJA_GITIGNORE || path.join(targetRoot, '.gitignore');
 }
 
-/** Efeito colateral de `spec:new`. Nunca derruba a criação da spec — criar a spec é o trabalho. */
+/**
+ * Efeito colateral de `spec:new`. Nunca derruba a criação da spec — criar a spec é o trabalho.
+ * A allowlist `!/specs/<slug>` só existe no repo do FRAMEWORK (que ignora `/specs/*` por padrão).
+ * Num projeto consumidor não há bloco — e isso é o estado saudável: specs são versionadas
+ * normalmente. Por isso "sem .gitignore" e "sem bloco" são silêncio, não aviso.
+ */
 function ensureSpecVersioned(slug: any) {
   const file = gitignorePath();
   let raw;
   try {
     raw = fs.readFileSync(file, 'utf8');
   } catch {
-    out('  ⚠ .gitignore não encontrado — confira se a spec será versionada.');
-    return;
+    return; // sem .gitignore — nada a ajustar
   }
 
   const result = addSpecToAllowlist(raw, slug);
   if (result.reason === 'no-block') {
-    out('  ⚠ bloco allow-list de specs ausente no .gitignore — versione a spec manualmente.');
-    return;
+    return; // sem bloco de allowlist — specs não são ignoradas; nada a fazer
   }
   if (!result.changed) return;
 

@@ -423,12 +423,56 @@ const smokeCommands: Check = {
   },
 };
 
+/**
+ * O bug da v1.6.1, generalizado: um comando pode CARREGAR limpo (o smoke passa) e ainda assim operar
+ * no mundo errado — `spec:new` escrevia dentro de `node_modules/forjajs/dist` e não achava os
+ * templates, porque resolvia tudo por `__dirname` e o dispatcher impunha `cwd` = raiz do pacote.
+ * Nenhuma assinatura de loader denuncia isso; só EXECUTAR o comando no mundo do consumidor e conferir
+ * ONDE o efeito aconteceu. É o smoke, um degrau acima: de "carrega" para "opera no lugar certo".
+ * O efeito colateral fica contido no installDir temporário, que é limpo sempre.
+ */
+const consumerSpecNew: Check = {
+  id: 'consumer-spec-new',
+  title: 'spec:new opera no projeto do consumidor, não dentro do pacote',
+  severity: 'critical',
+  dependsOn: 'install',
+  probe(env: any) {
+    const pkg = JSON.parse(env.fs.readFileSync(path.join(env.pkgDir, 'package.json'), 'utf8'));
+    const binRel = typeof pkg.bin === 'string' ? pkg.bin : pkg.bin?.forja;
+    const bin = path.join(env.pkgDir, binRel);
+
+    const res = env.spawn(process.execPath, [bin, 'spec:new', 'smoke-consumer-spec'], { cwd: env.installDir });
+
+    const noProjeto = env.fs.existsSync(path.join(env.installDir, 'specs', 'smoke-consumer-spec', 'spec.md'));
+    const dentroDoPacote = env.fs.existsSync(path.join(env.pkgDir, 'specs', 'smoke-consumer-spec'))
+      || env.fs.existsSync(path.join(env.pkgDir, 'dist', 'specs', 'smoke-consumer-spec'));
+
+    if (dentroDoPacote) {
+      return {
+        status: 'fail',
+        detail: 'spec:new escreveu DENTRO de node_modules/forjajs — o comando opera no mundo errado',
+        fix: 'o dispatcher deve spawnar com o cwd do usuário e o spec-cli separar pkgRoot de targetRoot',
+      };
+    }
+    if (!noProjeto) {
+      const saida = `${res.stdout || ''}${res.stderr || ''}`.trim().split('\n')[0] || 'sem saída';
+      return {
+        status: 'fail',
+        detail: `spec:new não criou a spec no projeto do consumidor: ${saida}`,
+        fix: 'confira a resolução dos templates (pkgRoot) e do destino (cwd) no spec-cli',
+      };
+    }
+    return { status: 'ok', detail: 'spec criada no projeto do consumidor; templates do pacote resolvem', fix: null };
+  },
+};
+
 /** @type {import('./checks.ts').Check[]} */
 export const RELEASE_CHECKS = [
   treeClean,
   install,
   registryScripts,
   smokeCommands,
+  consumerSpecNew,
   importsResolve,
   depsDeclared,
   depsUnused,
