@@ -466,6 +466,43 @@ const consumerSpecNew: Check = {
   },
 };
 
+/**
+ * A mesma classe do `consumer-spec-new`, na AUDITORIA: `project:check` cravava a raiz em
+ * `__dirname/..` e auditava o PACOTE (`node_modules/forjajs/dist`) em vez do projeto do consumidor —
+ * reportava tudo faltando, score 0% (bug da v1.7.0, que travou uma corrida do `orchestrate`). O gate
+ * planta um arquivo que SÓ existe no cwd e confere que o comando o enxerga. Se ele auditasse o pacote,
+ * o arquivo do cwd não apareceria.
+ */
+const consumerProjectCheck: Check = {
+  id: 'consumer-project-check',
+  title: 'project:check audita o projeto do consumidor (cwd), não o pacote',
+  severity: 'critical',
+  dependsOn: 'install',
+  probe(env: any) {
+    const pkg = JSON.parse(env.fs.readFileSync(path.join(env.pkgDir, 'package.json'), 'utf8'));
+    const binRel = typeof pkg.bin === 'string' ? pkg.bin : pkg.bin?.forja;
+    const bin = path.join(env.pkgDir, binRel);
+
+    // Um AGENTS.md real, presente SÓ no cwd — a testemunha de qual raiz o comando auditou.
+    const marker = 'Marcador de auditoria do consumidor com mais de cem caracteres para não ser tratado como placeholder pelo check de padrões.\n';
+    env.fs.writeFileSync(path.join(env.installDir, 'AGENTS.md'), marker);
+
+    const res = env.spawn(process.execPath, [bin, 'project:check'], { cwd: env.installDir });
+    const saida = `${res.stdout || ''}${res.stderr || ''}`;
+
+    // A linha do AGENTS.md: "OK ... AGENTS.md" (achou no cwd) vs "Faltando" (auditou o pacote).
+    const linha = saida.split('\n').find((l: string) => /\bAGENTS\.md\b/.test(l)) || '';
+    if (/Faltando/i.test(linha) || linha === '') {
+      return {
+        status: 'fail',
+        detail: 'project:check não enxergou o AGENTS.md do cwd — está auditando o pacote, não o projeto',
+        fix: 'a raiz auditada deve ser process.cwd(), não path.resolve(__dirname, ..) — ver check-standards',
+      };
+    }
+    return { status: 'ok', detail: 'project:check audita o cwd (o AGENTS.md do consumidor foi visto)', fix: null };
+  },
+};
+
 /** @type {import('./checks.ts').Check[]} */
 export const RELEASE_CHECKS = [
   treeClean,
@@ -473,6 +510,7 @@ export const RELEASE_CHECKS = [
   registryScripts,
   smokeCommands,
   consumerSpecNew,
+  consumerProjectCheck,
   importsResolve,
   depsDeclared,
   depsUnused,

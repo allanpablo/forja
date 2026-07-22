@@ -1,11 +1,12 @@
 import fs from 'node:fs';
 import path from 'node:path';
-import { fileURLToPath } from 'node:url';
 import { resolveProject, getWorkspaceInfo, initWorkspace } from '../lib/workspace.ts';
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-const root = path.resolve(__dirname, '..');
+// O projeto a auditar é ONDE O USUÁRIO INVOCOU — `process.cwd()`, propagado pelo dispatcher desde a
+// v1.6.2. Cravar `__dirname/..` auditava a raiz do PACOTE (`node_modules/forjajs/dist`) no consumidor
+// e reportava tudo como faltando (bug da v1.7.0, mesma classe do spec-cli). No repo do framework,
+// invoca-se da raiz, então cwd = a raiz do framework — comportamento inalterado.
+const root = process.cwd();
 
 const [projectArg] = process.argv.slice(2);
 
