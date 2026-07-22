@@ -296,11 +296,10 @@ gerados.
 
 **Próximos passos** (por dependência, não por desejo)
 
-- [ ] **`builds` do backend gerado sob toolchain novo** — o `check:all --full` flagra que o
-  `better-sqlite3` não compila em Node muito novo (sem prebuild); fixar a versão ou documentar o
-  requisito de build.
-- [ ] **`release-auditor` consome o gate** — a terceira superfície do ADR-0024: o agente roda
-  `release:check` em vez de reimplementar o procedimento em prosa.
+- [x] **`builds` do backend gerado sob toolchain novo** — o template alinhou o `better-sqlite3` ao
+  do framework (^12, com prebuilds); o `check:all --full` compila o backend gerado em Node 26.
+- [x] **`release-auditor` consome o gate** — o agente executa e julga `release:check --publish`
+  (ADR-0024), incluindo o `consumer-spec-new`; não reimplementa o procedimento.
 - [ ] **Boilerplates além de NestJS** — o processo é agnóstico de stack; os templates vão atrás.
 - [ ] **(visão) o motor de orquestração** — a cadeia de handoffs que **roda**, não só é coerente
   (SPEC-019 deixou como futuro). O namesake executando: candidato ao 2.0.

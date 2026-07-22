@@ -46,7 +46,7 @@ function createNestTemplates(projectName: any) {
     "@nestjs/common": "^11.0.0",
     "@nestjs/core": "^11.0.0",
     "@nestjs/platform-express": "^11.0.0",
-    "better-sqlite3": "^11.8.1",
+    "better-sqlite3": "^12.11.1",
     "reflect-metadata": "^0.2.2",
     "rxjs": "^7.8.1"
   },
