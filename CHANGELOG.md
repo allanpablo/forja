@@ -4,6 +4,21 @@ Histórico consolidado das mudanças estruturais do framework. Para decisões ar
 
 ---
 
+## [1.7.1] — 2026-07-22 — Correção: `project:check` em projetos consumidores
+
+### Corrigido
+- **`forja project:check` num projeto consumidor auditava `node_modules/forjajs/dist/`** em vez do
+  projeto (raiz cravada em `__dirname/..`), reportando os arquivos obrigatórios como faltando (score
+  0%) — o que travava o gate `implement` do `orchestrate`. Agora audita `process.cwd()` (propagado
+  pelo dispatcher desde a 1.6.2). Mesma classe do `spec-cli` (v1.6.2); o `check-standards` ficou de
+  fora. O `check:all` **não** é afetado (agrega health/smoke/release, não `project:check`).
+
+### Adicionado
+- **Gate `consumer-project-check`** no `release:check`: planta um arquivo só no cwd e prova que
+  `project:check` audita o projeto do consumidor, não o pacote. Provado com dentes (reprova o bug).
+
+---
+
 ## [1.7.0] — 2026-07-22 — O motor de orquestração: o namesake executando
 
 O nome do framework sempre foi orquestração multiagente; até aqui, a topologia era coerente
