@@ -127,6 +127,24 @@ export const COMMANDS = {
     node: 'scripts/agent-harness.ts',
     args: ['gsd:check'],
   },
+  orchestrate: {
+    domain: 'gsd',
+    desc: 'Abre uma corrida: a cadeia SDD/GSD como máquina de estados guardada por gates (SPEC-021). "<objetivo>" --slug <slug>',
+    node: 'scripts/orchestrate.ts',
+    args: ['start'],
+  },
+  'orchestrate:status': {
+    domain: 'gsd',
+    desc: 'O estado da corrida: etapas feitas, aberta, gates e vereditos',
+    node: 'scripts/orchestrate.ts',
+    args: ['status'],
+  },
+  'orchestrate:advance': {
+    domain: 'gsd',
+    desc: 'Roda o gate da etapa aberta; verde → abre a próxima; vermelho → trava com o parecer',
+    node: 'scripts/orchestrate.ts',
+    args: ['advance'],
+  },
   'hermes:handoff': {
     domain: 'gsd',
     desc: 'Registra handoff ADR-0005 bruto via agent-router',

@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import path from 'node:path';
 
-import { scanCommands, scanLinks, projectCommands, docFiles, scanAdrRefs, adrNumbers } from '../lib/core/doc-graph.ts';
+import { scanCommands, scanLinks, projectCommands, docFiles, scanAdrRefs, adrNumbers, commandCited } from '../lib/core/doc-graph.ts';
 
 /**
  * fs de fixture: `files` mapeia path absoluto → conteúdo. Diretórios são inferidos dos paths.
@@ -197,4 +197,10 @@ test('a referência pendurada é a que não está em adrNumbers (o coração do 
   const existing = adrNumbers(e);
   const dangling = scanAdrRefs(e).filter((r) => !existing.has(r.num));
   assert.deepEqual(dangling.map((r) => r.ref), ['ADR-0099']);
+});
+
+test('commandCited: comando sem dois-pontos é achado por grep literal (fallback do commands-documented)', () => {
+  const e = env({ '/repo/README.md': 'Use `forja orchestrate "objetivo" --slug x` para abrir a corrida.' });
+  assert.equal(commandCited(e, 'orchestrate'), true);
+  assert.equal(commandCited(e, 'inexistente'), false);
 });

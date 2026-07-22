@@ -141,6 +141,20 @@ export function scanLinks(env: any) {
   return hits;
 }
 
+/**
+ * Um comando SEM dois-pontos (ex.: `orchestrate`) nunca casa com COMMAND_RE — o `:` é o
+ * discriminador que evita prosa virar falso positivo. Para um nome JÁ CONHECIDO do registry, porém,
+ * procurar `forja <cmd>` literal é preciso. É o fallback do `commands-documented` para esses casos.
+ */
+export function commandCited(env: any, cmd: string): boolean {
+  const re = new RegExp(`(?:\\bforja\\s+|npm run\\s+)${cmd.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`);
+  for (const rel of docFiles(env)) {
+    const src = safeRead(env, path.join(env.root, rel));
+    if (src != null && re.test(src)) return true;
+  }
+  return false;
+}
+
 /** Superfícies onde um ADR pode ser citado: as de instrução + as specs + os próprios ADRs. */
 const ADR_REF_SURFACES = [...DOC_SURFACES, 'specs', 'memory/90-decisions'];
 const ADR_REF_RE = /ADR-(\d{4})/g;
