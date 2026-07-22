@@ -32,7 +32,7 @@ import { fileURLToPath } from 'node:url';
 import { getWorkspaceDbPath, getWorkspaceInfo } from '../workspace.ts';
 import { runChecks as run, worstStatus, stripTemplateLiterals, asErrno } from './checks.ts';
 import { COMMANDS } from './registry.ts';
-import { scanCommands, scanLinks, projectCommands, scanAdrRefs, adrNumbers } from './doc-graph.ts';
+import { scanCommands, scanLinks, projectCommands, scanAdrRefs, adrNumbers, commandCited } from './doc-graph.ts';
 import { topologyIssues } from '../agent-topology.ts';
 
 // Os contratos vivem em checks.mjs — importados, não redefinidos. As cópias locais eram resíduo da
@@ -495,7 +495,8 @@ const commandsDocumented: Check = {
     }
 
     const citados = new Set(scanCommands(env).map((c) => c.command));
-    const orfaos = Object.keys(COMMANDS).filter((c) => !citados.has(c));
+    // Comando sem `:` nunca casa com o scanner largo — para nomes conhecidos, o grep literal decide.
+    const orfaos = Object.keys(COMMANDS).filter((c) => !citados.has(c) && !commandCited(env, c));
 
     if (orfaos.length) {
       return {

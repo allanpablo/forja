@@ -193,6 +193,9 @@ forja sprint:start                         # also: sprint:status · sprint:compl
 forja gsd:plan <slug>                      # GSD runbook in .context/
 forja gsd:handoff <intent> <slug>          # role-to-role handoff (ADR-0005)
 forja gsd:check <slug>                     # baseline runbook gates
+forja orchestrate "<goal>" --slug <s>      # open a run: the SDD/GSD chain as a gated state machine (SPEC-021)
+forja orchestrate:status <slug>            # the machine state: stages, gates, verdicts
+forja orchestrate:advance <slug>           # run the stage gate; green → next; red → blocked
 
 # Code analysis (codegraph)
 forja code:check                           # trustworthy index (worktree + freshness)

@@ -180,6 +180,9 @@ forja sprint:start                         # também: sprint:status · sprint:co
 forja gsd:plan <slug>                      # runbook GSD em .context/
 forja gsd:handoff <intent> <slug>          # handoff entre papéis (ADR-0005)
 forja gsd:check <slug>                     # gates básicos do runbook
+forja orchestrate "<objetivo>" --slug <s>  # abre a corrida: a cadeia SDD/GSD como máquina de estados (SPEC-021)
+forja orchestrate:status <slug>            # o estado da máquina: etapas, gates, vereditos
+forja orchestrate:advance <slug>           # roda o gate da etapa; verde → próxima; vermelho → trava
 
 # Análise de código (codegraph)
 forja code:check                           # índice confiável (worktree + freshness)
