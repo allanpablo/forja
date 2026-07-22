@@ -308,11 +308,11 @@ below either closes a framework frontier with a gate, or carries that pattern in
 
 **Next** (by dependency, not by wish)
 
-- [ ] **Generated backend `builds` under new toolchains** — `check:all --full` flags that
-  `better-sqlite3` won't compile on very new Node (no prebuild); pin the version or document the build
-  requirement.
-- [ ] **`release-auditor` consumes the gate** — the third surface from ADR-0024: the agent runs
-  `release:check` instead of reimplementing the procedure in prose.
+- [x] **Generated backend `builds` under new toolchains** — the template now matches the
+  framework's `better-sqlite3` (^12, with prebuilds); `check:all --full` compiles the generated
+  backend on Node 26.
+- [x] **`release-auditor` consumes the gate** — the agent runs and judges `release:check --publish`
+  (ADR-0024), including `consumer-spec-new`; it doesn't reimplement the procedure.
 - [ ] **Boilerplates beyond NestJS** — the process is stack-agnostic; the templates will follow.
 - [ ] **(vision) the orchestration engine** — the handoff chain that **runs**, not just is coherent
   (SPEC-019 left it as future). The namesake executing: a 2.0 candidate.

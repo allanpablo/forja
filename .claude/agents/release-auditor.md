@@ -31,6 +31,7 @@ executa os comandos de verdade e reprova em qualquer um destes:
 | `install` | O pacote instala do zero |
 | `registry-scripts` | Todo comando anunciado tem script no tarball |
 | `smoke-commands` | Os comandos **executam** — o help passa mesmo com tudo quebrado |
+| `consumer-spec-new` | Os comandos operam no **projeto do consumidor**, não dentro do pacote (bug da v1.6.1) |
 | `imports-resolve` | Todo import relativo resolve dentro do pacote |
 | `deps-declared` | Nada importado ficou fora de `dependencies` |
 | `deps-unused` | Nenhuma dependency é peso morto *(aviso)* |
@@ -45,9 +46,10 @@ O gate diz **o que** quebrou. Você diz **o que fazer com isso**:
   runner já marca as consequências como `não verificado`, então persiga a raiz, não o eco.
 - **Avisos não reprovam, mas informam.** `deps-unused` num release público é peso que todo usuário
   baixa. Vale corrigir antes de publicar, mesmo sem travar.
-- **Diga o que o gate não cobre.** Ele não testa os projetos *gerados* pelos boilerplates, não
-  valida proveniência de pacote e não julga se a versão do `package.json` faz sentido para o que
-  mudou. Se algo disso importa nesta release, diga.
+- **Diga o que o gate não cobre.** Ele não valida proveniência de pacote nem julga se a versão do
+  `package.json` faz sentido para o que mudou. O projeto *gerado* tem gate próprio — antes de uma
+  release que toca os generators, peça também `forja project:smoke --full` (ou `forja check:all
+  --full`, a bateria inteira). Se algo disso importa nesta release, diga.
 - **Nunca aprove com base em leitura de código.** Se o gate não rodou, você não sabe — e a resposta
   certa é dizer que não sabe.
 
