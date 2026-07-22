@@ -4,6 +4,34 @@ Histórico consolidado das mudanças estruturais do framework. Para decisões ar
 
 ---
 
+## [1.7.2] — 2026-07-22 — Fechando a classe: superfícies do projeto usam `cwd`
+
+A auditoria sistemática dos comandos consumer-facing (o passo estrutural após os fixes caso-a-caso
+de `spec:new`/`project:check`) achou **mais três instâncias vivas** da mesma classe — todas escondidas
+num `const root = __dirname/..` que misturava "recurso do framework" com "projeto do usuário". Agora a
+regra é explícita e tem gate (ADR-0032).
+
+### Corrigido
+- **`gsd:plan`/`gsd:handoff`/`gsd:check`** (agent-harness) gravavam o runbook e liam `specs/` dentro
+  do pacote no consumidor; o `gsd:check` ainda spawava o `spec:check` com `cwd` do pacote e caminho
+  `.mjs` cravado (inexistente no dist). Agora operam em `process.cwd()` e resolvem o script via
+  `resolveScript` (`.ts` no dev, `.js` no dist).
+- **`context:budget`/`agent:brief`/`context:sprint`** (context-ops) resolviam `.context/`, `specs/`,
+  `memory/` e o `.memoryrc.json` no pacote; o `cmdBudget` ainda validava travessia contra a raiz do
+  pacote e rejeitava arquivos do projeto. Agora usam `projectRoot = process.cwd()`; `catalog:*`
+  (recurso do framework) segue em `root`.
+- **`design:check`** rejeitava o brief do consumidor ("caminho fora do projeto") por ancorar a
+  travessia no pacote — agora ancora no projeto.
+
+### Adicionado
+- **Gate `consumer-project-surfaces`** no `release:check`: executa `gsd:plan` + `context:budget` no
+  cwd de um consumidor instalado e prova que o runbook cai em `<cwd>/.context/` e que o budget o lê de
+  lá. Testemunha cruzada, independente do banco — reprova a classe inteira antes do publish.
+- **ADR-0032** e `test/consumer-project-surfaces.test.js`: a regra `projectRoot` (cwd) vs `root`
+  (framework) como invariante que roda. `sprint-manager` foi auditado e está são (opera pelo workspace).
+
+---
+
 ## [1.7.1] — 2026-07-22 — Correção: `project:check` em projetos consumidores
 
 ### Corrigido

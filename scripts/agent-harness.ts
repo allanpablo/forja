@@ -12,9 +12,14 @@ import {
   getProjectsDir,
   getWorkspaceProjectsMemoryDir,
 } from '../lib/workspace.ts';
+import { resolveScript } from '../lib/core/registry.ts';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
+// `root` = recursos do FRAMEWORK (ex.: design:* lê design-md/) — resolvidos por __dirname.
+// `projectRoot` = o PROJETO do usuário (gsd:* opera em specs/ e .context/ dele) — onde foi invocado.
+// Sem essa separação o gsd escrevia no PACOTE no consumidor (classe spec-cli v1.6.2/check-standards v1.7.1).
 const root = path.resolve(__dirname, '..');
+const projectRoot = process.cwd();
 
 const DESIGN_REQUIRED = [
   'Feature/superficie',
@@ -84,8 +89,10 @@ function rel(file: any) {
 }
 
 function readText(file: any) {
-  const full = path.resolve(root, file);
-  if (!full.startsWith(root)) fail(`Caminho fora do projeto: ${file}`);
+  // O brief do `design:check` é do PROJETO do usuário (cwd), não do pacote — a âncora e o guardrail
+  // de travessia são o projectRoot. Cravar `root` rejeitava o brief do consumidor ("fora do projeto").
+  const full = path.resolve(projectRoot, file);
+  if (!full.startsWith(projectRoot)) fail(`Caminho fora do projeto: ${file}`);
   if (!fs.existsSync(full)) fail(`Arquivo nao encontrado: ${file}`);
   return fs.readFileSync(full, 'utf8');
 }
@@ -277,16 +284,16 @@ function appendHandoff(payload: any) {
 function cmdGsdPlan([slug = 'run', ...goalParts]: string[]) {
   const goal = goalParts.join(' ') || 'execucao orientada por agentes';
   const safeSlug = slug.toLowerCase().replace(/[^a-z0-9._-]+/g, '-');
-  const outDir = path.join(root, '.context');
+  const outDir = path.join(projectRoot, '.context');
   fs.mkdirSync(outDir, { recursive: true });
   const outFile = path.join(outDir, `gsd-${safeSlug}.md`);
-  const specPath = path.join(root, 'specs', safeSlug, 'spec.md');
+  const specPath = path.join(projectRoot, 'specs', safeSlug, 'spec.md');
   const hasSpec = fs.existsSync(specPath);
 
   const content = `# GSD Runbook: ${safeSlug}
 
 - **Objetivo**: ${goal}
-- **Spec**: ${hasSpec ? rel(specPath) : 'nao encontrada'}
+- **Spec**: ${hasSpec ? path.relative(projectRoot, specPath) : 'nao encontrada'}
 - **Gerado em**: ${new Date().toISOString()}
 
 ## Gates
@@ -319,7 +326,7 @@ function cmdGsdPlan([slug = 'run', ...goalParts]: string[]) {
 `;
 
   fs.writeFileSync(outFile, content, 'utf8');
-  console.log(`GSD runbook criado: ${rel(outFile)}`);
+  console.log(`GSD runbook criado: ${path.relative(projectRoot, outFile)}`);
   if (!hasSpec) console.log(`Aviso: spec nao encontrada em specs/${safeSlug}/spec.md`);
 }
 
@@ -329,12 +336,12 @@ function cmdGsdHandoff([phase, slug, ...contextParts]: string[]) {
   if (!template) fail(`Fase invalida: ${phase}. Use: ${Object.keys(GSD_HANDOFFS).join('|')}`);
 
   const safeSlug = slug.toLowerCase().replace(/[^a-z0-9._-]+/g, '-');
-  const specDir = path.join(root, 'specs', safeSlug);
-  const runbook = path.join(root, '.context', `gsd-${safeSlug}.md`);
+  const specDir = path.join(projectRoot, 'specs', safeSlug);
+  const runbook = path.join(projectRoot, '.context', `gsd-${safeSlug}.md`);
   const contextExtra = contextParts.join(' ').trim();
   const context = [
     fs.existsSync(specDir) ? `specs/${safeSlug}` : `specs/${safeSlug} (nao encontrado)`,
-    fs.existsSync(runbook) ? rel(runbook) : `.context/gsd-${safeSlug}.md (nao encontrado)`,
+    fs.existsSync(runbook) ? path.relative(projectRoot, runbook) : `.context/gsd-${safeSlug}.md (nao encontrado)`,
     contextExtra,
   ].filter(Boolean).join('; ');
 
@@ -352,22 +359,26 @@ function cmdGsdCheck([slug, briefPath]: string[]) {
   const safeSlug = slug.toLowerCase().replace(/[^a-z0-9._-]+/g, '-');
   const checks: { name: string; ok: boolean; detail: any }[] = [];
 
-  const runbook = path.join(root, '.context', `gsd-${safeSlug}.md`);
+  const runbook = path.join(projectRoot, '.context', `gsd-${safeSlug}.md`);
   checks.push({
     name: 'GSD runbook',
     ok: fs.existsSync(runbook),
-    detail: rel(runbook),
+    detail: path.relative(projectRoot, runbook),
   });
 
-  const specDir = path.join(root, 'specs', safeSlug);
+  const specDir = path.join(projectRoot, 'specs', safeSlug);
   checks.push({
     name: 'Spec directory',
     ok: fs.existsSync(specDir),
     detail: `specs/${safeSlug}`,
   });
 
-  const specCheck = spawnSync('node', ['scripts/spec-cli.mjs', 'check', safeSlug], {
-    cwd: root,
+  // O spec:check tem de rodar no PROJETO do usuário (cwd), não no pacote, e resolver o script pela
+  // extensão certa (`.ts` no dev, `.js` no dist publicado). Cravar `cwd: root` + `scripts/spec-cli.mjs`
+  // auditava/carregava o pacote no consumidor (mesma classe spec-cli v1.6.2).
+  const specCli = resolveScript(root, 'scripts/spec-cli');
+  const specCheck = spawnSync(process.execPath, [specCli, 'check', safeSlug], {
+    cwd: projectRoot,
     encoding: 'utf8',
   });
   checks.push({
