@@ -522,9 +522,12 @@ const consumerProjectSurfaces: Check = {
     const bin = path.join(env.pkgDir, binRel);
     const slug = 'smoke-consumer-surface';
     const runbookRel = path.join('.context', `gsd-${slug}.md`);
+    // context:budget grava um context_run no universal.db; contém o efeito num workspace descartável
+    // para não tocar o do runner (onde ensureSchema criaria um banco sem memory_nodes).
+    const opts = { cwd: env.installDir, env: { ...process.env, FORJA_WORKSPACE: path.join(env.installDir, '.forja-workspace') } };
 
     // 1. gsd:plan grava o runbook — deve cair no cwd, nunca dentro do pacote.
-    env.spawn(process.execPath, [bin, 'gsd:plan', slug, 'objetivo de fumaça'], { cwd: env.installDir });
+    env.spawn(process.execPath, [bin, 'gsd:plan', slug, 'objetivo de fumaça'], opts);
     const noProjeto = env.fs.existsSync(path.join(env.installDir, runbookRel));
     const noPacote = env.fs.existsSync(path.join(env.pkgDir, runbookRel))
       || env.fs.existsSync(path.join(env.pkgDir, 'dist', runbookRel));
@@ -544,7 +547,7 @@ const consumerProjectSurfaces: Check = {
     }
 
     // 2. context:budget precisa ACHAR o runbook que o gsd escreveu no cwd — só acha via projectRoot.
-    const budget = env.spawn(process.execPath, [bin, 'context:budget', slug], { cwd: env.installDir });
+    const budget = env.spawn(process.execPath, [bin, 'context:budget', slug], opts);
     const saida = `${budget.stdout || ''}${budget.stderr || ''}`;
     if (/nao encontrado|não encontrado|fora do projeto/i.test(saida)) {
       return {

@@ -27,8 +27,15 @@ function inTmp(fn) {
   }
 }
 
+// context:budget grava um `context_run` via recordContextRun. Sem isolar o workspace, isso criaria/
+// tocaria o universal.db COMPARTILHADO — e num CI (sem índice) `ensureSchema` cria o banco sem a tabela
+// memory_nodes, fazendo o gate `memory-db` do doctor reprovar depois. FORJA_WORKSPACE contém o efeito.
 const runIn = (cwd, args) =>
-  spawnSync('node', [bin, ...args], { encoding: 'utf8', cwd });
+  spawnSync('node', [bin, ...args], {
+    encoding: 'utf8',
+    cwd,
+    env: { ...process.env, FORJA_WORKSPACE: path.join(cwd, '.forja-workspace') },
+  });
 
 test('gsd:plan grava o runbook no cwd do consumidor, não no repo do framework', () => {
   inTmp((cwd) => {
