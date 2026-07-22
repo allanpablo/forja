@@ -115,15 +115,20 @@ if (gateErrors.length) {
 
 const started = Date.now();
 let result;
+// Os filhos rodam ONDE O USUÁRIO INVOCOU, não na raiz do pacote. `cwd: root` funcionava por
+// coincidência no repo do framework (invoca-se da raiz), mas no pacote instalado `root` é
+// `node_modules/forjajs/dist` — e comandos que operam no projeto do usuário (spec:new) escreviam
+// DENTRO do pacote (bug da v1.6.1). Scripts do framework não dependem de cwd: resolvem seus paths
+// por __dirname (repo) ou pelo workspace (absoluto).
 if (cmd.node) {
   const script = resolveScript(root, cmd.node);
   result = spawnSync('node', [script, ...(cmd.args || []), ...rest], {
-    cwd: root,
+    cwd: process.cwd(),
     stdio: 'inherit',
   });
 } else {
   result = spawnSync(cmd.bin, [...(cmd.args || []), ...rest], {
-    cwd: root,
+    cwd: process.cwd(),
     stdio: 'inherit',
   });
   if (result.error && (result.error as any).code === 'ENOENT') {

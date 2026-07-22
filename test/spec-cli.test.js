@@ -135,11 +135,13 @@ test('spec:new versiona a spec e não falha se o .gitignore some', () => {
     assert.equal(r.status, 0);
     assert.match(fs.readFileSync(gitignore, 'utf8'), new RegExp(`^!/specs/${tmpName}$`, 'm'));
 
-    // Criar a spec é o trabalho; manter o .gitignore é o efeito colateral. Sem o arquivo, avisa e segue.
+    // Criar a spec é o trabalho; manter o .gitignore é o efeito colateral. Sem o arquivo, não há
+    // nada sendo ignorado — silêncio, não aviso (v1.6.2: num consumidor, .gitignore sem o bloco é
+    // o estado saudável; o aviso antigo confundia).
     fs.rmSync(gitignore);
     const semArquivo = run(['new', `${tmpName}-b`], { env: { FORJA_GITIGNORE: gitignore } });
     assert.equal(semArquivo.status, 0, 'spec:new não pode falhar por causa do .gitignore');
-    assert.match(semArquivo.stdout, /⚠/);
+    assert.doesNotMatch(semArquivo.stdout, /⚠/, 'sem .gitignore não há o que avisar');
   } finally {
     fs.rmSync(path.join(repoRoot, 'specs', tmpName), { recursive: true, force: true });
     fs.rmSync(path.join(repoRoot, 'specs', `${tmpName}-b`), { recursive: true, force: true });
