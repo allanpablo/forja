@@ -4,6 +4,24 @@ Histórico consolidado das mudanças estruturais do framework. Para decisões ar
 
 ---
 
+## [1.6.2] — 2026-07-21 — Correção: `spec:new` em projetos consumidores
+
+### Corrigido
+- **`forja spec:new` num projeto consumidor escrevia a spec DENTRO de `node_modules/forjajs/dist`**
+  e falhava com "template ausente". Duas causas: o dispatcher spawnava os filhos com `cwd` = raiz do
+  pacote (agora usa o cwd de quem invocou — uma CLI opera onde é chamada), e o `spec-cli` resolvia
+  templates e destino por uma raiz só (agora separa `pkgRoot`, de onde vêm os templates, de
+  `targetRoot`, onde as specs nascem). Framework inalterado.
+- Sem `.gitignore` ou sem bloco de allowlist: silêncio em vez de aviso — num consumidor esse é o
+  estado saudável (specs versionadas normalmente).
+
+### Adicionado
+- **Gate `consumer-spec-new`** no `release:check`: roda `spec:new` na instalação limpa e reprova se a
+  spec não nascer no projeto do consumidor ou vazar para dentro do pacote. O smoke pegava "não
+  carrega"; este pega "opera no mundo errado".
+
+---
+
 ## [1.6.1] — 2026-07-20 — Correção: `project:upgrade` no pacote publicado
 
 ### Corrigido
