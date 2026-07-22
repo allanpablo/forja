@@ -4,6 +4,29 @@ Histórico consolidado das mudanças estruturais do framework. Para decisões ar
 
 ---
 
+## [1.7.0] — 2026-07-22 — O motor de orquestração: o namesake executando
+
+O nome do framework sempre foi orquestração multiagente; até aqui, a topologia era coerente
+(SPEC-019) mas o fluxo vivia por disciplina. Esta release o faz **rodar**.
+
+### Adicionado
+- **`orchestrate` / `orchestrate:status` / `orchestrate:advance`** (SPEC-021, ADR-0031): a cadeia
+  SDD/GSD (spec→plan→tasks→implement→review) como **máquina de estados guardada por gates**. Cada
+  etapa abre com um handoff ADR-0005 para o dono do papel; `advance` só fecha a etapa se o artefato
+  SDD estiver aprovado **e** o gate da transição sair verde — pular etapa é bloqueado pela máquina,
+  não pela memória. O framework orquestra e guarda; o agente (IA ou humano) executa. Estado em
+  `<cwd>/.context/orchestrate-<slug>.json`; roda no framework e em projetos consumidores.
+- `commands-documented` ganha fallback para comandos **sem dois-pontos** (grep literal de nome
+  conhecido) — `orchestrate` é o primeiro do registry.
+
+### Corrigido
+- **Backend gerado compila em Node 26**: o template pinava `better-sqlite3 ^11` (sem prebuild para
+  Node novo); alinhado ao do framework (`^12`). Fecha o caveat da v1.6.0 — `check:all --full` verde.
+- **Roadmap defasado**: o `release-auditor` já consumia o gate (ADR-0024); refresh da tabela
+  (+ `consumer-spec-new`) e checkboxes marcados nos READMEs.
+
+---
+
 ## [1.6.2] — 2026-07-21 — Correção: `spec:new` em projetos consumidores
 
 ### Corrigido
