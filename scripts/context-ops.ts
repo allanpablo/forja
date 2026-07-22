@@ -7,8 +7,13 @@ import { fileURLToPath } from 'node:url';
 import { ensureSchema, getDbPath } from './memory-schema.ts';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
+// `root` = recursos do FRAMEWORK (catalog: boilerplates/, design-md/) — resolvidos por __dirname.
+// `projectRoot` = o PROJETO do usuário (.context/, specs/, memory/, .memoryrc.json) — onde foi invocado.
+// Cravar `root` para as superfícies do projeto auditava/gravava no PACOTE no consumidor (classe de bug
+// spec-cli v1.6.2 / check-standards v1.7.1). No repo do framework os dois coincidem (cwd = raiz).
 const root = path.resolve(__dirname, '..');
-const outDir = path.join(root, '.context');
+const projectRoot = process.cwd();
+const outDir = path.join(projectRoot, '.context');
 const defaultLimit = readTokenLimit();
 
 function estimateTokens(content: any) {
@@ -16,7 +21,7 @@ function estimateTokens(content: any) {
 }
 
 function readTokenLimit() {
-  const configPath = path.join(root, '.memoryrc.json');
+  const configPath = path.join(projectRoot, '.memoryrc.json');
   if (!fs.existsSync(configPath)) return 8000;
   try {
     const config = JSON.parse(fs.readFileSync(configPath, 'utf8'));
@@ -31,7 +36,7 @@ function ensureOutDir() {
 }
 
 function readIfExists(relPath: any, maxChars = 12000) {
-  const full = path.join(root, relPath);
+  const full = path.join(projectRoot, relPath);
   if (!fs.existsSync(full)) return '';
   return fs.readFileSync(full, 'utf8').slice(0, maxChars);
 }
@@ -54,7 +59,7 @@ function extractSection(content: any, heading: any, maxChars = 2200) {
 }
 
 function listSpecs() {
-  const specsDir = path.join(root, 'specs');
+  const specsDir = path.join(projectRoot, 'specs');
   if (!fs.existsSync(specsDir)) return [];
   return fs.readdirSync(specsDir, { withFileTypes: true })
     .filter((entry) => entry.isDirectory() && !entry.name.startsWith('_'))
@@ -70,7 +75,7 @@ function listSpecs() {
         status: spec ? specStatus(spec) : 'missing',
         hasPlan: fs.existsSync(planPath),
         hasTasks: fs.existsSync(tasksPath),
-        path: path.relative(root, specPath),
+        path: path.relative(projectRoot, specPath),
       };
     });
 }
@@ -88,7 +93,7 @@ function recordContextRun(kind: any, slug: any, filePath: any, content: any, lim
   db.prepare(`
     INSERT INTO context_runs (created_at, kind, slug, path, bytes, estimated_tokens, limit_tokens, status)
     VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-  `).run(new Date().toISOString(), kind, slug || null, path.relative(root, filePath), content.length, tokens, limitTokens, status);
+  `).run(new Date().toISOString(), kind, slug || null, path.relative(projectRoot, filePath), content.length, tokens, limitTokens, status);
   db.close();
 }
 
@@ -132,7 +137,7 @@ function getOpenHandoffs(slug: any = null) {
 }
 
 function latestAdrs() {
-  const dir = path.join(root, 'memory', '90-decisions');
+  const dir = path.join(projectRoot, 'memory', '90-decisions');
   if (!fs.existsSync(dir)) return [];
   return fs.readdirSync(dir)
     .filter((file) => file.endsWith('.md') && file !== '_template.md')
@@ -157,8 +162,8 @@ function cmdBudget([target, limitArg]: string[]) {
     `.context/agent-brief-${target}.md`,
     `.context/context-task.md`,
   ];
-  const file = candidates.map((candidate) => path.resolve(root, candidate)).find((candidate) => fs.existsSync(candidate));
-  if (!file || !file.startsWith(root)) {
+  const file = candidates.map((candidate) => path.resolve(projectRoot, candidate)).find((candidate) => fs.existsSync(candidate));
+  if (!file || !file.startsWith(projectRoot)) {
     console.error(`Arquivo ou slug nao encontrado: ${target}`);
     process.exit(1);
   }
@@ -166,7 +171,7 @@ function cmdBudget([target, limitArg]: string[]) {
   const tokens = estimateTokens(content);
   const status = tokens <= limit ? 'OK' : 'FAIL';
   recordContextRun('budget', path.basename(target), file, content, limit);
-  console.log(`${status} ${path.relative(root, file)}: ${tokens} tokens estimados / limite ${limit}`);
+  console.log(`${status} ${path.relative(projectRoot, file)}: ${tokens} tokens estimados / limite ${limit}`);
   if (tokens > limit) process.exit(1);
 }
 
@@ -200,7 +205,7 @@ function cmdSprintPack() {
   const outFile = path.join(outDir, 'sprint-pack.md');
   fs.writeFileSync(outFile, md, 'utf8');
   recordContextRun('sprint-pack', null, outFile, md, defaultLimit);
-  console.log(`Sprint pack gerado: ${path.relative(root, outFile)} (${estimateTokens(md)} tokens estimados)`);
+  console.log(`Sprint pack gerado: ${path.relative(projectRoot, outFile)} (${estimateTokens(md)} tokens estimados)`);
 }
 
 function cmdAgentBrief([role, slug]: string[]) {
@@ -248,7 +253,7 @@ function cmdAgentBrief([role, slug]: string[]) {
   const outFile = path.join(outDir, `agent-brief-${role}-${slug}.md`);
   fs.writeFileSync(outFile, md, 'utf8');
   recordContextRun('agent-brief', slug, outFile, md, defaultLimit);
-  console.log(`Agent brief gerado: ${path.relative(root, outFile)} (${estimateTokens(md)} tokens estimados)`);
+  console.log(`Agent brief gerado: ${path.relative(projectRoot, outFile)} (${estimateTokens(md)} tokens estimados)`);
 }
 
 function summarizeReadme(relPath: any) {

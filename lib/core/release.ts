@@ -503,6 +503,60 @@ const consumerProjectCheck: Check = {
   },
 };
 
+/**
+ * A mesma classe, generalizada além de `spec:new`/`project:check`: TODO comando que opera nas
+ * superfícies do projeto (`.context/`, `specs/`, `memory/`) tem de fazê-lo no cwd do consumidor, não
+ * no pacote. Aqui a testemunha é CRUZADA e independente do banco: `gsd:plan` grava o runbook em
+ * `<cwd>/.context/` (prova `agent-harness`), e `context:budget <slug>` só ACHA esse runbook se
+ * resolver o alvo por `projectRoot` (prova `context-ops`, cujo `cmdBudget` cravava `root`). Se qualquer
+ * um ainda usasse `__dirname/..`, o efeito cairia no pacote e o budget diria "nao encontrado".
+ */
+const consumerProjectSurfaces: Check = {
+  id: 'consumer-project-surfaces',
+  title: 'gsd:* e context:* operam nas superfícies do projeto (cwd), não do pacote',
+  severity: 'critical',
+  dependsOn: 'install',
+  probe(env: any) {
+    const pkg = JSON.parse(env.fs.readFileSync(path.join(env.pkgDir, 'package.json'), 'utf8'));
+    const binRel = typeof pkg.bin === 'string' ? pkg.bin : pkg.bin?.forja;
+    const bin = path.join(env.pkgDir, binRel);
+    const slug = 'smoke-consumer-surface';
+    const runbookRel = path.join('.context', `gsd-${slug}.md`);
+
+    // 1. gsd:plan grava o runbook — deve cair no cwd, nunca dentro do pacote.
+    env.spawn(process.execPath, [bin, 'gsd:plan', slug, 'objetivo de fumaça'], { cwd: env.installDir });
+    const noProjeto = env.fs.existsSync(path.join(env.installDir, runbookRel));
+    const noPacote = env.fs.existsSync(path.join(env.pkgDir, runbookRel))
+      || env.fs.existsSync(path.join(env.pkgDir, 'dist', runbookRel));
+    if (noPacote) {
+      return {
+        status: 'fail',
+        detail: 'gsd:plan gravou o runbook DENTRO de node_modules/forjajs — opera no mundo errado',
+        fix: 'agent-harness deve usar projectRoot=process.cwd() para .context/ e specs/, não __dirname/..',
+      };
+    }
+    if (!noProjeto) {
+      return {
+        status: 'fail',
+        detail: 'gsd:plan não gravou o runbook em <cwd>/.context/ — a raiz do projeto está errada',
+        fix: 'confira projectRoot no agent-harness (cmdGsdPlan)',
+      };
+    }
+
+    // 2. context:budget precisa ACHAR o runbook que o gsd escreveu no cwd — só acha via projectRoot.
+    const budget = env.spawn(process.execPath, [bin, 'context:budget', slug], { cwd: env.installDir });
+    const saida = `${budget.stdout || ''}${budget.stderr || ''}`;
+    if (/nao encontrado|não encontrado|fora do projeto/i.test(saida)) {
+      return {
+        status: 'fail',
+        detail: 'context:budget não achou o runbook do cwd — está resolvendo o alvo dentro do pacote',
+        fix: 'context-ops deve resolver .context/specs/memory por projectRoot=process.cwd(), não por root',
+      };
+    }
+    return { status: 'ok', detail: 'gsd:plan grava no cwd e context:budget o lê de lá — superfícies no projeto', fix: null };
+  },
+};
+
 /** @type {import('./checks.ts').Check[]} */
 export const RELEASE_CHECKS = [
   treeClean,
@@ -511,6 +565,7 @@ export const RELEASE_CHECKS = [
   smokeCommands,
   consumerSpecNew,
   consumerProjectCheck,
+  consumerProjectSurfaces,
   importsResolve,
   depsDeclared,
   depsUnused,
