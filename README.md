@@ -201,7 +201,7 @@ forja memory:audit                         # coerência mapa↔código: mapa nã
 
 # Qualidade & release
 forja project:check                        # standards do framework (pre-commit)
-forja tools:doctor                         # raio-x do núcleo; exit 1 se quebrou
+forja tools:doctor                         # raio-x do núcleo; separa permissão/lock de corrupção; exit 1 se quebrou
 forja release:check --publish              # gate do tarball antes de publicar
 forja project:smoke                        # gate do projeto gerado; --full instala e builda o backend
 forja check:all                            # a bateria inteira de gates, um veredito; --full inclui os caros (SPEC-020)
