@@ -211,7 +211,7 @@ forja memory:extract                       # extract global knowledge from memor
 
 # Quality & release
 forja project:check                        # framework standards (pre-commit)
-forja tools:doctor                         # core X-ray; exit 1 if broken
+forja tools:doctor                         # core X-ray; tells permission/lock from corruption; exit 1 if broken
 forja release:check --publish              # tarball gate before publishing
 forja project:smoke                        # generated-project gate; --full installs and builds the backend
 forja project:dashboard                    # static status report

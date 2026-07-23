@@ -147,8 +147,9 @@ const memoryDb: Check = {
       };
     }
 
-    // Existir não é abrir: um banco corrompido ou sem permissão dá o mesmo `existsSync` de um
-    // banco saudável, e o operador merece saber qual dos dois é.
+    // Existir não é abrir: um banco corrompido, sem permissão ou travado dá o mesmo `existsSync`
+    // de um banco saudável. Os três reprovam a abertura por motivos opostos e pedem correções
+    // opostas — o `catch` abaixo classifica por `err.code`, nunca colapsa num "corrompido" único.
     const { default: Database } = await env.importModule('better-sqlite3');
     try {
       const db = new Database(dbPath, { readonly: true });
@@ -156,9 +157,33 @@ const memoryDb: Check = {
       db.close();
       return { status: 'ok', detail: `${n} nós indexados`, fix: null };
     } catch (err) {
+      const code = asErrno(err).code || '';
+
+      // CANTOPEN/EACCES: o arquivo está íntegro, o processo é que não o alcança — sandbox, FS
+      // read-only, diretório sem permissão. sync:universal *escreve* no banco: prescrito aqui,
+      // reencenaria o mesmo CANTOPEN sem curar nada. Colapsar isso em "corrompido" é o bug que
+      // este ramo fecha — a integridade nunca foi tocada.
+      if (code === 'SQLITE_CANTOPEN' || code === 'EACCES') {
+        return {
+          status: 'fail',
+          detail: `banco existe mas não abre (${code}) — sem permissão de acesso, não corrupção`,
+          fix: `garanta leitura em ${dbPath} (sandbox? FS read-only?) — NÃO rode sync:universal`,
+        };
+      }
+
+      // BUSY: outro processo mantém o lock. O banco está são; esperar resolve.
+      if (code === 'SQLITE_BUSY') {
+        return {
+          status: 'warn',
+          detail: `banco ocupado (${code}) — outro processo o mantém travado`,
+          fix: 'aguarde o processo concorrente liberar o lock e rode de novo',
+        };
+      }
+
+      // Só o que sobra — SQLITE_CORRUPT, SQLITE_NOTADB, o resto — é integridade. Aí sim reindexar.
       return {
         status: 'fail',
-        detail: `banco existe mas não abre (${asErrno(err).code || asErrno(err).message}) — provavelmente corrompido`,
+        detail: `banco existe mas não abre (${code || asErrno(err).message}) — provavelmente corrompido`,
         fix: 'npm run sync:universal',
       };
     }

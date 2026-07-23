@@ -4,6 +4,31 @@ Histórico consolidado das mudanças estruturais do framework. Para decisões ar
 
 ---
 
+## [1.7.3] — 2026-07-23 — Doctor: permissão/lock não é corrupção
+
+O check `memory-db` (consumido por `tools:doctor` e pelo `SessionStart`) tratava **qualquer** falha
+de abertura do `universal.db` como corrupção e prescrevia `sync:universal`. Num ambiente sem escrita
+(sandbox, FS read-only, diretório protegido) o driver lança `SQLITE_CANTOPEN` — e a prescrição é
+ativamente errada: `sync:universal` *escreve* no banco, reencenaria o mesmo erro sem curar nada, e
+levaria o operador a "reindexar" um banco íntegro. Reportado a partir de uma sessão real em sandbox.
+
+### Corrigido
+- **`memory-db` classifica a falha de abertura por `err.code`** em vez de colapsar tudo em
+  "corrompido" (ADR-0033):
+  - `SQLITE_CANTOPEN` / `EACCES` → **permissão/sandbox**, não corrupção; o fix orienta garantir
+    leitura no path e **desaconselha** `sync:universal`.
+  - `SQLITE_BUSY` → `warn` (lock temporário de outro processo; não trava o gate); o fix é aguardar.
+  - `SQLITE_CORRUPT` / `SQLITE_NOTADB` / resto → corrupção; fix `npm run sync:universal`.
+  O `err.code` já vinha impresso no `detail`, mas não decidia nada — a informação existia, faltava
+  ramificar. É a mesma classe do bug de ABI que motivou a SPEC-009, sobrevivendo dentro do arquivo
+  escrito para fechá-la.
+
+### Adicionado
+- **ADR-0033** e quatro casos em `test/health.test.js` (CANTOPEN, EACCES, BUSY, NOTADB): a distinção
+  vira invariante que roda.
+
+---
+
 ## [1.7.2] — 2026-07-22 — Fechando a classe: superfícies do projeto usam `cwd`
 
 A auditoria sistemática dos comandos consumer-facing (o passo estrutural após os fixes caso-a-caso

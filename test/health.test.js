@@ -284,21 +284,53 @@ test('memory-fresh: sem índice não há defasagem a reportar', async () => {
   assert.equal(r.status, 'skipped', 'um índice inexistente não pode estar defasado');
 });
 
-test('memory-db: banco existe mas não abre → é outra causa, outro detalhe', async () => {
-  // Corrompido e ausente dão o mesmo existsSync; o operador merece saber qual dos dois é.
-  const [r] = await runChecks({
+function openFails(code, message) {
+  return runChecks({
     checks: [db()],
     env: {
       fs: fsStub({ exists: true }),
       workspace: workspaceStub,
       importModule: async () => fakeSqlite({
-        onConstruct: () => { throw errWithCode('SQLITE_NOTADB', 'file is not a database'); },
+        onConstruct: () => { throw errWithCode(code, message ?? code); },
       }),
     },
   });
+}
+
+test('memory-db: SQLITE_NOTADB → corrupção, prescreve reindexação', async () => {
+  // Corrompido e ausente dão o mesmo existsSync; o operador merece saber qual dos dois é.
+  const [r] = await openFails('SQLITE_NOTADB', 'file is not a database');
 
   assert.equal(r.status, 'fail');
-  assert.match(r.detail, /não abre|corrompido/i);
+  assert.match(r.detail, /corrompido/i);
+  assert.equal(r.fix, 'npm run sync:universal');
+});
+
+test('memory-db: SQLITE_CANTOPEN → permissão, NÃO prescreve sync:universal', async () => {
+  // O bug que este ramo fecha: CANTOPEN é sandbox/permissão, não corrupção. sync:universal
+  // escreve no banco — reencenaria o mesmo erro. Prescrevê-lo aqui engana o operador.
+  const [r] = await openFails('SQLITE_CANTOPEN', 'unable to open database file');
+
+  assert.equal(r.status, 'fail');
+  assert.match(r.detail, /permissão|acesso/i);
+  assert.doesNotMatch(r.detail, /corrompido/i, 'CANTOPEN não é corrupção');
+  assert.doesNotMatch(r.fix, /npm run sync:universal/, "reindexar não cura falta de permissão");
+});
+
+test('memory-db: EACCES → mesmo tratamento de permissão que CANTOPEN', async () => {
+  const [r] = await openFails('EACCES', 'permission denied');
+
+  assert.equal(r.status, 'fail');
+  assert.doesNotMatch(r.fix, /npm run sync:universal/);
+});
+
+test('memory-db: SQLITE_BUSY → lock, warn e não trava o gate', async () => {
+  // Outro processo segura o lock. O banco está são; esperar resolve, não reindexar.
+  const [r] = await openFails('SQLITE_BUSY', 'database is locked');
+
+  assert.equal(r.status, 'warn');
+  assert.equal(worstStatus([r]), 'warn', 'lock temporário não pode reprovar o núcleo');
+  assert.doesNotMatch(r.fix, /npm run sync:universal/);
 });
 
 test('memory-db: banco saudável → ok com contagem', async () => {
