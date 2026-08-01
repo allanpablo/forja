@@ -1,323 +1,329 @@
 <h1 align="center">🔨 Forja</h1>
 
 <p align="center">
-  <strong>Transforme IA de codificação em uma equipe de engenharia com processo e memória:<br>todo projeto nasce com spec, toda decisão vira ADR, e nada se perde entre sessões.</strong>
+  <strong>Turn coding AI into an engineering team with process and memory:<br>every project starts from a spec, every decision becomes an ADR, and nothing is lost between sessions.</strong>
 </p>
 
 <p align="center">
   <a href="https://www.npmjs.com/package/forjajs"><img src="https://img.shields.io/npm/v/forjajs?style=flat-square&color=cb3837&logo=npm" alt="npm"></a>
   <img src="https://github.com/allanpablo/forja/actions/workflows/ci.yml/badge.svg" alt="CI">
-  <img src="https://img.shields.io/badge/operação-CLI--first-3553ff?style=flat-square" alt="CLI-first">
-  <img src="https://img.shields.io/badge/agentes-6_papéis-orange?style=flat-square" alt="6 agentes">
+  <img src="https://img.shields.io/badge/operation-CLI--first-3553ff?style=flat-square" alt="CLI-first">
+  <img src="https://img.shields.io/badge/agents-6_roles-orange?style=flat-square" alt="6 agents">
   <img src="https://img.shields.io/badge/pipeline-SDD_+_GSD-teal?style=flat-square" alt="SDD+GSD">
-  <img src="https://img.shields.io/badge/memória-SQLite_FTS5-green?style=flat-square" alt="Memória">
+  <img src="https://img.shields.io/badge/memory-SQLite_FTS5-green?style=flat-square" alt="Memory">
   <img src="https://img.shields.io/badge/node-%E2%89%A520-339933?style=flat-square&logo=node.js&logoColor=white" alt="Node >= 20">
   <img src="https://img.shields.io/badge/license-MIT-1a1a1a?style=flat-square" alt="MIT">
   <img src="https://img.shields.io/badge/PRs-welcome-8957e5?style=flat-square" alt="PRs welcome">
 </p>
 
-<p align="center"><sub>🌐 <a href="README.en.md">English</a> · <strong>Português</strong></sub></p>
+<p align="center"><sub>🌐 <strong>English</strong> · <a href="README.pt-BR.md">Português</a></sub></p>
 
 ---
 
-## Por que a Forja existe
+## Why Forja exists
 
-Agentes de IA são **amnésicos e indisciplinados**: cada sessão recomeça do zero, decisões
-de arquitetura evaporam, o código diverge da intenção — e quem opera vários produtos ao
-mesmo tempo paga esse imposto multiplicado por N.
+Coding agents are **amnesiac and undisciplined**: every session starts from zero, architecture
+decisions evaporate, code drifts from intent — and if you run several products at once, you pay
+that tax multiplied by N.
 
-A **Forja** é o estúdio em volta da IA. Ela coordena **6 papéis de agentes** num pipeline
-**Spec-Driven (SDD)** + **Get-Stuff-Done (GSD)**, mantém uma **memória hierárquica**
-indexada em SQLite que sobrevive entre sessões, e amarra tudo num **core CLI único com
-gates e trilha de auditoria** (`forja`, ADR-0020). Multi-IA por design (Claude, Copilot,
-Gemini, Codex). A operação é inteiramente via CLI.
+**Forja** is the studio around the AI. It coordinates **6 agent roles** through a
+**Spec-Driven (SDD)** + **Get-Stuff-Done (GSD)** pipeline, keeps a **hierarchical memory** indexed
+in SQLite that survives across sessions, and ties it all together behind **a single core CLI with
+gates and an audit trail** (`forja`, ADR-0020). Multi-AI by design (Claude, Copilot, Gemini,
+Codex). Everything is driven from the CLI.
 
-**Para quem**: o dev solo ou time pequeno que opera múltiplos produtos com IA como
-principal força de trabalho — e precisa da disciplina de um time grande sem ter esse time.
+**Who it's for**: the solo dev or small team running multiple products with AI as the main
+workforce — and needing the discipline of a big team without having one.
 
-## Os 3 pilares
+## The 3 pillars
 
-| Pilar | O que entrega | Prova |
+| Pillar | What it delivers | Proof |
 |---|---|---|
-| **Memória que sobrevive** | contexto hierárquico, buscável, compartilhado entre sessões e IAs | SQLite FTS5, smart-context (ADR-0003) |
-| **Processo que governa** | nada vira código sem spec; nada estrutural sem ADR; comandos auditados | SDD+GSD, handoffs 7 campos (ADR-0005), core `forja` (ADR-0020) |
-| **Fábrica, não projeto único** | workspace multi-produto, times de agentes por projeto | ADR-0019, harness, codegraph (ADR-0017) |
+| **Memory that survives** | hierarchical, searchable context, shared across sessions and AIs | SQLite FTS5, smart-context (ADR-0003) |
+| **Process that governs** | nothing becomes code without a spec; nothing structural without an ADR; every command audited | SDD+GSD, 7-field handoffs (ADR-0005), `forja` core (ADR-0020) |
+| **A factory, not a single project** | multi-product workspace, per-project agent teams | ADR-0019, harness, codegraph (ADR-0017) |
 
-> Este repositório é o **motor (framework)** — não hospeda aplicações em produção.
-> Os produtos do usuário vivem no **workspace Forja** (`~/forja-workspace` por padrão), fora deste repo.
-> Veja ADR-0019 para a rationale.
+> This repository is the **engine (framework)** — it does not host production apps.
+> Your products live in the **Forja workspace** (`~/forja-workspace` by default), outside this repo.
+> See ADR-0019 for the rationale.
 
-## 60 segundos de Forja
+## Forja in 60 seconds
 
 ```console
-$ forja spec:new pagamentos-pix
-✓ Spec criada: specs/pagamentos-pix/spec.md          # nada vira código sem isso
+$ forja spec:new pix-payments
+✓ Spec created: specs/pix-payments/spec.md            # nothing becomes code without this
 
-$ forja gsd:handoff plan pagamentos-pix
-Handoff registrado: product → sdd-architect          # 7 campos, auditável (ADR-0005)
+$ forja gsd:handoff plan pix-payments
+Handoff recorded: product → sdd-architect             # 7 fields, auditable (ADR-0005)
 
 $ forja code:impact processPayment
-Mapa de impacto: processPayment (profundidade 2)     # blast radius ANTES de editar
---- Chamadores diretos ---
+Impact map: processPayment (depth 2)                  # blast radius BEFORE you edit
+--- Direct callers ---
 BillingController.charge · RetryWorker.run
 
-$ forja gsd:check pagamentos-pix
+$ forja gsd:check pix-payments
 OK   GSD runbook      OK   Spec directory
 OK   SDD spec check   OK   Codegraph
-Resultado: gates básicos prontos.                    # governança executável, não checklist
+Result: baseline gates ready.                         # executable governance, not a checklist
 ```
 
-E cada comando acima ficou gravado em `.context/forja-runs.jsonl` — quando a governança pergunta "o processo foi seguido?", a resposta é um arquivo, não uma promessa.
+And each command above was recorded in `.context/forja-runs.jsonl` — when governance asks "was the
+process followed?", the answer is a file, not a promise.
 
-## Por que não só…?
+## Why not just…?
 
-| Alternativa | Onde ela para | O que a Forja acrescenta |
+| Alternative | Where it stops | What Forja adds |
 |---|---|---|
-| **Claude Code / Copilot puros** | brilhantes na sessão, amnésicos entre sessões | memória FTS5 + processo + auditoria em volta da IA |
-| **LangGraph / CrewAI** | infraestrutura para *construir* agentes | a camada de cima: opera o time de agentes no dia a dia |
-| **Templates & spec kits** | param quando a spec está escrita | pipeline completo até a governança, com gates que executam |
+| **Plain Claude Code / Copilot** | brilliant in-session, amnesiac between sessions | FTS5 memory + process + audit around the AI |
+| **LangGraph / CrewAI** | infrastructure to *build* agents | the layer above: it *operates* the agent team day to day |
+| **Templates & spec kits** | stop once the spec is written | the full pipeline through governance, with gates that execute |
 
-## Capacidades-chave
+## Key capabilities
 
-- **Core CLI único** — todo comando de processo passa por `forja <comando>`: registry declarativo, gates transversais (workspace) e auditoria append-only em `.context/forja-runs.jsonl` (ADR-0020).
-- **Orquestração multiagente** — 6 papéis (orchestrator, context-engineer, sdd-architect, product, marketing, governance) com handoffs rastreados (7 campos, ADR-0005).
-- **Memória hierárquica** — global → domínio → tarefa → resumo, com busca FTS5 e *smart-context* em 3 modos (ADR-0003).
-- **Pipeline SDD + GSD** — `spec → plan → tasks → check`, decisões registradas como ADRs.
-- **Auto-verificação (invariantes que rodam)** — o framework prova a si mesmo: uma família de gates guarda cada fronteira (núcleo, tarball, coerência de doc, topologia de agentes, projeto gerado), e `check:all` roda a bateria inteira num veredito só. A governança deixa de depender de disciplina — vira harness.
-- **Economia de token medida, não afirmada** — a memória (`context.md` como mapa) economiza ~60% vs explorar no frio, e `token:economy` **prova** isso nos seus domínios. `code:context` entrega o mapa pronto; `memory:audit` garante que ele não mente sobre o código.
-- **Geração de projetos** — `project:new` cria scaffold completo no workspace (memória, agentes, instruções multi-IA, backend NestJS como boilerplate padrão) e registra a ficha; `project:upgrade` traz peças novas para projetos já gerados sem tocar no código do usuário.
-- **3 capacidades integradas** (ADR-0016): **codegraph** (análise de código via MCP), **harness** (desenho de times de agentes), **ai-engineering** (base de conhecimento).
+- **Single core CLI** — every process command goes through `forja <command>`: a declarative
+  registry, cross-cutting gates (workspace), and append-only audit in
+  `.context/forja-runs.jsonl` (ADR-0020).
+- **Multi-agent orchestration** — 6 roles (orchestrator, context-engineer, sdd-architect, product,
+  marketing, governance) with tracked handoffs (7 fields, ADR-0005).
+- **Hierarchical memory** — global → domain → task → summary, with FTS5 search and *smart-context*
+  in 3 modes (ADR-0003).
+- **SDD + GSD pipeline** — `spec → plan → tasks → check`, decisions recorded as ADRs.
+- **Self-verification (invariants that run)** — the framework proves itself: a family of gates guards
+  each frontier (core, tarball, doc coherence, agent topology, generated project), and `check:all`
+  runs the whole battery into a single verdict. Governance stops depending on discipline — it becomes
+  harness.
+- **Token economy measured, not asserted** — memory (the `context.md` as a map) saves ~60% vs
+  exploring cold, and `token:economy` **proves** it across your domains. `code:context` delivers the
+  map ready to paste; `memory:audit` guarantees it doesn't lie about the code.
+- **Project generation** — `project:new` scaffolds a full project (memory, agents, multi-AI
+  instructions, a NestJS backend as the default boilerplate) and registers the record; `project:upgrade`
+  brings new scaffold pieces to already-generated projects without touching the user's code.
+- **3 integrated capabilities** (ADR-0016): **codegraph** (code analysis via MCP), **harness**
+  (agent-team design), **ai-engineering** (knowledge base).
 
 ## ⚡ Quick start
 
 ```bash
-# Instalar (o pacote é forjajs; o comando é forja)
+# Install (the package is forjajs; the command is forja)
 npm install -g forjajs
-forja                    # help agrupado por domínio
+forja                    # help grouped by domain
 
-# Preparar o workspace de produção (canto fixo dos projetos)
+# Prepare the production workspace (the fixed home for your projects)
 forja workspace:init
 
-# Criar um projeto novo (gera em ~/forja-workspace/projects/<nome>)
-forja project:new meu-projeto --ai claude,copilot
+# Create a new project (generated in ~/forja-workspace/projects/<name>)
+forja project:new my-project --ai claude,copilot
 
-# Entrar no ciclo SDD/GSD da primeira feature
-forja spec:new minha-feature
-forja spec:plan minha-feature
-forja spec:tasks minha-feature
-forja spec:check minha-feature
+# Enter the SDD/GSD cycle for the first feature
+forja spec:new my-feature
+forja spec:plan my-feature
+forja spec:tasks my-feature
+forja spec:check my-feature
 ```
 
-> Clonou o repo em vez de instalar? Os mesmos comandos rodam como
-> `node bin/forja.ts <comando>` — os scripts npm são apenas aliases finos do core.
-> A fonte é TypeScript e roda nativa: **dev exige Node ≥ 22.6** (strip-types). O pacote *publicado*
-> embarca `dist/*.js` e roda em **Node ≥ 20** — o `release-gate` prova isso a cada release (SPEC-012).
+> Cloned the repo instead of installing? The same commands run as
+> `node bin/forja.ts <command>` — the npm scripts are just thin aliases of the core.
+> The source is TypeScript and runs natively: **dev needs Node ≥ 22.6** (type stripping). The
+> *published* package ships `dist/*.js` and runs on **Node ≥ 20** — the `release-gate` proves it
+> every release (SPEC-012).
 
-Passo a passo de **criar vs atualizar** projeto: [`docs/processo-projeto.md`](docs/processo-projeto.md).
+Step by step on **create vs update** a project: [`docs/processo-projeto.md`](docs/processo-projeto.md).
 
-## Como funciona — o processo
+## How it works — the process
 
 ```
-💡 Demanda
-   ├─ projeto NÃO existe ─► project:new + boilerplate + harness (desenha o time)
-   └─ projeto JÁ existe ──► overlay --only-memory + codegraph init (entende o código)
+💡 Demand
+   ├─ project does NOT exist ─► project:new + boilerplate + harness (designs the team)
+   └─ project DOES exist ─────► overlay --only-memory + codegraph init (understands the code)
                                               │
                                               ▼
-   CICLO CLI-first (docs/fluxo.md):
-   1·Entender → 2·Especificar → 3·Arquitetar → 4·Decompor → 5·Implementar → 6·Governar → ✅
+   CLI-first CYCLE (docs/fluxo.md):
+   1·Understand → 2·Specify → 3·Architect → 4·Decompose → 5·Implement → 6·Govern → ✅
 ```
 
-| Etapa | Papel | Capacidade |
-|-------|-------|------------|
-| 1 Entender | context-engineer | codegraph · ai-engineering |
-| 2 Especificar | product | — |
-| 3 Arquitetar | sdd-architect | harness · ADR |
-| 4 Decompor | sdd-architect | — |
-| 5 Implementar | orchestrator + worker | codegraph (MCP) |
-| 6 Governar | governance | codegraph (`affected`) |
+| Step | Role | Capability |
+|------|------|------------|
+| 1 Understand | context-engineer | codegraph · ai-engineering |
+| 2 Specify | product | — |
+| 3 Architect | sdd-architect | harness · ADR |
+| 4 Decompose | sdd-architect | — |
+| 5 Implement | orchestrator + worker | codegraph (MCP) |
+| 6 Govern | governance | codegraph (`affected`) |
 
-Mapa completo do ciclo: [`docs/fluxo.md`](docs/fluxo.md).
+Full cycle map: [`docs/fluxo.md`](docs/fluxo.md).
 
-## As 3 capacidades integradas
+## The 3 integrated capabilities
 
-| Capacidade | Papel | Como usar |
+| Capability | Role | How to use |
 |---|---|---|
-| **codegraph** | análise de código (MCP local) | `forja code:index` · `codegraph explore "<área>"` · ferramentas MCP `codegraph_explore`/`codegraph_node` |
-| **harness** | desenho de times de agentes (plugin) | na sessão Claude Code: _"build a harness for this project"_ → gera `.claude/agents` + `.claude/skills` |
-| **ai-engineering** | base de conhecimento (referência) | ver [`docs/capacidades-externas.md`](docs/capacidades-externas.md) |
+| **codegraph** | code analysis (local MCP) | `forja code:index` · `codegraph explore "<area>"` · MCP tools `codegraph_explore`/`codegraph_node` |
+| **harness** | agent-team design (plugin) | in a Claude Code session: _"build a harness for this project"_ → generates `.claude/agents` + `.claude/skills` |
+| **ai-engineering** | knowledge base (reference) | see [`docs/capacidades-externas.md`](docs/capacidades-externas.md) |
 
-Detalhes e reinstalação: [`docs/capacidades-externas.md`](docs/capacidades-externas.md) · [ADR-0016](memory/90-decisions/0016-integracao-capacidades-externas.md).
+Details and reinstall: [`docs/capacidades-externas.md`](docs/capacidades-externas.md) · [ADR-0016](memory/90-decisions/0016-integracao-capacidades-externas.md).
 
-## O core `forja`
+## The `forja` core
 
-Todos os comandos de processo passam por um único ponto de entrada (ADR-0020):
+Every process command goes through a single entry point (ADR-0020):
 
 ```bash
-forja                              # help agrupado por domínio
-forja <comando> [args]             # no repo clonado: node bin/forja.ts <comando>
+forja                              # help grouped by domain
+forja <command> [args]             # in a cloned repo: node bin/forja.ts <command>
 ```
 
-O core aplica **gates** antes de executar (ex.: comandos de produto falham cedo sem
-workspace) e grava **auditoria** de cada execução (comando, args, exit code, duração)
-em `<workspace>/.context/forja-runs.jsonl` — a trilha que a governança usa no review.
-Os scripts npm do repo são aliases finos que roteiam pelo core.
+The core applies **gates** before running (e.g. product commands fail fast without a workspace) and
+records an **audit** of each run (command, args, exit code, duration) in
+`<workspace>/.context/forja-runs.jsonl` — the trail governance uses at review. The repo's npm
+scripts are thin aliases that route through the core.
 
-## Comandos essenciais
+## Essential commands
 
 ```bash
-# Workspace & projetos
-forja workspace:init                       # cria ~/forja-workspace
-forja project:new <nome> --ai claude,copilot  # cria projeto no workspace
-forja project:list                         # lista projetos do workspace
-forja project:upgrade                      # traz peças novas de scaffold p/ um projeto (aditivo; --apply)
-forja workspace:project:check <nome>       # valida padrões num projeto do workspace
+# Workspace & projects
+forja workspace:init                       # create ~/forja-workspace
+forja project:new <name> --ai claude,copilot  # create a project in the workspace
+forja project:list                         # list workspace projects
+forja workspace:project:check <name>       # validate standards in a workspace project
 
-# Pipeline SDD
-forja spec:new <slug>                      # também: spec:plan · spec:tasks · spec:check
+# SDD pipeline
+forja spec:new <slug>                      # also: spec:plan · spec:tasks · spec:check
 
 # Sprint & handoffs (GSD)
-forja sprint:start                         # também: sprint:status · sprint:complete
-forja gsd:plan <slug>                      # runbook GSD em .context/
-forja gsd:handoff <intent> <slug>          # handoff entre papéis (ADR-0005)
-forja gsd:check <slug>                     # gates básicos do runbook
-forja orchestrate "<objetivo>" --slug <s>  # abre a corrida: a cadeia SDD/GSD como máquina de estados (SPEC-021)
-forja orchestrate:status <slug>            # o estado da máquina: etapas, gates, vereditos
-forja orchestrate:advance <slug>           # roda o gate da etapa; verde → próxima; vermelho → trava
+forja sprint:start                         # also: sprint:status · sprint:complete
+forja gsd:plan <slug>                      # GSD runbook in .context/
+forja gsd:handoff <intent> <slug>          # role-to-role handoff (ADR-0005)
+forja gsd:check <slug>                     # baseline runbook gates
+forja orchestrate "<goal>" --slug <s>      # open a run: the SDD/GSD chain as a gated state machine (SPEC-021)
+forja orchestrate:status <slug>            # the machine state: stages, gates, verdicts
+forja orchestrate:advance <slug>           # run the stage gate; green → next; red → blocked
 
-# Análise de código (codegraph)
-forja code:check                           # índice confiável (worktree + freshness)
-forja code:impact <símbolo>                # chamadores + blast radius antes de editar
-forja code:context <domínio>               # pacote de contexto mínimo (o mapa; --code p/ o código)
-forja code:query "<termo>"                 # também: code:index · code:sync · code:status
+# Code analysis (codegraph)
+forja code:check                           # trustworthy index (worktree + freshness)
+forja code:impact <symbol>                 # callers + blast radius before you edit
+forja code:query "<term>"                  # also: code:index · code:sync · code:status
 
-# Memória & contexto (workspace)
-forja sync:universal                       # reindexa SQLite FTS5 do workspace
-forja query:universal "<query>"            # busca FTS5
-forja context:smart                        # smart-context (3 modos, ADR-0003)
-forja token:economy [--project <path>]     # economia de token; --project mede seus domínios reais (ADR-0009)
-forja memory:compress                      # arquiva runs antigos + VACUUM
-forja memory:extract                       # extrai conhecimento global da memória
-forja memory:audit                         # coerência mapa↔código: mapa não mente + módulo sem mapa (SPEC-017)
+# Memory & context (workspace)
+forja sync:universal                       # reindex the workspace SQLite FTS5
+forja query:universal "<query>"            # FTS5 search
+forja context:smart                        # smart-context (3 modes, ADR-0003)
+forja memory:compress                      # archive old runs + VACUUM
+forja memory:extract                       # extract global knowledge from memory
 
-# Qualidade & release
-forja project:check                        # standards do framework (pre-commit)
-forja tools:doctor                         # raio-x do núcleo; separa permissão/lock de corrupção; exit 1 se quebrou
-forja release:check --publish              # gate do tarball antes de publicar
-forja project:smoke                        # gate do projeto gerado; --full instala e builda o backend
-forja check:all                            # a bateria inteira de gates, um veredito; --full inclui os caros (SPEC-020)
-forja project:dashboard                    # relatório estático de status
+# Quality & release
+forja project:check                        # framework standards (pre-commit)
+forja tools:doctor                         # core X-ray; tells permission/lock from corruption; exit 1 if broken
+forja release:check --publish              # tarball gate before publishing
+forja project:smoke                        # generated-project gate; --full installs and builds the backend
+forja project:dashboard                    # static status report
 
-# Governança & auditoria
-forja audit:sync                           # projeta a trilha de auditoria numa tabela consultável
-forja audit:query --failed                 # consulta: --failed, --cmd <x>, --since 7d
-forja governance:dashboard                 # painel HTML estático (gates, SDD, auditoria) — sem servidor
+# Governance & audit
+forja audit:sync                           # project the audit trail into a queryable table
+forja audit:query --failed                 # query: --failed, --cmd <x>, --since 7d
+forja governance:dashboard                 # static HTML panel (gates, SDD, audit) — no server
 ```
 
-## Separação framework × workspace
+## Framework vs workspace separation
 
-O Forja é dividido em duas partes:
+Forja is split in two:
 
-1. **Framework** (este repositório): motor, convenções, scripts e memória do próprio framework.
-2. **Workspace** (`~/forja-workspace` por padrão): "canto fixo" onde vivem os projetos de produto, a memória universal deles e as specs de produto.
+1. **Framework** (this repository): the engine, conventions, scripts, and the framework's own memory.
+2. **Workspace** (`~/forja-workspace` by default): the "fixed home" where product projects, their
+   universal memory, and product specs live.
 
-O caminho do workspace é resolvido por prioridade:
+The workspace path is resolved by priority:
 
-1. Variável de ambiente `FORJA_WORKSPACE`
-2. Campo `workspaceRoot` em `~/.forjarc.json`
-3. Padrão: `~/forja-workspace`
+1. `FORJA_WORKSPACE` environment variable
+2. `workspaceRoot` field in `~/.forjarc.json`
+3. Default: `~/forja-workspace`
 
-Veja ADR-0019 para a decisão arquitetural.
+See ADR-0019 for the architectural decision.
 
-## Estrutura do repositório (framework)
+## Repository structure (framework)
 
 ```
-bin/          CLIs (forja — o core; init-project, create-memory-nest-kit)
-lib/          Módulos reutilizáveis; lib/core/ é o motor de invariantes (registry, checks, health, release, doc-graph, gates)
-scripts/      Automação (sprint-manager, agent-router, sync-universal-memory, …)
-specs/        Pipeline SDD do próprio framework (spec → plan → tasks)
-boilerplates/ Templates de stack (api-rest, saas, ecommerce, microservices, monorepo)
-memory/       Memória do framework (00-global … 90-decisions/ADRs)
-docs/         Documentação por persona e por tópico (ver DOC-MAP.md)
-prompts/      Prompts portáteis dos 6 papéis
-.claude/      Sub-agents e settings do Claude Code
-projects/     LEGADO — não usar; projetos vivem no workspace externo
+bin/          CLIs (forja — the core; init-project, create-memory-nest-kit)
+lib/          Reusable modules; lib/core/ is the invariant engine (registry, checks, health, release, doc-graph, gates)
+scripts/      Automation (sprint-manager, agent-router, sync-universal-memory, …)
+specs/        The framework's own SDD pipeline (spec → plan → tasks)
+boilerplates/ Stack templates (api-rest, saas, ecommerce, microservices, monorepo)
+memory/       Framework memory (00-global … 90-decisions/ADRs)
+docs/         Documentation by persona and by topic (see DOC-MAP.md)
+prompts/      Portable prompts for the 6 roles
+.claude/      Claude Code sub-agents and settings
+projects/     LEGACY — do not use; projects live in the external workspace
 ```
 
-## Estrutura do workspace
+## Workspace structure
 
 ```
 ~/forja-workspace/
-  projects/              # produtos gerados
+  projects/              # generated products
   memory/
-    sqlite/universal.db  # SQLite FTS5 dos produtos
-    30-projects/         # fichas dos projetos
-  specs/                 # specs de produto
-  .context/              # runbooks GSD de produto
+    sqlite/universal.db  # SQLite FTS5 for the products
+    30-projects/         # project records
+  specs/                 # product specs
+  .context/              # product GSD runbooks
   README.md
 ```
 
-## Documentação
+## Documentation
 
-- [`DOC-MAP.md`](DOC-MAP.md) — mapa por papel e por tópico (comece aqui)
-- [`docs/processo-projeto.md`](docs/processo-projeto.md) — criar vs atualizar projeto
-- [`docs/fluxo.md`](docs/fluxo.md) — mapa do ciclo CLI-first
-- [`AGENTS.md`](AGENTS.md) — os 6 papéis e a topologia
-- [`memory/90-decisions/`](memory/90-decisions/) — ADRs com rationale
-- [`CHANGELOG.md`](CHANGELOG.md) — histórico
+The docs are written in **Brazilian Portuguese** — that's part of the project's identity. The CLI
+output, code, and ADRs are readable regardless of language.
 
-## Convenções
+- [`DOC-MAP.md`](DOC-MAP.md) — map by role and by topic (start here)
+- [`docs/processo-projeto.md`](docs/processo-projeto.md) — create vs update a project
+- [`docs/fluxo.md`](docs/fluxo.md) — the CLI-first cycle map
+- [`AGENTS.md`](AGENTS.md) — the 6 roles and the topology
+- [`memory/90-decisions/`](memory/90-decisions/) — ADRs with rationale
+- [`CHANGELOG.md`](CHANGELOG.md) — history
 
-- **CLI-first** — sprints, SDD, GSD, handoffs e governança por comando; o front nunca é gate.
-- **ADRs** — toda decisão estrutural vira `memory/90-decisions/NNNN-titulo.md`.
-- **Handoffs** — 7 campos obrigatórios (ADR-0005), gravados no SQLite (ADR-0008).
-- **pt-BR** — comunicação e documentação em português.
+## Conventions
+
+- **CLI-first** — sprints, SDD, GSD, handoffs, and governance by command; the UI is never a gate.
+- **ADRs** — every structural decision becomes `memory/90-decisions/NNNN-title.md`.
+- **Handoffs** — 7 required fields (ADR-0005), stored in SQLite (ADR-0008).
+- **pt-BR** — communication and documentation in Portuguese.
 
 ## Roadmap
 
-O fio condutor: **converter conhecimento que vive em convenção em invariante executável.** Cada
-item abaixo ou fecha uma fronteira do framework por um gate, ou leva esse padrão para os projetos
-gerados.
+The throughline: **turn knowledge that lives as convention into an executable invariant.** Each item
+below either closes a framework frontier with a gate, or carries that pattern into generated projects.
 
-**Entregue** (até v1.6.0)
+**Shipped** (through v1.6.0)
 
-- [x] **Família de gates** — cada fronteira do framework guarda por um invariante que roda: núcleo
-  (`tools:doctor`, ADR-0023), tarball (`release:check`, ADR-0024), coerência de doc + ADRs + topologia
-  de agentes (ADR-0025, SPEC-019), projeto gerado (`project:smoke`, ADR-0029). E `check:all` reúne a
-  bateria num veredito (SPEC-020).
-- [x] **Migração TypeScript completa** — fonte 100% `.ts`, publica `dist/`, `noImplicitAny` ON. Achou
-  bugs latentes que nenhum teste pegava (SPEC-012).
-- [x] **Economia de memória como sistema** — **medida** (`token:economy` prova ~60% vs frio),
-  **entregue** (`code:context`), **protegida** (`memory:audit`, nas duas direções) e **propagada**: o
-  projeto gerado herda o gate dos mapas (ADR-0030).
-- [x] **`project:upgrade`** — atualizar um projeto já gerado sem perder código: aditivo, nunca
-  sobrescreve (SPEC-018).
-- [x] **Clean Architecture calibrado** — camadas onde se pagam, enxuto onde não; e a claim de token
-  **medida e corrigida** — a economia é da memória, não das camadas (ADR-0027).
+- [x] **Gate family** — every framework frontier is guarded by an invariant that runs: core
+  (`tools:doctor`, ADR-0023), tarball (`release:check`, ADR-0024), doc + ADR + agent-topology
+  coherence (ADR-0025, SPEC-019), generated project (`project:smoke`, ADR-0029). And `check:all`
+  runs the whole battery into one verdict (SPEC-020).
+- [x] **TypeScript migration complete** — source 100% `.ts`, ships `dist/`, `noImplicitAny` ON. Found
+  latent bugs no test caught (SPEC-012).
+- [x] **Memory economy as a system** — **measured** (`token:economy` proves ~60% vs cold),
+  **delivered** (`code:context`), **protected** (`memory:audit`, both directions), and **propagated**:
+  the generated project inherits the maps gate (ADR-0030).
+- [x] **`project:upgrade`** — update an already-generated project without losing code: additive, never
+  overwrites (SPEC-018).
+- [x] **Calibrated Clean Architecture** — layers where they pay off, lean where they don't; and the
+  token claim **measured and corrected** — the saving is memory's, not the layers' (ADR-0027).
 
-**Próximos passos** (por dependência, não por desejo)
+**Next** (by dependency, not by wish)
 
-- [x] **`builds` do backend gerado sob toolchain novo** — o template alinhou o `better-sqlite3` ao
-  do framework (^12, com prebuilds); o `check:all --full` compila o backend gerado em Node 26.
-- [x] **`release-auditor` consome o gate** — o agente executa e julga `release:check --publish`
-  (ADR-0024), incluindo o `consumer-spec-new`; não reimplementa o procedimento.
-- [ ] **Boilerplates além de NestJS** — o processo é agnóstico de stack; os templates vão atrás.
-- [ ] **(visão) o motor de orquestração** — a cadeia de handoffs que **roda**, não só é coerente
-  (SPEC-019 deixou como futuro). O namesake executando: candidato ao 2.0.
+- [x] **Generated backend `builds` under new toolchains** — the template now matches the
+  framework's `better-sqlite3` (^12, with prebuilds); `check:all --full` compiles the generated
+  backend on Node 26.
+- [x] **`release-auditor` consumes the gate** — the agent runs and judges `release:check --publish`
+  (ADR-0024), including `consumer-spec-new`; it doesn't reimplement the procedure.
+- [ ] **Boilerplates beyond NestJS** — the process is stack-agnostic; the templates will follow.
+- [ ] **(vision) the orchestration engine** — the handoff chain that **runs**, not just is coherent
+  (SPEC-019 left it as future). The namesake executing: a 2.0 candidate.
 
-Sugestões? Abra uma issue — feature não-trivial aqui começa por spec, inclusive as suas.
-
-## English
-
-Full English version: **[README.en.md](README.en.md)**. In short — **Forja** turns coding AI into an
-engineering team with process and memory: every project starts from a spec, every structural
-decision becomes an ADR, and nothing is lost between sessions. Documentation is in Brazilian
-Portuguese — that's part of the project's identity; the CLI and the code are readable regardless.
+Suggestions? Open an issue — a non-trivial feature here starts from a spec, yours included.
 
 ---
 
 <p align="center">
-  <strong>A Forja te ajudou a domar seus agentes?</strong><br>
-  Uma ⭐ é o que faz o projeto chegar a mais devs que estão pagando o imposto da IA amnésica.
+  <strong>Did Forja help you tame your agents?</strong><br>
+  A ⭐ is what carries the project to more devs still paying the amnesiac-AI tax.
 </p>
 
-<p align="center"><sub>Forja (npm: <code>forjajs</code>) · MIT License · <a href="CONTRIBUTING.md">Contribuindo</a></sub></p>
+<p align="center"><sub>Forja (npm: <code>forjajs</code>) · MIT License · <a href="CONTRIBUTING.md">Contributing</a></sub></p>
