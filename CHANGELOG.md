@@ -4,6 +4,13 @@ Histórico consolidado das mudanças estruturais do framework. Para decisões ar
 
 ---
 
+## [2.0.1] — 2026-08-01 — Higiene de dependências do pacote
+
+Move as dependências de NestJS e dashboard para os manifests das aplicações e
+para `devDependencies` do repositório. O tarball do framework agora carrega
+somente `better-sqlite3` como dependência de runtime, eliminando peso morto sem
+alterar os ambientes oficiais de server e dashboard.
+
 ## [2.0.0] — 2026-08-01 — Fundação programável local-first
 
 Primeira release da plataforma ForjaJS 2.0. A versão mantém a
