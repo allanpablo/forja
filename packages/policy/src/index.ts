@@ -1,0 +1,200 @@
+import { randomUUID } from 'node:crypto';
+import {
+  CONTRACT_VERSION,
+  type AgentIdentity,
+  type ApprovalRequest,
+  type CapabilityDefinition,
+  type EntityId,
+  type ISO8601,
+  type PolicyDecision,
+  type RiskLevel,
+  type TokenBudget,
+} from '../../contracts/src/index.ts';
+
+export type PolicyCategory = 'read' | 'write' | 'execution' | 'network' | 'repository' | 'secrets' | 'database' | 'deployment' | 'destructive';
+
+export interface PolicyScope {
+  readonly agentIds?: readonly EntityId[];
+  readonly roles?: readonly string[];
+  readonly capabilityIds?: readonly string[];
+  readonly projects?: readonly string[];
+  readonly environments?: readonly string[];
+  readonly risks?: readonly RiskLevel[];
+  readonly categories?: readonly PolicyCategory[];
+  readonly pathPrefixes?: readonly string[];
+}
+
+export interface PolicyLimits {
+  readonly maxTokens?: number;
+  readonly maxFiles?: number;
+  readonly maxDurationMs?: number;
+  readonly maxRetries?: number;
+}
+
+export interface PolicyRule {
+  readonly id: string;
+  readonly priority: number;
+  readonly effect: PolicyDecision['effect'];
+  readonly reason: string;
+  readonly scope: PolicyScope;
+  readonly limits?: PolicyLimits;
+}
+
+export interface ApprovalDetails {
+  readonly action: string;
+  readonly justification: string;
+  readonly impact: string;
+  readonly expectedDiff?: string;
+  readonly expiresAt: ISO8601;
+}
+
+export interface PolicyRequest {
+  readonly definition: CapabilityDefinition;
+  readonly agent: AgentIdentity;
+  readonly projectId?: string;
+  readonly environment: string;
+  readonly categories: readonly string[];
+  readonly files: readonly string[];
+  readonly budget?: TokenBudget;
+  readonly now: ISO8601;
+  readonly approval?: ApprovalDetails;
+}
+
+export interface ApprovalDecision {
+  readonly decision: 'approved' | 'rejected';
+  readonly approverId: EntityId;
+  readonly decidedAt: ISO8601;
+}
+
+export interface ApprovalInput extends ApprovalDetails {
+  readonly correlationId: string;
+}
+
+export class PolicyError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'PolicyError';
+  }
+}
+
+export class ApprovalLedger {
+  private readonly requests = new Map<EntityId, ApprovalRequest>();
+
+  create(input: ApprovalInput, now: ISO8601 = new Date().toISOString() as ISO8601): ApprovalRequest {
+    if (input.action.trim().length === 0) throw new PolicyError('Approval action is required');
+    if (input.justification.trim().length === 0) throw new PolicyError('Approval justification is required');
+    if (input.impact.trim().length === 0) throw new PolicyError('Approval impact is required');
+    const request: ApprovalRequest = {
+      schemaVersion: CONTRACT_VERSION,
+      id: randomUUID() as EntityId,
+      action: input.action,
+      justification: input.justification,
+      impact: input.impact,
+      expectedDiff: input.expectedDiff,
+      expiresAt: input.expiresAt,
+      correlationId: input.correlationId,
+      createdAt: now,
+      updatedAt: now,
+    };
+    this.requests.set(request.id, request);
+    return request;
+  }
+
+  list(): readonly ApprovalRequest[] { return [...this.requests.values()].sort((left, right) => left.createdAt.localeCompare(right.createdAt)); }
+
+  decide(id: EntityId, decision: ApprovalDecision): ApprovalRequest {
+    const current = this.get(id);
+    if (current.decision !== undefined) throw new PolicyError(`Approval already decided: ${id}`);
+    if (current.expiresAt <= decision.decidedAt) throw new PolicyError(`Approval expired: ${id}`);
+    const updated: ApprovalRequest = { ...current, decision: decision.decision, approverId: decision.approverId, updatedAt: decision.decidedAt };
+    this.requests.set(id, updated);
+    return updated;
+  }
+
+  expire(now: ISO8601): readonly ApprovalRequest[] {
+    const expired: ApprovalRequest[] = [];
+    for (const current of this.requests.values()) {
+      if (current.decision === undefined && current.expiresAt <= now) {
+        const updated: ApprovalRequest = { ...current, decision: 'expired', updatedAt: now };
+        this.requests.set(current.id, updated);
+        expired.push(updated);
+      }
+    }
+    return expired;
+  }
+
+  get(id: EntityId): ApprovalRequest {
+    const request = this.requests.get(id);
+    if (request === undefined) throw new PolicyError(`Approval not found: ${id}`);
+    return request;
+  }
+}
+
+export class PolicyEngine {
+  private readonly rules: readonly PolicyRule[];
+  private readonly approvalRequiredRisks: readonly RiskLevel[];
+  private readonly approvalLedger: ApprovalLedger;
+
+  constructor(options: { readonly rules?: readonly PolicyRule[]; readonly approvalRequiredRisks?: readonly RiskLevel[]; readonly approvalLedger?: ApprovalLedger } = {}) {
+    this.rules = [...(options.rules ?? [])].sort((left, right) => right.priority - left.priority || this.effectRank(left.effect) - this.effectRank(right.effect) || left.id.localeCompare(right.id));
+    this.approvalRequiredRisks = options.approvalRequiredRisks ?? ['critical'];
+    this.approvalLedger = options.approvalLedger ?? new ApprovalLedger();
+    this.validateRules(this.rules);
+  }
+
+  authorize(request: PolicyRequest): PolicyDecision {
+    const match = this.rules.find((rule) => this.matches(rule.scope, request));
+    const decision = match === undefined
+      ? { effect: 'DENY' as const, reason: 'No matching policy rule', policyId: 'default-deny' }
+      : { effect: match.effect, reason: match.reason, policyId: match.id, ...(match.limits === undefined ? {} : { limits: this.asNumericLimits(match.limits) }) };
+
+    if (this.approvalRequiredRisks.includes(request.definition.risk) && decision.effect === 'ALLOW') {
+      return this.withApproval(request, decision, 'Risk requires explicit approval');
+    }
+    if (decision.effect === 'REQUIRE_APPROVAL') return this.withApproval(request, decision, decision.reason);
+    return decision;
+  }
+
+  get approvals(): ApprovalLedger {
+    return this.approvalLedger;
+  }
+
+  private withApproval(request: PolicyRequest, decision: PolicyDecision, reason: string): PolicyDecision {
+    if (request.approval === undefined) return { ...decision, effect: 'REQUIRE_APPROVAL', reason };
+    const approval = this.approvalLedger.create({ ...request.approval, correlationId: request.agent.id }, request.now);
+    return { ...decision, effect: 'REQUIRE_APPROVAL', reason, approvalRequestId: approval.id };
+  }
+
+  private matches(scope: PolicyScope, request: PolicyRequest): boolean {
+    if (scope.agentIds !== undefined && !scope.agentIds.includes(request.agent.id)) return false;
+    if (scope.roles !== undefined && !scope.roles.includes(request.agent.role)) return false;
+    if (scope.capabilityIds !== undefined && !scope.capabilityIds.includes(request.definition.id)) return false;
+    if (scope.projects !== undefined && (request.projectId === undefined || !scope.projects.includes(request.projectId))) return false;
+    if (scope.environments !== undefined && !scope.environments.includes(request.environment)) return false;
+    if (scope.risks !== undefined && !scope.risks.includes(request.definition.risk)) return false;
+    if (scope.categories !== undefined && !scope.categories.some((category) => request.categories.includes(category))) return false;
+    if (scope.pathPrefixes !== undefined && !request.files.every((file) => scope.pathPrefixes?.some((prefix) => file.startsWith(prefix)))) return false;
+    return true;
+  }
+
+  private validateRules(rules: readonly PolicyRule[]): void {
+    const ids = new Set<string>();
+    for (const rule of rules) {
+      if (rule.id.trim().length === 0) throw new PolicyError('Policy rule id is required');
+      if (ids.has(rule.id)) throw new PolicyError(`Duplicate policy rule: ${rule.id}`);
+      if (!Number.isInteger(rule.priority)) throw new PolicyError(`Policy priority must be an integer: ${rule.id}`);
+      if (rule.reason.trim().length === 0) throw new PolicyError(`Policy reason is required: ${rule.id}`);
+      ids.add(rule.id);
+    }
+  }
+
+  private effectRank(effect: PolicyDecision['effect']): number {
+    return effect === 'DENY' ? 0 : effect === 'REQUIRE_APPROVAL' ? 1 : effect === 'ALLOW_WITH_LIMITS' ? 2 : 3;
+  }
+
+  private asNumericLimits(limits: PolicyLimits): Readonly<Record<string, number>> {
+    const output: Record<string, number> = {};
+    for (const [key, value] of Object.entries(limits)) if (value !== undefined) output[key] = value;
+    return output;
+  }
+}

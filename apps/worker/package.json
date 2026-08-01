@@ -1,0 +1,7 @@
+{
+  "name": "@forja/worker",
+  "version": "2.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": { "start": "node --import tsx src/main.ts" }
+}

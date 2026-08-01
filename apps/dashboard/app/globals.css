@@ -1,0 +1,15 @@
+:root { color-scheme: dark; --bg: #0b0e14; --panel: #121722; --line: #273143; --text: #edf2f7; --muted: #93a0b5; --accent: #65d6b3; }
+* { box-sizing: border-box; }
+body { margin: 0; background: radial-gradient(circle at 0 0, #182433, var(--bg) 42%); color: var(--text); font-family: ui-sans-serif, system-ui, sans-serif; }
+button { border: 1px solid #3b806f; border-radius: 8px; background: #153c37; color: var(--text); cursor: pointer; padding: 10px 16px; }
+.shell { margin: 0 auto; max-width: 1120px; padding: 52px 24px; }
+.header, .panel-title { align-items: center; display: flex; justify-content: space-between; gap: 24px; }
+.eyebrow { color: var(--accent); font-size: 12px; letter-spacing: .18em; margin: 0 0 8px; }
+h1, h2, p { margin-top: 0; } h1 { font-size: clamp(32px, 5vw, 56px); margin-bottom: 8px; } h2 { font-size: 18px; }
+.muted { color: var(--muted); } .grid { display: grid; gap: 14px; grid-template-columns: repeat(4, 1fr); margin: 38px 0 18px; }
+.metric, .panel, .alert { background: color-mix(in srgb, var(--panel) 94%, transparent); border: 1px solid var(--line); border-radius: 12px; }
+.metric { display: grid; gap: 16px; padding: 20px; } .metric span, small { color: var(--muted); font-size: 13px; } .metric strong { font-size: 28px; }
+.panel { padding: 24px; } .events { list-style: none; margin: 0; padding: 0; } .events li { align-items: center; border-top: 1px solid var(--line); display: flex; gap: 12px; padding: 14px 0; } .events li > span:nth-child(2) { display: grid; gap: 3px; } .actions { display: flex; gap: 6px; margin-left: auto; } .actions button { font-size: 12px; padding: 6px 9px; } .dot { border-radius: 50%; height: 9px; width: 9px; } .succeeded { background: var(--accent); } .failed { background: #ef7272; } .blocked, .inconclusive { background: #eabf68; }
+.graph-controls { display: flex; gap: 8px; margin-bottom: 16px; } input { background: #0c111a; border: 1px solid var(--line); border-radius: 8px; color: var(--text); min-width: 240px; padding: 10px; } .graph-grid { display: grid; gap: 8px; grid-template-columns: repeat(3, 1fr); } .node { border: 1px solid var(--line); border-radius: 8px; display: grid; gap: 4px; padding: 12px; } .impact { background: #0a0d12; border-radius: 8px; max-height: 240px; overflow: auto; padding: 12px; }
+.alert { border-color: #8b4c4c; color: #ffb2b2; margin: 18px 0; padding: 14px; }
+@media (max-width: 700px) { .grid { grid-template-columns: repeat(2, 1fr); } .header { align-items: flex-start; flex-direction: column; } }
