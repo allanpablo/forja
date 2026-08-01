@@ -4,6 +4,30 @@ Histórico consolidado das mudanças estruturais do framework. Para decisões ar
 
 ---
 
+## [2.0.0-rc.1] — 2026-08-01 — Fundação programável local-first
+
+Primeiro candidato de release da plataforma ForjaJS 2.0. A versão mantém a
+CLI-first e adiciona um núcleo programável por agentes, com contratos
+versionados, capabilities, runtime controlado, políticas, memória, GraphLoop,
+contexto orçamentado, MCP, SDK, adapters oficiais, observabilidade e dashboard.
+
+### Adicionado
+- Monorepo modular com `apps/server`, `apps/dashboard`, `apps/worker` e pacotes
+  de domínio/adaptação independentes de framework.
+- Contracts, Capability Registry, Policy Engine, Runtime, Sprint/Task/Handoff,
+  Event Bus, Scheduler, Sandbox, Planner, Validator, GraphLoop e Context Engine.
+- MCP, SDK, Plugin SDK, adapters SQLite/Git/NestJS, Control Plane e Evaluation
+  Engine.
+- Dashboard Next.js com consultas, GraphLoop, aprovações e ações supervisionadas.
+- Auditoria de segurança, release e migração documentada.
+
+### Validação do candidato
+- TypeScript, builds e 267 testes determinísticos aprovados.
+- `npm audit --offline --omit=dev --audit-level=high`: zero vulnerabilidades.
+- Gitleaks: zero achados após limpeza dos artefatos de build.
+- O candidato não é publicação final até a revisão funcional do Next 16 e a
+  execução do gate de publicação sobre o commit/tag limpos.
+
 ## [1.7.3] — 2026-07-23 — Doctor: permissão/lock não é corrupção
 
 O check `memory-db` (consumido por `tools:doctor` e pelo `SessionStart`) tratava **qualquer** falha

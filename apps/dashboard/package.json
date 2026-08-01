@@ -1,0 +1,9 @@
+{
+  "name": "@forja/dashboard",
+  "version": "2.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": { "dev": "next dev", "build": "next build", "start": "next start" },
+  "dependencies": { "@tanstack/react-query": "^5.90.5", "next": "^16.2.12", "react": "^19.2.0", "react-dom": "^19.2.0" },
+  "exports": { ".": "./src/index.ts" }
+}
