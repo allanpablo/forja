@@ -4,6 +4,21 @@ Histórico consolidado das mudanças estruturais do framework. Para decisões ar
 
 ---
 
+## [2.0.2] — 2026-08-01 — Integração operacional das Sprints 1–11
+
+Consolida a evolução do ForjaJS 2.x após a fundação 2.0.1, conectando a CLI,
+Capability Registry, Runtime, MCP, SQLite, GraphLoop e Context Engine em um
+fluxo persistente, auditável e testado.
+
+### Adicionado
+- Adapter da CLI sobre o Capability Registry com `ExecutionResult` estruturado.
+- Persistência SQLite para runtime, aprovações, eventos e GraphLoop.
+- MCP dinâmico derivado das capabilities registradas.
+- Context Engine integrado ao GraphLoop, com cache por checksum e orçamento.
+- Extractors determinísticos e capability `graph.sync` para CLI/MCP.
+- Testes de recuperação, autonomia E2E, contratos e integração.
+- ADRs, auditoria de implementação e handoffs das Sprints 1–11.
+
 ## [2.0.1] — 2026-08-01 — Higiene de dependências do pacote
 
 Move as dependências de NestJS e dashboard para os manifests das aplicações e
