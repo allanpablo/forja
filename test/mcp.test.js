@@ -17,24 +17,33 @@ function server(overrides = {}) {
   graph.addEvidence({ id: 'e-1', source: 'test', locator: 'mcp.test', capturedAt: '2026-07-31T00:00:00.000Z', status: 'verified' });
   graph.upsertNode({ id: 'node-1', type: 'Task', label: 'MCP task', status: 'verified' });
   const context = new ContextEngine({ memory: { search: () => [{ id: 'candidate-1', source: 'memory', locator: 'memory/mcp.md', content: 'evidence', relevance: 1, status: 'verified', evidence: [{ id: 'e-1', source: 'test', locator: 'mcp.test', capturedAt: '2026-07-31T00:00:00.000Z', status: 'verified' }] }] } });
-  return new McpServer({ registry, policy, agent, graph, context, handoffEngine: new HandoffEngine(new InMemoryOrchestrationStore()), resources: [{ uri: 'forja://workspace/current', name: 'workspace', description: 'workspace', mimeType: 'application/json', read: () => ({ root: '/workspace', offline: true }) }], ...overrides });
+  return new McpServer({ registry, policy, agent, graph, context, handoffEngine: new HandoffEngine(new InMemoryOrchestrationStore()), resources: [{ uri: 'forja://workspace/current', name: 'workspace', description: 'workspace', mimeType: 'application/json', read: () => ({ root: '/workspace', offline: true }) }], audit: { append: (event) => { server.auditEvents.push(event); } }, ...overrides });
 }
+
+server.auditEvents = [];
 
 test('mcp: lista tools, executa capability/contexto/grafo e lê recurso estruturado', async () => {
   const mcp = server();
   assert.equal(mcp.listTools().some((tool) => tool.name === 'forja_context_build'), true);
+  assert.equal(mcp.listTools().some((tool) => tool.name === 'forja_capability_describe'), true);
+  assert.equal(mcp.listTools().some((tool) => tool.name === 'forja_capability_forja_test_run'), true);
   assert.equal(mcp.listResources().length, 7);
   const capability = await mcp.callTool('forja_capabilities_list');
   assert.equal(capability.isError, false);
   assert.equal(capability.structuredContent[0].id, 'forja.test.run');
+  const described = await mcp.callTool('forja_capability_describe', { capabilityId: 'forja.test.run' });
+  assert.equal(described.structuredContent.id, 'forja.test.run');
   const execution = await mcp.callTool('forja_capability_execute', { capabilityId: 'forja.test.run', payload: { ok: true }, categories: [], files: [] });
   assert.equal(execution.structuredContent.status, 'succeeded');
+  const dynamic = await mcp.callTool('forja_capability_forja_test_run', { payload: { dynamic: true } });
+  assert.equal(dynamic.structuredContent.status, 'succeeded');
   const context = await mcp.callTool('forja_context_build', { objective: 'mcp', budget: { inputTokens: 20, outputTokens: 0, totalTokens: 20, usedTokens: 0 } });
   assert.equal(context.isError, false);
   const graph = await mcp.callTool('forja_graph_query', { labelIncludes: 'task' });
   assert.equal(graph.structuredContent.length, 1);
   const resource = await mcp.readResource('forja://workspace/current');
   assert.deepEqual(resource.structuredContent, { root: '/workspace', offline: true });
+  assert.equal(server.auditEvents.some((event) => event.tool === 'forja_capabilities_list' && event.outcome === 'success'), true);
 });
 
 test('mcp: normaliza erros, exige dependências configuradas e aplica policy no handoff', async () => {

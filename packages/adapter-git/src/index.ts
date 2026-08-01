@@ -1,8 +1,55 @@
+import fs from 'node:fs';
+import path from 'node:path';
+import { spawnSync } from 'node:child_process';
+import type { DeterministicDocument, GraphDocumentSource } from '../../graph/src/index.ts';
+import { graphDocumentId } from '../../graph/src/index.ts';
+import type { ISO8601 } from '../../contracts/src/index.ts';
 import type { SandboxBackend, SandboxCommandResult, SandboxDiffData, SandboxValidation } from '../../sandbox/src/index.ts';
 import type { SandboxCommand, SandboxSession } from '../../contracts/src/index.ts';
 
 export interface CommandRunner {
   run(command: SandboxCommand): SandboxCommandResult | Promise<SandboxCommandResult>;
+}
+
+export class SpawnCommandRunner implements CommandRunner {
+  run(command: SandboxCommand): SandboxCommandResult {
+    const started = Date.now();
+    const result = spawnSync(command.executable, [...command.args], { cwd: command.cwd, env: command.env === undefined ? process.env : { ...process.env, ...command.env }, encoding: 'utf8' });
+    return { exitCode: result.status ?? 1, stdout: result.stdout ?? '', stderr: [result.stderr ?? '', result.error?.message ?? ''].filter(Boolean).join('\n'), durationMs: Date.now() - started };
+  }
+}
+
+export class GitGraphDocumentSource implements GraphDocumentSource {
+  private readonly root: string;
+  private readonly runner: CommandRunner;
+  private readonly capturedAt: () => ISO8601;
+
+  constructor(root: string, runner: CommandRunner, capturedAt: () => ISO8601 = () => new Date().toISOString() as ISO8601) {
+    this.root = path.resolve(root);
+    this.runner = runner;
+    this.capturedAt = capturedAt;
+  }
+
+  async listDocuments(): Promise<readonly DeterministicDocument[]> {
+    const result = await this.runner.run({ executable: 'git', args: ['-C', this.root, 'ls-files', '--cached', '--others', '--exclude-standard', '-z'] });
+    if (result.exitCode !== 0) throw new Error(`Git file listing failed: ${result.stderr}`);
+    const documents: DeterministicDocument[] = [];
+    for (const relative of result.stdout.split('\0').map((item) => item.trim()).filter(Boolean)) {
+      if (!isIndexable(relative)) continue;
+      const absolute = path.join(this.root, relative);
+      try {
+        const content = fs.readFileSync(absolute, 'utf8');
+        if (content.includes('\0') || Buffer.byteLength(content, 'utf8') > 1_000_000) continue;
+        documents.push({ nodeId: graphDocumentId(relative), locator: relative, content, capturedAt: this.capturedAt() });
+      } catch { /* unreadable/deleted files are skipped and remain auditable in Git status */ }
+    }
+    return documents;
+  }
+}
+
+function isIndexable(relative: string): boolean {
+  if (relative.split('/').some((part) => part === 'node_modules' || part === '.git' || part === 'dist' || part === 'coverage')) return false;
+  return /\.(?:ts|tsx|js|jsx|mjs|cjs|json|md|yaml|yml)$/.test(relative);
 }
 
 export interface PatchApplier {

@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { GraphError, GraphLoop, extractDeterministicRelations } from '../packages/graph/src/index.ts';
+import { GraphError, GraphExecutionMemory, GraphIndexer, GraphLoop, extractDeterministicRelations } from '../packages/graph/src/index.ts';
 
 const now = '2026-07-31T00:00:00.000Z';
 const node = (id, type = 'File') => ({ id, type, label: id, status: 'verified' });
@@ -50,4 +50,45 @@ test('graph: extractor determinístico cria imports, links e evidências', () =>
   assert.equal(mutation.edges.length, 2);
   assert.equal(mutation.evidence.length, 2);
   assert.ok(mutation.edges.every((edge) => edge.evidenceIds.length > 0));
+});
+
+test('graph: extractor cria símbolos, chamadas, ADRs, tarefas, testes e agents', () => {
+  const mutation = extractDeterministicRelations({ nodeId: 'source-rich', locator: 'docs/feature.md', capturedAt: now, content: '# Feature\nADR-0041\n- [x] Implement validator\n- **to**: validator-agent\nexport function validate() { parse(); }\ndescribe("validator accepts input", () => test("happy path", () => {}));' });
+  const types = mutation.nodes.map((item) => item.type);
+  assert.ok(types.includes('ADR'));
+  assert.ok(types.includes('Task'));
+  assert.ok(types.includes('Agent'));
+  assert.ok(types.includes('Symbol'));
+  assert.ok(types.includes('Test'));
+  assert.ok(mutation.edges.some((edge) => edge.type === 'CALLS'));
+  assert.ok(mutation.edges.every((edge) => edge.evidenceIds.length > 0));
+});
+
+test('graph: extractor lê dependências de package manifest e ignora JSON inválido', () => {
+  const manifest = extractDeterministicRelations({ nodeId: 'package-node', locator: 'package.json', capturedAt: now, content: JSON.stringify({ dependencies: { zod: '^3.0.0' }, devDependencies: { typescript: '^5.0.0' } }) });
+  assert.equal(manifest.nodes.filter((item) => item.type === 'Technology').length, 2);
+  const invalid = extractDeterministicRelations({ nodeId: 'bad-package', locator: 'package.json', capturedAt: now, content: '{invalid' });
+  assert.equal(invalid.edges.length, 0);
+});
+
+test('graph: memória de execução registra capability e evidência persistível', () => {
+  const value = new GraphLoop();
+  const memory = new GraphExecutionMemory(value);
+  const evidenceItem = evidence('execution-evidence');
+  memory.remember({ runId: 'run-graph', objective: 'fix test', agent: { id: 'agent-1', name: 'agent', role: 'developer', autonomy: 'supervised' }, policy: { effect: 'ALLOW', reason: 'test', policyId: 'policy-1' }, budget: { inputTokens: 10, outputTokens: 10, totalTokens: 20, usedTokens: 1 }, state: 'running', steps: 1, evidence: [], changedFiles: ['tests/failing.test.js'], metrics: { attempts: 1, retries: 0, durationMs: 1, inputTokens: 1, outputTokens: 0 }, ...{ schemaVersion: '2.0', createdAt: now, updatedAt: now, correlationId: 'run-graph' } }, { schemaVersion: '2.0', createdAt: now, updatedAt: now, correlationId: 'result-graph', runId: 'run-graph', status: 'succeeded', output: { capabilityId: 'fixture.fix-test', payload: {}, evidence: [evidenceItem] }, evidence: [evidenceItem] });
+  assert.equal(value.path('execution:run-graph', 'capability:fixture.fix-test').edges.length, 1);
+  assert.equal(value.query({ type: 'Execution' }).length, 1);
+});
+
+test('graph: indexador aplica documentos e pula checksum repetido', async () => {
+  const graph = new GraphLoop();
+  const indexer = new GraphIndexer(graph);
+  const source = { listDocuments: () => [{ nodeId: 'document-indexed', locator: 'src/index.ts', capturedAt: now, content: "import { value } from './value.ts';\nexport function read() { return value(); }" }] };
+  const first = await indexer.sync(source);
+  const second = await indexer.sync(source);
+  assert.equal(first.documents, 1);
+  assert.equal(first.indexed, 1);
+  assert.equal(first.edges > 0, true);
+  assert.equal(second.skipped, 1);
+  assert.equal(graph.query({ type: 'File' }).length >= 2, true);
 });

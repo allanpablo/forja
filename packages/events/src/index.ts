@@ -61,6 +61,7 @@ export class EventBus {
   private readonly consumerIdempotency = new Set<string>();
   private readonly sequences = new Map<EntityId, number>();
   private readonly deadLetters: DeadLetterEvent[] = [];
+  private initialized?: Promise<void>;
 
   constructor(store: EventStore = new InMemoryEventStore()) {
     this.store = store;
@@ -75,6 +76,7 @@ export class EventBus {
   }
 
   async append(input: EventInput): Promise<DomainEvent> {
+    await this.ensureInitialized();
     if (input.type.trim().length === 0) throw new EventBusError('Event type is required');
     if (input.idempotencyKey.trim().length === 0) throw new EventBusError('Event idempotencyKey is required');
     const existing = this.idempotency.get(input.idempotencyKey);
@@ -99,6 +101,7 @@ export class EventBus {
   }
 
   async list(): Promise<readonly DomainEvent[]> {
+    await this.ensureInitialized();
     return this.store.list();
   }
 
@@ -128,5 +131,18 @@ export class EventBus {
         this.deadLetters.push({ event, consumerId: subscription.id, attempts, error: lastError, failedAt: new Date().toISOString() as ISO8601 });
       }
     }
+  }
+
+  private async ensureInitialized(): Promise<void> {
+    if (this.initialized === undefined) {
+      this.initialized = (async () => {
+        for (const event of await this.store.list()) {
+          this.idempotency.set(event.idempotencyKey, event);
+          const current = this.sequences.get(event.aggregateId) ?? 0;
+          if (event.sequence > current) this.sequences.set(event.aggregateId, event.sequence);
+        }
+      })();
+    }
+    await this.initialized;
   }
 }

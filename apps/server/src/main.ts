@@ -1,4 +1,8 @@
 import 'reflect-metadata';
+import fs from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+import Database from 'better-sqlite3';
 import { NestFactory } from '@nestjs/core';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { CapabilityRegistry } from '../../../packages/core/src/index.ts';
@@ -11,11 +15,29 @@ import { validateTokenBudget, type EntityId, type ISO8601 } from '../../../packa
 import { createBearerAuthenticator, InMemoryEventStream, type LocalAuthenticator } from '../../../packages/adapter-nest/src/index.ts';
 import { AppModule } from './app.module.ts';
 import { RuntimeEngine, type RuntimePlanStep } from '../../../packages/runtime/src/index.ts';
-import { GraphLoop } from '../../../packages/graph/src/index.ts';
+import { GraphExecutionMemory, GraphLoop } from '../../../packages/graph/src/index.ts';
+import { ContextEngine, GraphContextSource } from '../../../packages/context/src/index.ts';
+import { SqliteContextCache, SqliteGraphStore, SqliteMigrationRunner, SqliteRuntimePersistence } from '../../../packages/adapter-sqlite/src/index.ts';
+import { SqliteApprovalStore, SqliteMcpAuditSink } from '../../../packages/adapter-sqlite/src/index.ts';
+import { EventBus } from '../../../packages/events/src/index.ts';
+import { SqliteEventStore } from '../../../packages/adapter-sqlite/src/index.ts';
+import { getWorkspaceDbDir, getWorkspaceDbPath } from '../../../lib/workspace.ts';
+import type { RuntimePersistence } from '../../../packages/runtime/src/index.ts';
+import { createLegacyCliRunner, registerCliCapabilities } from '../../cli/src/index.ts';
+import { registerGraphSyncCapability } from '../../cli/src/index.ts';
+import { GitGraphDocumentSource, SpawnCommandRunner } from '../../../packages/adapter-git/src/index.ts';
 import type { AgentIdentity, EvaluationResult, ExecutionResult, TokenBudget } from '../../../packages/contracts/src/index.ts';
 
-export function createDefaultMcp(registry = new CapabilityRegistry(), policy = createDefaultPolicy(), graph = new GraphLoop()): McpServer {
-  return new McpServer({ registry, policy, graph, agent: { id: 'local-server' as EntityId, name: 'Forja local server', role: 'server', autonomy: 'supervised', permissions: [], capabilities: [] } });
+const serverRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../..');
+
+export function createDefaultCapabilityRegistry(root = serverRoot, cwd = process.cwd()): CapabilityRegistry {
+  const registry = new CapabilityRegistry();
+  registerCliCapabilities(registry, createLegacyCliRunner(root, cwd));
+  return registry;
+}
+
+export function createDefaultMcp(registry = createDefaultCapabilityRegistry(), policy = createDefaultPolicy(), graph = new GraphLoop(), audit?: import('../../../packages/mcp/src/index.ts').McpAuditSink, context?: ContextEngine): McpServer {
+  return new McpServer({ registry, policy, graph, audit, context, agent: { id: 'local-server' as EntityId, name: 'Forja local server', role: 'server', autonomy: 'supervised', permissions: ['read', 'write', 'execution', 'database'], capabilities: registry.list().map((definition) => definition.id) } });
 }
 
 export function createDefaultPolicy(): PolicyEngine {
@@ -28,34 +50,46 @@ export function createLocalAuthenticator(token = process.env.FORJA_AUTH_TOKEN): 
   return createBearerAuthenticator(token);
 }
 
-interface RuntimeRequestContext { readonly steps: readonly RuntimePlanStep[]; }
+interface RuntimeRequestContext { readonly steps: readonly RuntimePlanStep[]; readonly budget: TokenBudget; }
 
 class DefaultRuntimeApplication {
   private readonly contexts = new Map<string, RuntimeRequestContext>();
   private readonly runtime: RuntimeEngine;
   private readonly policy: PolicyEngine;
 
-  constructor(registry: CapabilityRegistry, policy: PolicyEngine) {
+  constructor(registry: CapabilityRegistry, policy: PolicyEngine, persistence?: RuntimePersistence, graph?: GraphLoop, context?: ContextEngine) {
     this.policy = policy;
     this.runtime = new RuntimeEngine({
       registry,
       planner: { plan: (_objective, context) => { if (!isRecord(context) || !Array.isArray(context.steps)) throw new Error('Runtime plan context is missing'); return context.steps as readonly RuntimePlanStep[]; } },
-      contextBuilder: { build: async (objective) => this.contexts.get(objective) },
+      contextBuilder: { build: async (objective) => { const request = this.contexts.get(objective); if (request === undefined) return undefined; const contextPackage = context === undefined ? undefined : await context.build({ objective, budget: request.budget, requireEvidence: false }); return { ...request, contextPackage }; } },
       validator: { validate: (run, results) => this.validate(run, results) },
+      persistence,
+      memory: graph === undefined ? undefined : new GraphExecutionMemory(graph),
     });
   }
 
   async start(input: unknown): Promise<unknown> {
     const value = runtimeInput(input);
-    this.contexts.set(value.objective, { steps: value.steps });
+    this.contexts.set(value.objective, { steps: value.steps, budget: value.budget });
     try { return await this.runtime.start({ objective: value.objective, agent: value.agent, budget: value.budget, policy: this.policy, sprintId: value.sprintId, taskId: value.taskId, correlationId: value.correlationId }); }
     finally { this.contexts.delete(value.objective); }
   }
-  execute(id: unknown): Promise<unknown> { return this.runtime.execute(id as never); }
-  get(id: unknown): unknown { return this.runtime.get(id as never); }
+  async execute(id: unknown): Promise<unknown> { return this.executeWithRecovery(id as string); }
+  async get(id: unknown): Promise<unknown> { return this.getWithRecovery(id as string); }
   pause(id: unknown): unknown { return this.runtime.pause(id as never); }
-  resume(id: unknown): Promise<unknown> { return this.runtime.resume(id as never); }
+  resume(id: unknown): Promise<unknown> { return this.runtime.resume(id as never, this.policy); }
   cancel(id: unknown): Promise<unknown> { return this.runtime.cancel(id as never); }
+
+  private async getWithRecovery(id: string): Promise<unknown> {
+    try { return this.runtime.get(id as never); }
+    catch { await this.runtime.recover(id as never, this.policy); return this.runtime.get(id as never); }
+  }
+
+  private async executeWithRecovery(id: string): Promise<unknown> {
+    try { return await this.runtime.execute(id as never); }
+    catch { await this.runtime.recover(id as never, this.policy); return this.runtime.execute(id as never); }
+  }
 
   private validate(run: Parameters<NonNullable<ConstructorParameters<typeof RuntimeEngine>[0]['validator']['validate']>>[0], results: readonly ExecutionResult[]): EvaluationResult {
     const passed = results.length === run.steps && results.every((result) => result.status === 'succeeded' && result.evidence.length > 0);
@@ -77,29 +111,38 @@ function runtimeInput(input: unknown): { readonly objective: string; readonly ag
 
 function isRecord(value: unknown): value is Record<string, unknown> { return typeof value === 'object' && value !== null; }
 
-export function createDefaultControlPlane(eventStream: InMemoryEventStream, registry = new CapabilityRegistry(), policy = createDefaultPolicy()): ControlPlane {
+export function createDefaultControlPlane(eventStream: InMemoryEventStream, registry = createDefaultCapabilityRegistry(), policy = createDefaultPolicy(), persistence?: RuntimePersistence, approvals = new ApprovalLedger(), events?: EventBus, graph?: GraphLoop, context?: ContextEngine): ControlPlane {
   const store = new InMemoryOrchestrationStore();
   const sprintEngine = new SprintEngine(store);
   const taskEngine = new TaskEngine(store, sprintEngine);
   const handoffEngine = new HandoffEngine(store);
-  const approvals = new ApprovalLedger();
-  const runtime = new DefaultRuntimeApplication(registry, policy);
+  const runtime = new DefaultRuntimeApplication(registry, policy, persistence, graph, context);
   return new ControlPlane(undefined, {
     runtime: { start: (input) => runtime.start(input), get: (input) => runtime.get(input), execute: (input) => runtime.execute(input), pause: (input) => runtime.pause(input), resume: (input) => runtime.resume(input), cancel: (input) => runtime.cancel(input) },
     sprint: { create: (input) => sprintEngine.create(input as Parameters<SprintEngine['create']>[0]), start: (id) => sprintEngine.start(id as EntityId), pause: (id) => sprintEngine.pause(id as EntityId) },
     task: { create: (input) => taskEngine.create(input as Parameters<TaskEngine['create']>[0]), start: (id) => taskEngine.start(id as EntityId), block: (id) => taskEngine.block(id as EntityId) },
     handoff: { create: (input) => handoffEngine.create(input as Parameters<HandoffEngine['create']>[0]) },
     approvals: { get: (id) => approvals.get(id as EntityId), list: () => approvals.list(), decide: (input) => { const value = input as { readonly id: string; readonly input: { readonly decision: 'approved' | 'rejected'; readonly approverId: EntityId; readonly decidedAt?: ISO8601 } }; return approvals.decide(value.id as EntityId, { decision: value.input.decision, approverId: value.input.approverId, decidedAt: value.input.decidedAt ?? new Date().toISOString() as ISO8601 }); } },
-    events: { publish: (event) => eventStream.publish({ id: event.id, event: event.type, data: event.data, correlationId: event.correlationId }) },
+    events: { publish: (event) => { eventStream.publish({ id: event.id, event: event.type, data: event.data, correlationId: event.correlationId }); void events?.append({ type: event.type, aggregateId: event.aggregateId as EntityId, payload: event.data, idempotencyKey: `${event.type}:${event.id}`, correlationId: event.correlationId }); } },
   });
 }
 
 export async function bootstrap(port = Number(process.env.FORJA_PORT ?? 3000)) {
   const eventStream = new InMemoryEventStream();
-  const registry = new CapabilityRegistry();
+  const registry = createDefaultCapabilityRegistry();
   const policy = createDefaultPolicy();
-  const mcp = createDefaultMcp(registry, policy, new GraphLoop());
-  const app = await NestFactory.create(AppModule.register({ mcp, eventStream, authenticator: createLocalAuthenticator(), controlPlane: createDefaultControlPlane(eventStream, registry, policy) }));
+  fs.mkdirSync(getWorkspaceDbDir(), { recursive: true });
+  const runtimeDatabase = new Database(process.env.FORJA_RUNTIME_DB ?? getWorkspaceDbPath());
+  new SqliteMigrationRunner(runtimeDatabase).apply();
+  const runtimePersistence = new SqliteRuntimePersistence(runtimeDatabase);
+  const approvals = new ApprovalLedger(new SqliteApprovalStore(runtimeDatabase));
+  const mcpAudit = new SqliteMcpAuditSink(runtimeDatabase);
+  const events = new EventBus(new SqliteEventStore(runtimeDatabase));
+  const graph = new GraphLoop(new SqliteGraphStore(runtimeDatabase));
+  registerGraphSyncCapability(registry, graph, new GitGraphDocumentSource(process.env.FORJA_GRAPH_ROOT ?? process.cwd(), new SpawnCommandRunner()));
+  const context = new ContextEngine({ graph: new GraphContextSource({ searchContext: (objective) => graph.contextRecords(objective) }), cache: new SqliteContextCache(runtimeDatabase) });
+  const mcp = createDefaultMcp(registry, policy, graph, mcpAudit, context);
+  const app = await NestFactory.create(AppModule.register({ mcp, eventStream, authenticator: createLocalAuthenticator(), controlPlane: createDefaultControlPlane(eventStream, registry, policy, runtimePersistence, approvals, events, graph, context) }));
   const config = new DocumentBuilder().setTitle('ForjaJS 2.0 API').setDescription('Local-first agent control plane').setVersion('2.0.0').build();
   SwaggerModule.setup('docs', app, SwaggerModule.createDocument(app, config));
   await app.listen(port, '127.0.0.1');

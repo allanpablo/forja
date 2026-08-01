@@ -1,6 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { ContextEngine, ContextEngineError, InMemoryContextCache } from '../packages/context/src/index.ts';
+import { ContextEngine, ContextEngineError, GraphContextSource, InMemoryContextCache } from '../packages/context/src/index.ts';
+import { GraphLoop } from '../packages/graph/src/index.ts';
 
 const now = '2026-07-31T00:00:00.000Z';
 const evidence = (id, locator) => ({ id, source: 'test', locator, capturedAt: now, status: 'verified' });
@@ -39,4 +40,17 @@ test('context: exige evidência atual e rejeita cache ausente na expansão', asy
   const empty = new ContextEngine({ memory: { search: () => [] } });
   await assert.rejects(() => empty.build({ objective: 'missing', budget }), (error) => error instanceof ContextEngineError && error.code === 'INSUFFICIENT_EVIDENCE');
   assert.throws(() => empty.expand('missing'), (error) => error instanceof ContextEngineError && error.code === 'CONTENT_NOT_CACHED');
+});
+
+test('context: fonte GraphLoop seleciona somente relações relevantes com evidência', async () => {
+  const graph = new GraphLoop();
+  graph.upsertNode({ id: 'graph-context-a', type: 'File', label: 'runtime.ts', status: 'verified' });
+  graph.upsertNode({ id: 'graph-context-b', type: 'File', label: 'validator.ts', status: 'verified' });
+  graph.addEvidence({ id: 'graph-context-e', source: 'test', locator: 'runtime.ts:1', capturedAt: '2026-08-01T00:00:00.000Z', status: 'verified' });
+  graph.upsertEdge({ from: 'graph-context-a', to: 'graph-context-b', type: 'DEPENDS_ON', status: 'verified', confidence: 1, evidenceIds: ['graph-context-e'] });
+  const engine = new ContextEngine({ graph: new GraphContextSource({ searchContext: (objective) => graph.contextRecords(objective) }), cache: new InMemoryContextCache() });
+  const result = await engine.build({ objective: 'runtime validator', budget: { inputTokens: 50, outputTokens: 0, totalTokens: 50, usedTokens: 0 } });
+  assert.equal(result.references.length, 1);
+  assert.equal(result.metrics.selectedCount, 1);
+  assert.match(result.content[0], /DEPENDS_ON/);
 });

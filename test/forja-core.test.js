@@ -19,7 +19,7 @@ test('registry: todo comando node aponta para script existente', () => {
   for (const [name, cmd] of Object.entries(COMMANDS)) {
     assert.ok(cmd.domain in DOMAINS, `${name}: domínio desconhecido (${cmd.domain})`);
     assert.ok(cmd.desc, `${name}: sem descrição`);
-    assert.ok(cmd.node || cmd.bin, `${name}: sem alvo de execução`);
+    assert.ok(cmd.node || cmd.bin || cmd.capability, `${name}: sem alvo de execução`);
     if (cmd.node) {
       assert.ok(fs.existsSync(path.join(root, cmd.node)), `${name}: script ausente (${cmd.node})`);
     }

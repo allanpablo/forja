@@ -49,3 +49,14 @@ test('policy: rejeita regra duplicada e empate prioriza deny', () => {
   const result = new PolicyEngine({ rules: [{ id: 'allow', priority: 1, effect: 'ALLOW', reason: 'a', scope: {} }, { id: 'deny', priority: 1, effect: 'DENY', reason: 'b', scope: {} }] }).authorize(request());
   assert.equal(result.effect, 'DENY');
 });
+
+test('policy: ledger recupera approval persistido após recriação', () => {
+  const values = new Map();
+  const store = { save: (value) => values.set(value.id, value), get: (id) => values.get(id), list: () => [...values.values()] };
+  const first = new ApprovalLedger(store);
+  const created = first.create({ action: 'write', justification: 'test', impact: 'source', expiresAt: '2099-01-01T00:00:00.000Z', correlationId: 'persisted' });
+  const second = new ApprovalLedger(store);
+  assert.equal(second.get(created.id).action, 'write');
+  assert.equal(second.list().length, 1);
+  assert.equal(second.decide(created.id, { decision: 'approved', approverId: 'reviewer-1', decidedAt: '2026-08-01T00:00:00.000Z' }).decision, 'approved');
+});

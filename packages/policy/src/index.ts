@@ -70,6 +70,12 @@ export interface ApprovalInput extends ApprovalDetails {
   readonly correlationId: string;
 }
 
+export interface ApprovalStore {
+  save(request: ApprovalRequest): void;
+  get(id: EntityId): ApprovalRequest | undefined;
+  list(): readonly ApprovalRequest[];
+}
+
 export class PolicyError extends Error {
   constructor(message: string) {
     super(message);
@@ -79,6 +85,9 @@ export class PolicyError extends Error {
 
 export class ApprovalLedger {
   private readonly requests = new Map<EntityId, ApprovalRequest>();
+  private readonly store?: ApprovalStore;
+
+  constructor(store?: ApprovalStore) { this.store = store; }
 
   create(input: ApprovalInput, now: ISO8601 = new Date().toISOString() as ISO8601): ApprovalRequest {
     if (input.action.trim().length === 0) throw new PolicyError('Approval action is required');
@@ -97,10 +106,14 @@ export class ApprovalLedger {
       updatedAt: now,
     };
     this.requests.set(request.id, request);
+    void this.store?.save(request);
     return request;
   }
 
-  list(): readonly ApprovalRequest[] { return [...this.requests.values()].sort((left, right) => left.createdAt.localeCompare(right.createdAt)); }
+  list(): readonly ApprovalRequest[] {
+    if (this.store !== undefined) return this.store.list();
+    return [...this.requests.values()].sort((left, right) => left.createdAt.localeCompare(right.createdAt));
+  }
 
   decide(id: EntityId, decision: ApprovalDecision): ApprovalRequest {
     const current = this.get(id);
@@ -108,6 +121,7 @@ export class ApprovalLedger {
     if (current.expiresAt <= decision.decidedAt) throw new PolicyError(`Approval expired: ${id}`);
     const updated: ApprovalRequest = { ...current, decision: decision.decision, approverId: decision.approverId, updatedAt: decision.decidedAt };
     this.requests.set(id, updated);
+    void this.store?.save(updated);
     return updated;
   }
 
@@ -117,6 +131,7 @@ export class ApprovalLedger {
       if (current.decision === undefined && current.expiresAt <= now) {
         const updated: ApprovalRequest = { ...current, decision: 'expired', updatedAt: now };
         this.requests.set(current.id, updated);
+        void this.store?.save(updated);
         expired.push(updated);
       }
     }
@@ -125,6 +140,13 @@ export class ApprovalLedger {
 
   get(id: EntityId): ApprovalRequest {
     const request = this.requests.get(id);
+    if (request === undefined && this.store !== undefined) {
+      const persisted = this.store.get(id);
+      if (persisted !== undefined) {
+        this.requests.set(id, persisted);
+        return persisted;
+      }
+    }
     if (request === undefined) throw new PolicyError(`Approval not found: ${id}`);
     return request;
   }

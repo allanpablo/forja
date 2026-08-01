@@ -1,6 +1,8 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import Database from 'better-sqlite3';
 import { EventBus } from '../packages/events/src/index.ts';
+import { SqliteEventStore, SqliteMigrationRunner } from '../packages/adapter-sqlite/src/index.ts';
 import { Scheduler, matchesCron } from '../packages/scheduler/src/index.ts';
 
 const aggregateId = 'aggregate-1';
@@ -85,4 +87,19 @@ test('scheduler: concorrência limita schedules simultâneos', async () => {
   await ticking;
   await scheduler.tick(new Date('2026-07-31T00:02:00.000Z'));
   assert.deepEqual(calls, ['a', 'b']);
+});
+
+test('event bus: idempotência e sequência sobrevivem ao reinício SQLite', async () => {
+  const database = new Database(':memory:');
+  new SqliteMigrationRunner(database).apply();
+  const first = new EventBus(new SqliteEventStore(database));
+  const firstEvent = await first.append({ type: 'execution.completed', aggregateId: 'run-1', payload: { step: 1 }, idempotencyKey: 'run-1-step-1' });
+  const duplicate = await first.append({ type: 'execution.completed', aggregateId: 'run-1', payload: { step: 1 }, idempotencyKey: 'run-1-step-1' });
+  assert.equal(duplicate.id, firstEvent.id);
+
+  const second = new EventBus(new SqliteEventStore(database));
+  const resumed = await second.append({ type: 'execution.completed', aggregateId: 'run-1', payload: { step: 2 }, idempotencyKey: 'run-1-step-2' });
+  assert.equal(resumed.sequence, 2);
+  assert.equal((await second.list()).length, 2);
+  database.close();
 });

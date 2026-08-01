@@ -1,8 +1,13 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
+import Database from 'better-sqlite3';
 import { CapabilityRegistry } from '../packages/core/src/index.ts';
 import { PolicyEngine } from '../packages/policy/src/index.ts';
 import { InMemoryCheckpointStore, RuntimeEngine } from '../packages/runtime/src/index.ts';
+import { SqliteMigrationRunner, SqliteRuntimePersistence } from '../packages/adapter-sqlite/src/index.ts';
 
 const now = '2026-07-31T00:00:00.000Z';
 const agent = { id: 'agent-1', name: 'developer', role: 'developer', autonomy: 'supervised' };
@@ -89,4 +94,45 @@ test('runtime: validator rejeita falsa conclusão', async () => {
   const run = await startAndExecute(engine);
   assert.equal(run.state, 'failed');
   assert.equal(run.validation.status, 'rejected');
+});
+
+test('runtime: recupera execução pausada após reinício usando SQLite', async () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'forja-runtime-'));
+  const dbPath = path.join(dir, 'runtime.db');
+  const firstDatabase = new Database(dbPath);
+  new SqliteMigrationRunner(firstDatabase).apply();
+  const firstPersistence = new SqliteRuntimePersistence(firstDatabase);
+  let release;
+  const gate = new Promise((resolve) => { release = resolve; });
+  const makeEngine = (persistence, handler) => {
+    const registry = new CapabilityRegistry();
+    registry.register({ definition, validateInput: (input) => input, validateOutput: (output) => output, handler });
+    return new RuntimeEngine({
+      registry,
+      persistence,
+      planner: { plan: () => [{ capabilityId: definition.id, payload: 'one', estimatedTokens: 10 }, { capabilityId: definition.id, payload: 'two', estimatedTokens: 10 }] },
+      validator: { validate: () => evaluation() },
+    });
+  };
+  const firstEngine = makeEngine(firstPersistence, async (input) => { await gate; return { capabilityId: definition.id, payload: input, evidence: [{ id: 'evidence-1', source: 'test', locator: 'runtime', capturedAt: now, status: 'verified' }] }; });
+  const planned = await firstEngine.start({ objective: 'restart recovery', agent, budget, policy: allow });
+  const executing = firstEngine.execute(planned.runId);
+  await new Promise((resolve) => setImmediate(resolve));
+  firstEngine.pause(planned.runId);
+  release();
+  const paused = await executing;
+  assert.equal(paused.state, 'paused');
+  assert.equal(paused.steps, 1);
+  firstDatabase.close();
+
+  const secondDatabase = new Database(dbPath);
+  new SqliteMigrationRunner(secondDatabase).apply();
+  const secondEngine = makeEngine(new SqliteRuntimePersistence(secondDatabase), (input) => ({ capabilityId: definition.id, payload: input, evidence: [{ id: 'evidence-2', source: 'test', locator: 'runtime', capturedAt: now, status: 'verified' }] }));
+  const resumed = await secondEngine.resume(planned.runId, allow);
+
+  assert.equal(resumed.state, 'completed');
+  assert.equal(resumed.steps, 2);
+  assert.equal(resumed.evidence.length, 2);
+  assert.equal(resumed.metrics.attempts, 2);
+  secondDatabase.close();
 });
