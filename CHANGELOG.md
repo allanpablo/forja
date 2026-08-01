@@ -4,9 +4,9 @@ Histórico consolidado das mudanças estruturais do framework. Para decisões ar
 
 ---
 
-## [2.0.0-rc.1] — 2026-08-01 — Fundação programável local-first
+## [2.0.0] — 2026-08-01 — Fundação programável local-first
 
-Primeiro candidato de release da plataforma ForjaJS 2.0. A versão mantém a
+Primeira release da plataforma ForjaJS 2.0. A versão mantém a
 CLI-first e adiciona um núcleo programável por agentes, com contratos
 versionados, capabilities, runtime controlado, políticas, memória, GraphLoop,
 contexto orçamentado, MCP, SDK, adapters oficiais, observabilidade e dashboard.
@@ -25,8 +25,8 @@ contexto orçamentado, MCP, SDK, adapters oficiais, observabilidade e dashboard.
 - TypeScript, builds e 267 testes determinísticos aprovados.
 - `npm audit --offline --omit=dev --audit-level=high`: zero vulnerabilidades.
 - Gitleaks: zero achados após limpeza dos artefatos de build.
-- O candidato não é publicação final até a revisão funcional do Next 16 e a
-  execução do gate de publicação sobre o commit/tag limpos.
+- Release validada após merge da PR #40 e execução do gate de publicação sobre
+  o commit/tag limpos.
 
 ## [1.7.3] — 2026-07-23 — Doctor: permissão/lock não é corrupção
 
