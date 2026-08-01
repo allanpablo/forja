@@ -1,6 +1,9 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { GitWorktreeBackend } from '../packages/adapter-git/src/index.ts';
+import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
+import { GitGraphDocumentSource, GitWorktreeBackend } from '../packages/adapter-git/src/index.ts';
 
 test('adapter-git: traduz ciclo para comandos Git e aplica patch somente na promoção', async () => {
   const calls = [];
@@ -26,4 +29,17 @@ test('adapter-git: traduz ciclo para comandos Git e aplica patch somente na prom
   assert.deepEqual(patches, [{ root: '/repo', patch: 'binary patch' }]);
   assert.equal(calls[0].executable, 'git');
   assert.deepEqual(calls[0].args, ['-C', '/repo', 'worktree', 'add', '--detach', '/tmp/worktree', 'HEAD']);
+});
+
+test('adapter-git: lista somente arquivos rastreáveis e indexáveis', async () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'forja-graph-'));
+  fs.mkdirSync(path.join(root, 'src'), { recursive: true });
+  fs.mkdirSync(path.join(root, 'node_modules'), { recursive: true });
+  fs.writeFileSync(path.join(root, 'src', 'a.ts'), 'export const a = 1;');
+  fs.writeFileSync(path.join(root, 'node_modules', 'ignored.js'), 'export const ignored = true;');
+  const source = new GitGraphDocumentSource(root, { run: async () => ({ exitCode: 0, stdout: 'src/a.ts\0node_modules/ignored.js\0image.png\0', stderr: '', durationMs: 1 }) }, () => '2026-08-01T00:00:00.000Z');
+  const documents = await source.listDocuments();
+  assert.deepEqual(documents.map((document) => document.locator), ['src/a.ts']);
+  assert.equal(documents[0].content, 'export const a = 1;');
+  fs.rmSync(root, { recursive: true, force: true });
 });

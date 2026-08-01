@@ -47,6 +47,20 @@ export interface ContextDependencies {
   readonly cache?: ContextCache;
 }
 
+export interface GraphContextProvider {
+  searchContext(objective: string): readonly Omit<ContextCandidate, 'source'>[] | Promise<readonly Omit<ContextCandidate, 'source'>[]>;
+}
+
+export class GraphContextSource implements ContextSource {
+  private readonly provider: GraphContextProvider;
+
+  constructor(provider: GraphContextProvider) { this.provider = provider; }
+
+  async search(objective: string): Promise<readonly ContextCandidate[]> {
+    return (await this.provider.searchContext(objective)).map((candidate) => ({ ...candidate, source: 'graph' as const }));
+  }
+}
+
 export class ContextEngineError extends Error {
   readonly code: 'INVALID_REQUEST' | 'INSUFFICIENT_EVIDENCE' | 'CONTEXT_BUDGET_EXCEEDED' | 'CONTENT_NOT_CACHED';
 

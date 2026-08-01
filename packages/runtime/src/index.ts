@@ -55,6 +55,17 @@ export interface CheckpointStore {
   get(runId: RunId): Checkpoint | undefined | Promise<Checkpoint | undefined>;
 }
 
+export interface RuntimePersistence {
+  saveRun(run: RuntimeRun): void | Promise<void>;
+  getRun(runId: RunId): RuntimeRun | undefined | Promise<RuntimeRun | undefined>;
+  savePlan(runId: RunId, plan: readonly RuntimePlanStep[]): void | Promise<void>;
+  getPlan(runId: RunId): readonly RuntimePlanStep[] | undefined | Promise<readonly RuntimePlanStep[] | undefined>;
+  saveResults(runId: RunId, results: readonly ExecutionResult[]): void | Promise<void>;
+  getResults(runId: RunId): readonly ExecutionResult[] | undefined | Promise<readonly ExecutionResult[] | undefined>;
+  saveCursor(runId: RunId, nextStep: number, startedAt: number): void | Promise<void>;
+  getCursor(runId: RunId): { readonly nextStep: number; readonly startedAt: number } | undefined | Promise<{ readonly nextStep: number; readonly startedAt: number } | undefined>;
+}
+
 export interface RuntimeMemory {
   remember(run: RuntimeRun, result: ExecutionResult): void | Promise<void>;
 }
@@ -76,6 +87,7 @@ export interface RuntimeDependencies {
   readonly validator: RuntimeValidator;
   readonly contextBuilder?: RuntimeContextBuilder;
   readonly checkpointStore?: CheckpointStore;
+  readonly persistence?: RuntimePersistence;
   readonly memory?: RuntimeMemory;
 }
 
@@ -149,6 +161,8 @@ export class RuntimeEngine {
     this.nextSteps.set(runId, 0);
     this.policies.set(runId, request.policy);
     this.startedAt.set(runId, Date.now());
+    await this.dependencies.persistence?.saveRun(run);
+    await this.dependencies.persistence?.saveCursor(runId, 0, this.startedAt.get(runId) as number);
 
     try {
       this.update(runId, { state: 'planning' });
@@ -156,6 +170,8 @@ export class RuntimeEngine {
       const plan = [...await this.dependencies.planner.plan(request.objective, context)];
       if (plan.length > this.limits.maxSteps) return this.stop(runId, 'blocked', this.error('MAX_STEPS_EXCEEDED', 'Plan exceeds maximum steps', false));
       this.plans.set(runId, plan);
+      await this.dependencies.persistence?.savePlan(runId, plan);
+      await this.persist(runId);
       await this.saveCheckpoint(runId, 'planning', 0);
       return this.get(runId);
     } catch (error: unknown) {
@@ -207,6 +223,7 @@ export class RuntimeEngine {
           approval: step.approval,
         } as CapabilityExecutionRequest);
         this.results.get(runId)?.push(result);
+        await this.dependencies.persistence?.saveResults(runId, this.results.get(runId) ?? []);
         if (result.status === 'succeeded') break;
         if (!result.error?.retryable || attempt > this.limits.maxRetries) break;
         const afterAttempt = this.get(runId);
@@ -220,11 +237,30 @@ export class RuntimeEngine {
       this.update(runId, { evidence: [...this.get(runId).evidence, ...result.evidence], changedFiles: files });
       await this.dependencies.memory?.remember(this.get(runId), result);
       this.nextSteps.set(runId, index + 1);
+      await this.dependencies.persistence?.saveCursor(runId, index + 1, this.startedAt.get(runId) ?? Date.now());
       await this.saveCheckpoint(runId, 'running', index + 1);
     }
   }
 
-  async resume(runId: RunId): Promise<RuntimeRun> {
+  async recover(runId: RunId, policy: CapabilityExecutionRequest['policy']): Promise<RuntimeRun> {
+    const persistence = this.dependencies.persistence;
+    if (persistence === undefined) throw new RuntimeError('Runtime persistence is not configured');
+    const run = await persistence.getRun(runId);
+    const plan = await persistence.getPlan(runId);
+    if (run === undefined || plan === undefined) throw new RuntimeError(`Persisted runtime is incomplete: ${runId}`);
+    const results = await persistence.getResults(runId);
+    const cursor = await persistence.getCursor(runId);
+    this.runs.set(runId, run);
+    this.plans.set(runId, plan);
+    this.results.set(runId, [...(results ?? [])]);
+    this.nextSteps.set(runId, cursor?.nextStep ?? run.steps);
+    this.policies.set(runId, policy);
+    this.startedAt.set(runId, cursor?.startedAt ?? Date.parse(run.createdAt));
+    return run;
+  }
+
+  async resume(runId: RunId, policy?: CapabilityExecutionRequest['policy']): Promise<RuntimeRun> {
+    if (!this.runs.has(runId) && policy !== undefined) await this.recover(runId, policy);
     const run = this.get(runId);
     if (run.state !== 'paused' && run.state !== 'awaiting_approval') throw new RuntimeError(`Run is not resumable: ${run.state}`);
     return this.execute(runId);
@@ -271,6 +307,13 @@ export class RuntimeEngine {
 
   private update(runId: RunId, patch: Partial<RuntimeRun>): void {
     this.runs.set(runId, { ...this.get(runId), ...patch, updatedAt: new Date().toISOString() as ISO8601 });
+    void this.persist(runId);
+  }
+
+  private async persist(runId: RunId): Promise<void> {
+    const persistence = this.dependencies.persistence;
+    if (persistence === undefined) return;
+    await persistence.saveRun(this.get(runId));
   }
 
   private async saveCheckpoint(runId: RunId, state: RuntimeRun['state'], step: number): Promise<void> {

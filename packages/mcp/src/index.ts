@@ -57,6 +57,19 @@ export interface McpResource {
   readonly read: () => unknown | Promise<unknown>;
 }
 
+export interface McpAuditEvent {
+  readonly action: 'mcp.tool';
+  readonly tool: string;
+  readonly agentId: EntityId;
+  readonly correlationId: string;
+  readonly outcome: 'success' | 'failure' | 'blocked';
+  readonly details: Readonly<Record<string, string>>;
+}
+
+export interface McpAuditSink {
+  append(event: McpAuditEvent): void | Promise<void>;
+}
+
 export const MCP_RESOURCE_URIS = [
   'forja://workspace/current',
   'forja://project/current',
@@ -83,6 +96,7 @@ export interface McpServerDependencies {
   readonly mcpPolicy?: McpPolicy;
   readonly resources?: readonly McpResource[];
   readonly resourceData?: Readonly<Partial<Record<McpResourceUri, unknown>>>;
+  readonly audit?: McpAuditSink;
 }
 
 export class McpAdapterError extends Error {
@@ -92,6 +106,7 @@ export class McpAdapterError extends Error {
 export const MCP_TOOLS: readonly McpToolDefinition[] = [
   tool('forja_workspace_status', 'Retorna o estado operacional mínimo do workspace.', []),
   tool('forja_capabilities_list', 'Lista capabilities visíveis para a identidade MCP.', []),
+  tool('forja_capability_describe', 'Descreve uma capability pelo Registry.', ['capabilityId']),
   tool('forja_capability_execute', 'Executa uma capability pelo Registry com Policy e resultado auditável.', ['capabilityId']),
   tool('forja_context_build', 'Constrói contexto mínimo com orçamento e evidências.', ['objective', 'budget']),
   tool('forja_memory_query', 'Consulta memória por objetivo.', ['objective']),
@@ -112,6 +127,10 @@ export class McpServer {
   constructor(dependencies: McpServerDependencies) {
     this.dependencies = dependencies;
     for (const definition of MCP_TOOLS) this.tools.set(definition.name, definition);
+    for (const definition of dependencies.registry.list({ agent: dependencies.agent, policy: dependencies.policy })) {
+      const name = capabilityToolName(definition.id);
+      if (!this.tools.has(name)) this.tools.set(name, capabilityTool(definition));
+    }
     for (const uri of MCP_RESOURCE_URIS) this.resources.set(uri, { uri, name: uri, description: `Forja resource ${uri}`, mimeType: 'application/json', read: () => dependencies.resourceData?.[uri] ?? { available: false, uri, reason: 'Resource provider is not configured' } });
     for (const resource of dependencies.resources ?? []) this.resources.set(resource.uri, resource);
   }
@@ -121,14 +140,22 @@ export class McpServer {
 
   async callTool(name: string, input: unknown = {}): Promise<McpToolResult> {
     const definition = this.tools.get(name);
-    if (definition === undefined) return this.error('TOOL_NOT_FOUND', `MCP tool not found: ${name}`);
+    if (definition === undefined) {
+      const result = this.error('TOOL_NOT_FOUND', `MCP tool not found: ${name}`);
+      await this.audit(name, input, 'failure', result.structuredContent);
+      return result;
+    }
     try {
       const object = this.objectInput(input);
       this.requireFields(definition, object);
       const value = await this.dispatch(name, object);
-      return this.success(value);
+      const result = this.success(value);
+      await this.audit(name, object, 'success');
+      return result;
     } catch (error: unknown) {
-      return this.error('TOOL_FAILED', error instanceof Error ? error.message : 'Unknown MCP tool error');
+      const result = this.error('TOOL_FAILED', error instanceof Error ? error.message : 'Unknown MCP tool error');
+      await this.audit(name, input, 'failure', result.structuredContent);
+      return result;
     }
   }
 
@@ -142,6 +169,7 @@ export class McpServer {
     switch (name) {
       case 'forja_workspace_status': return { agent: this.dependencies.agent, capabilities: this.dependencies.registry.list({ agent: this.dependencies.agent }), resources: this.listResources().map((resource) => resource.uri) };
       case 'forja_capabilities_list': return this.dependencies.registry.list({ agent: this.dependencies.agent, policy: this.dependencies.policy });
+      case 'forja_capability_describe': return this.dependencies.registry.describe(this.string(input, 'capabilityId'), { agent: this.dependencies.agent, policy: this.dependencies.policy });
       case 'forja_capability_execute': return this.executeCapability(input);
       case 'forja_context_build': return this.requireContext().build(this.contextRequest(input));
       case 'forja_memory_query': return this.requireMemory().query(this.string(input, 'objective'));
@@ -152,8 +180,15 @@ export class McpServer {
       case 'forja_spec_check': return this.requireSpecChecker().check(input);
       case 'forja_test_run': return this.requireTestRunner().run(input);
       case 'forja_execution_validate': return this.requireExecutionValidator().validate(input);
-      default: throw new McpAdapterError(`MCP tool not implemented: ${name}`);
+      default:
+        if (name.startsWith('forja_capability_')) return this.executeDynamicCapability(name, input);
+        throw new McpAdapterError(`MCP tool not implemented: ${name}`);
     }
+  }
+
+  private executeDynamicCapability(name: string, input: Record<string, unknown>): Promise<ExecutionResult> {
+    const capabilityId = name.slice('forja_capability_'.length).replace(/_/g, '.');
+    return this.executeCapability({ ...input, capabilityId });
   }
 
   private async createHandoff(input: Record<string, unknown>): Promise<Handoff> {
@@ -207,7 +242,18 @@ export class McpServer {
   private requireExecutionValidator(): McpExecutionValidator { if (this.dependencies.executionValidator === undefined) throw new McpAdapterError('Execution validator is not configured'); return this.dependencies.executionValidator; }
   private success(value: unknown): McpToolResult { return { isError: false, content: [{ type: 'text', text: JSON.stringify(value) }], structuredContent: value }; }
   private error(code: string, message: string): McpToolResult { const value = { code, message }; return { isError: true, content: [{ type: 'text', text: JSON.stringify(value) }], structuredContent: value }; }
+  private async audit(toolName: string, input: unknown, outcome: McpAuditEvent['outcome'], error?: unknown): Promise<void> {
+    if (this.dependencies.audit === undefined) return;
+    const correlationId = isRecord(input) && typeof input.correlationId === 'string' ? input.correlationId : `${this.dependencies.agent.id}:${toolName}`;
+    try {
+      await this.dependencies.audit.append({ action: 'mcp.tool', tool: toolName, agentId: this.dependencies.agent.id, correlationId, outcome, details: error === undefined ? {} : { error: JSON.stringify(error) } });
+    } catch {
+      // Auditoria não pode derrubar o transporte MCP; o sink deve expor sua própria saúde.
+    }
+  }
 }
 
 function tool(name: string, description: string, required: readonly string[]): McpToolDefinition { return { name, description, inputSchema: { type: 'object', properties: Object.fromEntries(required.map((field) => [field, { type: field === 'budget' ? 'object' : field.endsWith('Ids') ? 'array' : 'string' }])), required, additionalProperties: false } }; }
+function capabilityToolName(id: CapabilityId): string { return `forja_capability_${id.replace(/[^a-zA-Z0-9_]/g, '_')}`; }
+function capabilityTool(definition: CapabilityDefinition): McpToolDefinition { return { name: capabilityToolName(definition.id), description: `Executa ${definition.id}: ${definition.description}`, inputSchema: { type: 'object', properties: { payload: { type: 'object' }, correlationId: { type: 'string' }, files: { type: 'array' }, categories: { type: 'array' } }, additionalProperties: false } }; }
 function isRecord(value: unknown): value is Record<string, unknown> { return typeof value === 'object' && value !== null; }

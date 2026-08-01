@@ -34,6 +34,7 @@ import { runChecks as run, worstStatus, stripTemplateLiterals, asErrno } from '.
 import { COMMANDS } from './registry.ts';
 import { scanCommands, scanLinks, projectCommands, scanAdrRefs, adrNumbers, commandCited } from './doc-graph.ts';
 import { topologyIssues } from '../agent-topology.ts';
+import { CLI_INTERFACE_COMMANDS } from '../../apps/cli/src/index.ts';
 
 // Os contratos vivem em checks.mjs — importados, não redefinidos. As cópias locais eram resíduo da
 // extração do runner (SPEC-010) e já divergiam.
@@ -489,7 +490,7 @@ const docsCommands: Check = {
       return { status: 'ok', detail: 'fora do repo do framework — não se aplica', fix: null };
     }
 
-    const known = new Set([...Object.keys(COMMANDS), ...projectCommands(env)]);
+    const known = new Set([...Object.keys(COMMANDS), ...CLI_INTERFACE_COMMANDS, ...projectCommands(env)]);
     const ghosts = scanCommands(env).filter((c) => !known.has(c.command));
 
     if (ghosts.length) {

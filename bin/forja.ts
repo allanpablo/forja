@@ -16,8 +16,23 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
+import Database from 'better-sqlite3';
 import { COMMANDS, DOMAINS, resolveScript } from '../lib/core/registry.ts';
 import { getWorkspaceInfo, getWorkspaceContextDir } from '../lib/workspace.ts';
+import {
+  capabilityIdForCommand,
+  createCliCapabilityRuntime,
+  executeCliCapability,
+  parseLegacyCommandInput,
+  type LegacyCliResult,
+  type GraphSyncComposition,
+} from '../apps/cli/src/index.ts';
+import { GitGraphDocumentSource, SpawnCommandRunner } from '../packages/adapter-git/src/index.ts';
+import { GraphLoop } from '../packages/graph/src/index.ts';
+import { SqliteGraphStore, SqliteMigrationRunner } from '../packages/adapter-sqlite/src/index.ts';
+import { getWorkspaceDbDir, getWorkspaceDbPath } from '../lib/workspace.ts';
+import type { CapabilityId } from '../packages/contracts/src/index.ts';
+import { McpServer } from '../packages/mcp/src/index.ts';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const root = path.resolve(__dirname, '..');
@@ -39,6 +54,11 @@ function printHelp() {
     }
     console.log('');
   }
+  console.log('Capabilities:');
+  console.log('  capabilities:list       Lista capabilities descobríveis');
+  console.log('  capabilities:describe   Descreve uma capability');
+  console.log('  capability:execute      Executa uma capability com input JSON');
+  console.log('  mcp:start               Inicia o transporte MCP JSON-RPC por stdio');
   console.log('Toda execução é auditada em .context/forja-runs.jsonl (workspace, se existir).');
 }
 
@@ -80,11 +100,186 @@ function audit(entry: any) {
   }
 }
 
+function runLegacyCaptured(command: string, args: readonly string[]): LegacyCliResult {
+  const cmd = (COMMANDS as any)[command];
+  if (!cmd) return { exitCode: 127, stdout: '', stderr: `Comando legado não encontrado: ${command}` };
+  let result;
+  if (cmd.node) {
+    const script = resolveScript(root, cmd.node);
+    result = spawnSync('node', [script, ...(cmd.args || []), ...args], {
+      cwd: process.cwd(),
+      encoding: 'utf8',
+      stdio: 'pipe',
+    });
+  } else {
+    result = spawnSync(cmd.bin, [...(cmd.args || []), ...args], {
+      cwd: process.cwd(),
+      encoding: 'utf8',
+      stdio: 'pipe',
+    });
+  }
+  const error = result.error;
+  const stderr = [result.stderr || '', error ? error.message : ''].filter(Boolean).join('\n');
+  return {
+    exitCode: result.status ?? 1,
+    stdout: result.stdout || '',
+    stderr,
+  };
+}
+
+function jsonFlag(args: readonly string[]): boolean {
+  return args.includes('--json');
+}
+
+function withoutFlag(args: readonly string[], flag: string): string[] {
+  return args.filter((arg) => arg !== flag);
+}
+
+function printExecutionResult(result: unknown, json: boolean): void {
+  if (json) {
+    console.log(JSON.stringify(result));
+    return;
+  }
+  const execution = result as { readonly status?: string; readonly output?: { readonly payload?: { readonly stdout?: string; readonly stderr?: string; readonly indexed?: number; readonly skipped?: number; readonly edges?: number; readonly durationMs?: number } }; readonly error?: { readonly message?: string } };
+  const payload = execution.output?.payload;
+  if (payload?.stdout) process.stdout.write(payload.stdout);
+  if (payload?.stderr) process.stderr.write(payload.stderr);
+  if (payload && typeof payload.indexed === 'number' && typeof payload.skipped === 'number') console.log(`Graph sync: ${payload.indexed} indexado(s), ${payload.skipped} ignorado(s), ${payload.edges ?? 0} aresta(s) em ${payload.durationMs ?? 0}ms.`);
+  if (execution.error?.message) console.error(execution.error.message);
+}
+
+async function runCapabilityCommand(command: string, args: readonly string[]): Promise<number> {
+  const needsGraph = command === 'graph:sync' || command === 'capability:execute' || command === 'capabilities:list' || command === 'capabilities:describe';
+  const runtime = createCliCapabilityRuntime(runLegacyCaptured, needsGraph ? createGraphSyncComposition() : undefined);
+  const started = Date.now();
+  const json = jsonFlag(args);
+  let result: unknown;
+  let capabilityId: string | undefined;
+  let commandSucceeded = true;
+  let inputArgs = withoutFlag(args, '--json');
+
+  if (command === 'capabilities:list') {
+    result = runtime.registry.list();
+  } else if (command === 'capabilities:describe') {
+    const id = inputArgs[0];
+    if (!id) {
+      result = { error: 'Capability id is required' };
+      commandSucceeded = false;
+    } else {
+      try { result = runtime.registry.describe(id); } catch (error) { result = { error: error instanceof Error ? error.message : 'Capability not found' }; commandSucceeded = false; }
+    }
+  } else if (command === 'capability:execute') {
+    capabilityId = inputArgs.shift();
+    const inputIndex = inputArgs.indexOf('--input');
+    if (!capabilityId || inputIndex < 0 || inputArgs[inputIndex + 1] === undefined) {
+      result = { error: 'Usage: capability:execute <id> --input \'{}\' [--json]' };
+      commandSucceeded = false;
+    } else {
+      try {
+        const payload = JSON.parse(inputArgs[inputIndex + 1]);
+        result = await executeCliCapability(runtime, capabilityId as CapabilityId, payload);
+      } catch (error) {
+        result = { error: error instanceof Error ? error.message : 'Invalid capability input' };
+        commandSucceeded = false;
+      }
+    }
+  } else {
+    const migrated = capabilityIdForCommand(command);
+    if (!migrated) return 1;
+    capabilityId = migrated;
+    try {
+      const parsed = parseLegacyCommandInput(command, inputArgs);
+      result = await executeCliCapability(runtime, parsed.capabilityId, parsed.payload);
+    } catch (error) {
+      result = { error: error instanceof Error ? error.message : 'Invalid command input' };
+      commandSucceeded = false;
+    }
+  }
+
+  printExecutionResult(result, json || command.startsWith('capabilit'));
+  const execution = result as { readonly status?: string; readonly runId?: string; readonly correlationId?: string; readonly error?: unknown; readonly output?: { readonly payload?: Record<string, unknown> } };
+  const payload = execution.output?.payload;
+  audit({
+    ts: new Date().toISOString(),
+    cmd: command,
+    args,
+    capabilityId,
+    runId: execution.runId,
+    correlationId: execution.correlationId,
+    status: execution.status,
+    exitCode: commandSucceeded && (execution.status === undefined || execution.status === 'succeeded') ? 0 : 1,
+    durationMs: Date.now() - started,
+    metrics: capabilityId === 'graph.sync' && payload === undefined ? undefined : capabilityId === 'graph.sync' ? { documents: payload?.documents, indexed: payload?.indexed, skipped: payload?.skipped, nodes: payload?.nodes, edges: payload?.edges, durationMs: payload?.durationMs, files: payload?.files } : undefined,
+  });
+  return commandSucceeded && (execution.status === undefined || execution.status === 'succeeded') ? 0 : 1;
+}
+
+async function runMcpStdio(): Promise<number> {
+  const runtime = createCliCapabilityRuntime(runLegacyCaptured, createGraphSyncComposition());
+  const definitions = runtime.registry.list();
+  const mcp = new McpServer({
+    registry: runtime.registry,
+    policy: runtime.policy,
+    agent: {
+      ...runtime.agent,
+      permissions: ['read', 'write', 'execution', 'database'],
+      capabilities: definitions.map((definition) => definition.id),
+    },
+    audit: {
+      append: (event) => audit({ ts: new Date().toISOString(), cmd: `mcp:${event.tool}`, args: [], capabilityId: event.tool, correlationId: event.correlationId, status: event.outcome === 'success' ? 'succeeded' : event.outcome === 'blocked' ? 'blocked' : 'failed', exitCode: event.outcome === 'success' ? 0 : 1, durationMs: 0 }),
+    },
+  });
+  process.stdin.setEncoding('utf8');
+  const handleLine = async (line: string): Promise<void> => {
+    if (line.trim().length === 0) return;
+    let request: { readonly id?: string | number; readonly method?: string; readonly params?: Record<string, unknown> };
+    try {
+      request = JSON.parse(line) as { readonly id?: string | number; readonly method?: string; readonly params?: Record<string, unknown> };
+      const id = request.id ?? null;
+      let result: unknown;
+      if (request.method === 'initialize') result = { protocolVersion: '2025-06-18', capabilities: { tools: {}, resources: {} }, serverInfo: { name: 'forja', version: '2.0.1' } };
+      else if (request.method === 'tools/list') result = { tools: mcp.listTools() };
+      else if (request.method === 'resources/list') result = { resources: mcp.listResources() };
+      else if (request.method === 'tools/call') result = await mcp.callTool(String(request.params?.name ?? ''), request.params?.arguments ?? {});
+      else if (request.method === 'resources/read') result = await mcp.readResource(String(request.params?.uri ?? ''));
+      else throw new Error(`Unsupported MCP method: ${request.method ?? 'missing'}`);
+      process.stdout.write(`${JSON.stringify({ jsonrpc: '2.0', id, result })}\n`);
+    } catch (error) {
+      process.stdout.write(`${JSON.stringify({ jsonrpc: '2.0', id: null, error: { code: -32000, message: error instanceof Error ? error.message : 'MCP request failed' } })}\n`);
+    }
+  };
+  let buffer = '';
+  for await (const chunk of process.stdin) {
+    buffer += chunk;
+    const lines = buffer.split('\n');
+    buffer = lines.pop() ?? '';
+    for (const line of lines) await handleLine(line);
+  }
+  await handleLine(buffer);
+  return 0;
+}
+
+function createGraphSyncComposition(): GraphSyncComposition {
+  fs.mkdirSync(getWorkspaceDbDir(), { recursive: true });
+  const database = new Database(process.env.FORJA_RUNTIME_DB ?? getWorkspaceDbPath());
+  new SqliteMigrationRunner(database).apply();
+  const graphRoot = process.env.FORJA_GRAPH_ROOT ?? process.cwd();
+  return { graph: new GraphLoop(new SqliteGraphStore(database)), source: new GitGraphDocumentSource(graphRoot, new SpawnCommandRunner()) };
+}
+
 const [name, ...rest] = process.argv.slice(2);
 
 if (!name || name === 'help' || name === '--help' || name === '-h') {
   printHelp();
   process.exit(0);
+}
+
+if (name === 'capabilities:list' || name === 'capabilities:describe' || name === 'capability:execute') {
+  process.exit(await runCapabilityCommand(name, rest));
+}
+
+if (name === 'mcp:start') {
+  process.exit(await runMcpStdio());
 }
 
 const cmd = (COMMANDS as any)[name];
@@ -111,6 +306,10 @@ if (gateErrors.length) {
     gate: 'blocked',
   });
   process.exit(1);
+}
+
+if (capabilityIdForCommand(name) !== undefined) {
+  process.exit(await runCapabilityCommand(name, rest));
 }
 
 const started = Date.now();

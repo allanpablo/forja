@@ -1,7 +1,8 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import Database from 'better-sqlite3';
-import { SqliteMigrationRunner, SqliteAuditStore, SqliteCheckpointStore, SqliteEventStore, SqliteObservationStore, SqliteOrchestrationStore, SqliteSandboxStore, SqliteRuntimeRunStore, createAuditRecord } from '../packages/adapter-sqlite/src/index.ts';
+import { SqliteApprovalStore, SqliteContextCache, SqliteGraphStore, SqliteMigrationRunner, SqliteAuditStore, SqliteCheckpointStore, SqliteEventStore, SqliteObservationStore, SqliteOrchestrationStore, SqliteSandboxStore, SqliteRuntimeRunStore, createAuditRecord } from '../packages/adapter-sqlite/src/index.ts';
+import { GraphLoop } from '../packages/graph/src/index.ts';
 
 function db() {
   const database = new Database(':memory:');
@@ -14,7 +15,7 @@ const audit = { schemaVersion: '2.0', createdAt: '2026-07-31T00:00:00.000Z', upd
 test('adapter-sqlite: migração é idempotente e persiste orquestração/sandbox/checkpoint', () => {
   const database = new Database(':memory:');
   const runner = new SqliteMigrationRunner(database);
-  assert.deepEqual(runner.apply(), [1]);
+  assert.deepEqual(runner.apply(), [1, 2, 3, 4, 5]);
   assert.deepEqual(runner.apply(), []);
   const orchestration = new SqliteOrchestrationStore(database);
   const sprint = { ...audit, id: 'sprint-1', objective: 'Persist', includedScope: ['packages'], excludedScope: [], budget: { inputTokens: 10, outputTokens: 5, totalTokens: 15, usedTokens: 0 }, completionCriteria: ['test'], risks: [], taskIds: [], evidenceIds: ['e-1'], status: 'paused' };
@@ -28,6 +29,28 @@ test('adapter-sqlite: migração é idempotente e persiste orquestração/sandbo
   const checkpoints = new SqliteCheckpointStore(database);
   checkpoints.save({ ...audit, id: 'checkpoint-1', runId: 'run-1', step: 2, state: 'paused', checksum: 'sum', resumable: true });
   assert.equal(checkpoints.get('run-1').resumable, true);
+});
+
+test('adapter-sqlite: GraphLoop persiste nós, evidências, arestas e checksum', () => {
+  const database = db();
+  const first = new GraphLoop(new SqliteGraphStore(database));
+  first.addEvidence({ id: 'graph-evidence-1', source: 'test', locator: 'fixture.ts:1', capturedAt: '2026-08-01T00:00:00.000Z', status: 'verified' });
+  const mutation = { sourceKey: 'fixture.ts', sourceChecksum: 'checksum-1', nodes: [{ id: 'graph-a', type: 'File', label: 'fixture.ts', status: 'verified' }, { id: 'graph-b', type: 'File', label: 'dependency.ts', status: 'verified' }], evidence: [], edges: [{ from: 'graph-a', to: 'graph-b', type: 'DEPENDS_ON', status: 'verified', confidence: 1, evidenceIds: ['graph-evidence-1'] }] };
+  assert.equal(first.apply(mutation).skipped, false);
+
+  const second = new GraphLoop(new SqliteGraphStore(database));
+  assert.equal(second.query({ type: 'File' }).length, 2);
+  assert.equal(second.path('graph-a', 'graph-b').edges.length, 1);
+  assert.equal(second.apply(mutation).skipped, true);
+  database.close();
+});
+
+test('adapter-sqlite: cache de contexto sobrevive no mesmo banco', () => {
+  const database = db();
+  const cache = new SqliteContextCache(database);
+  cache.set('checksum-context', 'trecho de contexto');
+  assert.equal(cache.get('checksum-context'), 'trecho de contexto');
+  database.close();
 });
 
 test('adapter-sqlite: eventos são idempotentes e auditoria/runtime são recuperáveis', () => {
@@ -48,4 +71,9 @@ test('adapter-sqlite: eventos são idempotentes e auditoria/runtime são recuper
   const observations = new SqliteObservationStore(database);
   observations.append({ ...audit, id: 'observation-1', traceId: 'trace-1', contextRefs: ['context-1'], inputTokens: 1, outputTokens: 1, durationMs: 2, cost: 0, tools: [], files: [], commands: [], outcome: 'succeeded' });
   assert.equal(observations.list().length, 1);
+  const approvals = new SqliteApprovalStore(database);
+  const approval = { ...audit, id: 'approval-1', action: 'write', justification: 'test', impact: 'source', expectedDiff: 'src/a.ts', expiresAt: '2099-01-01T00:00:00.000Z' };
+  approvals.save(approval);
+  assert.equal(approvals.get('approval-1').action, 'write');
+  assert.equal(approvals.list().length, 1);
 });

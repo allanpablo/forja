@@ -7,6 +7,7 @@
  * Alvos:
  *   - node: script do repo executado com `node <script> [...args]`
  *   - bin:  binário externo no PATH (ex.: codegraph)
+ *   - capability: handler compartilhado do Capability Registry
  *
  * Gates (aplicados por bin/forja.mjs antes do alvo):
  *   - workspace       bloqueia se o workspace (ADR-0019) não existir
@@ -201,6 +202,12 @@ export const COMMANDS = {
     desc: 'Chamadores + blast radius de um símbolo',
     node: 'scripts/agent-harness.ts',
     args: ['code:impact'],
+  },
+  'graph:sync': {
+    domain: 'code',
+    desc: 'Indexa arquivos rastreáveis do workspace no GraphLoop por checksum',
+    capability: 'graph.sync',
+    gates: ['workspace-warn'],
   },
   'code:context': {
     domain: 'code',
