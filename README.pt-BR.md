@@ -108,6 +108,28 @@ forja spec:tasks minha-feature
 forja spec:check minha-feature
 ```
 
+### Provar autonomia supervisionada localmente
+
+A prova offline determinística usa uma fixture externa, Git worktree real,
+aprovação humana, `npm test` real, validação de diff, promoção, estado SQLite,
+evidências no GraphLoop e handoff compacto:
+
+```bash
+npm run demo:autonomy
+```
+
+O fluxo completo está documentado em [`docs/2x/SPRINT-12-REAL-AUTONOMY-PLAN.md`](docs/2x/SPRINT-12-REAL-AUTONOMY-PLAN.md).
+
+Meça o baseline determinístico de contexto e a evidência de cache:
+
+```bash
+npm run benchmark:context
+```
+
+O sandbox também expõe rollback explícito e auditável após promoção. Os limites
+oficiais dos plugins `@forja/plugin-github` e `@forja/plugin-docker` estão disponíveis;
+handlers externos de rede ou Docker precisam ser injetados e permissionados pelo host.
+
 > Clonou o repo em vez de instalar? Os mesmos comandos rodam como
 > `node bin/forja.ts <comando>` — os scripts npm são apenas aliases finos do core.
 > A fonte é TypeScript e roda nativa: **dev exige Node ≥ 22.6** (strip-types). O pacote *publicado*

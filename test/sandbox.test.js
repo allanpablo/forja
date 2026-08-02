@@ -14,6 +14,7 @@ function backend(overrides = {}) {
     validate: async () => { calls.push('validate'); return { status: 'accepted', evidenceIds: ['validate-evidence'], summary: 'valid' }; },
     diff: async () => { calls.push('diff'); return { files: ['src/a.ts'], additions: 2, deletions: 1, evidenceIds: ['diff-evidence'] }; },
     promote: async () => { calls.push('promote'); },
+    rollback: async () => { calls.push('rollback'); },
     reject: async () => { calls.push('reject'); },
     destroy: async () => { calls.push('destroy'); },
     ...overrides,
@@ -54,6 +55,23 @@ test('sandbox: rejeita promoção sem diff e garante destruição explícita', a
   assert.equal(destroyed.state, 'destroyed');
   assert.equal(destroyed.promoted, false);
   assert.deepEqual(fixture.calls, ['create', 'prepare', 'execute', 'validate', 'reject', 'destroy']);
+});
+
+test('sandbox: rollback explícito desfaz promoção e deixa trilha terminal', async () => {
+  const store = new InMemorySandboxStore();
+  const fixture = backend();
+  const engine = new SandboxEngine(store, fixture.value);
+  const session = await engine.create({ runId, root: '/tmp/forja-sandbox' });
+  await engine.prepare(session.id);
+  await engine.execute(session.id, command);
+  await engine.validate(session.id);
+  const diff = await engine.diff(session.id);
+  await engine.promote(session.id, diff);
+  const rolledBack = await engine.rollback(session.id, diff);
+  assert.equal(rolledBack.state, 'rolled_back');
+  assert.equal(rolledBack.promoted, false);
+  assert.deepEqual(fixture.calls, ['create', 'prepare', 'execute', 'validate', 'diff', 'promote', 'rollback']);
+  await assert.rejects(() => engine.rollback(session.id, diff), SandboxError);
 });
 
 test('sandbox: falha de execução não permite continuar para validação', async () => {

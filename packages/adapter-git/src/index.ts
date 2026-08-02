@@ -14,7 +14,7 @@ export interface CommandRunner {
 export class SpawnCommandRunner implements CommandRunner {
   run(command: SandboxCommand): SandboxCommandResult {
     const started = Date.now();
-    const result = spawnSync(command.executable, [...command.args], { cwd: command.cwd, env: command.env === undefined ? process.env : { ...process.env, ...command.env }, encoding: 'utf8' });
+    const result = spawnSync(command.executable, [...command.args], { cwd: command.cwd, env: sandboxEnvironment(command.env), encoding: 'utf8' });
     return { exitCode: result.status ?? 1, stdout: result.stdout ?? '', stderr: [result.stderr ?? '', result.error?.message ?? ''].filter(Boolean).join('\n'), durationMs: Date.now() - started };
   }
 }
@@ -37,6 +37,7 @@ export class GitGraphDocumentSource implements GraphDocumentSource {
     for (const relative of result.stdout.split('\0').map((item) => item.trim()).filter(Boolean)) {
       if (!isIndexable(relative)) continue;
       const absolute = path.join(this.root, relative);
+      if (!isWithinRoot(this.root, absolute)) continue;
       try {
         const content = fs.readFileSync(absolute, 'utf8');
         if (content.includes('\0') || Buffer.byteLength(content, 'utf8') > 1_000_000) continue;
@@ -52,8 +53,23 @@ function isIndexable(relative: string): boolean {
   return /\.(?:ts|tsx|js|jsx|mjs|cjs|json|md|yaml|yml)$/.test(relative);
 }
 
+function isWithinRoot(root: string, candidate: string): boolean {
+  const relative = path.relative(root, candidate);
+  return relative.length === 0 || (!relative.startsWith(`..${path.sep}`) && relative !== '..' && !path.isAbsolute(relative));
+}
+
+function sandboxEnvironment(overrides?: Readonly<Record<string, string>>): NodeJS.ProcessEnv {
+  const inherited = {} as NodeJS.ProcessEnv;
+  for (const key of ['PATH', 'NODE_PATH', 'SystemRoot', 'TMPDIR', 'TMP', 'TEMP']) {
+    const value = process.env[key];
+    if (value !== undefined) inherited[key] = value;
+  }
+  return { ...inherited, ...(overrides ?? {}) };
+}
+
 export interface PatchApplier {
   apply(root: string, patch: string): void | Promise<void>;
+  revert(root: string, patch: string): void | Promise<void>;
 }
 
 export interface GitWorktreeOptions {
@@ -106,6 +122,12 @@ export class GitWorktreeBackend implements SandboxBackend {
     const patch = await this.runGit(['-C', session.root, 'diff', '--binary']);
     if (patch.exitCode !== 0) throw new Error(`Git promotion diff failed: ${patch.stderr}`);
     await this.options.patchApplier.apply(this.options.repositoryRoot, patch.stdout);
+  }
+
+  async rollback(session: SandboxSession): Promise<void> {
+    const patch = await this.runGit(['-C', session.root, 'diff', '--binary']);
+    if (patch.exitCode !== 0) throw new Error(`Git rollback diff failed: ${patch.stderr}`);
+    await this.options.patchApplier.revert(this.options.repositoryRoot, patch.stdout);
   }
 
   async reject(session: SandboxSession): Promise<void> {

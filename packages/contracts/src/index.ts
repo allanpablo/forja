@@ -12,7 +12,7 @@ export type KnowledgeStatus = 'verified' | 'inferred' | 'hypothesis' | 'contradi
 export type RiskLevel = 'low' | 'medium' | 'high' | 'critical';
 export type PolicyEffect = 'ALLOW' | 'DENY' | 'REQUIRE_APPROVAL' | 'ALLOW_WITH_LIMITS';
 export type ExecutionState = 'created' | 'planning' | 'awaiting_approval' | 'running' | 'validating' | 'paused' | 'blocked' | 'failed' | 'completed' | 'cancelled' | 'rolled_back';
-export type SandboxState = 'created' | 'prepared' | 'executing' | 'validating' | 'ready_to_promote' | 'promoted' | 'rejected' | 'destroyed' | 'failed';
+export type SandboxState = 'created' | 'prepared' | 'executing' | 'validating' | 'ready_to_promote' | 'promoted' | 'rolled_back' | 'rejected' | 'destroyed' | 'failed';
 
 export interface AuditFields {
   readonly schemaVersion: typeof CONTRACT_VERSION;

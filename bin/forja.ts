@@ -233,11 +233,14 @@ async function runMcpStdio(): Promise<number> {
   const handleLine = async (line: string): Promise<void> => {
     if (line.trim().length === 0) return;
     let request: { readonly id?: string | number; readonly method?: string; readonly params?: Record<string, unknown> };
+    let id: string | number | null = null;
     try {
       request = JSON.parse(line) as { readonly id?: string | number; readonly method?: string; readonly params?: Record<string, unknown> };
-      const id = request.id ?? null;
+      id = request.id ?? null;
+      if (request.method === 'notifications/initialized') return;
+      if (request.method === 'notifications/cancelled') return;
       let result: unknown;
-      if (request.method === 'initialize') result = { protocolVersion: '2025-06-18', capabilities: { tools: {}, resources: {} }, serverInfo: { name: 'forja', version: '2.0.1' } };
+      if (request.method === 'initialize') result = { protocolVersion: '2025-06-18', capabilities: { tools: {}, resources: {} }, serverInfo: { name: 'forja', version: '2.0.3' } };
       else if (request.method === 'tools/list') result = { tools: mcp.listTools() };
       else if (request.method === 'resources/list') result = { resources: mcp.listResources() };
       else if (request.method === 'tools/call') result = await mcp.callTool(String(request.params?.name ?? ''), request.params?.arguments ?? {});
@@ -245,7 +248,7 @@ async function runMcpStdio(): Promise<number> {
       else throw new Error(`Unsupported MCP method: ${request.method ?? 'missing'}`);
       process.stdout.write(`${JSON.stringify({ jsonrpc: '2.0', id, result })}\n`);
     } catch (error) {
-      process.stdout.write(`${JSON.stringify({ jsonrpc: '2.0', id: null, error: { code: -32000, message: error instanceof Error ? error.message : 'MCP request failed' } })}\n`);
+      process.stdout.write(`${JSON.stringify({ jsonrpc: '2.0', id, error: { code: -32000, message: error instanceof Error ? error.message : 'MCP request failed' } })}\n`);
     }
   };
   let buffer = '';

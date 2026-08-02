@@ -325,6 +325,11 @@ export const COMMANDS = {
     desc: 'Economia de token: eixos arquitetura + memória; --project mede seus domínios reais (ADR-0009/0027)',
     node: 'scripts/token-economy.ts',
   },
+  'benchmark:context': {
+    domain: 'contexto',
+    desc: 'Benchmark JSON determinístico de baseline, contexto mínimo, checksum e cache',
+    node: 'scripts/context-benchmark.ts',
+  },
 
   // --- Governança & qualidade ---------------------------------------------------
   'project:check': {
@@ -336,6 +341,11 @@ export const COMMANDS = {
     domain: 'governanca',
     desc: 'Raio-x do núcleo (gate, exit 1) + ferramentas de processo (ADR-0023, ADR-0018)',
     node: 'scripts/tools-doctor.ts',
+  },
+  'demo:autonomy': {
+    domain: 'governanca',
+    desc: 'Executa a prova offline de autonomia supervisionada com Git worktree real',
+    node: 'scripts/demo-autonomy.ts',
   },
   'release:check': {
     domain: 'governanca',

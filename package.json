@@ -1,7 +1,7 @@
 {
   "name": "forjajs",
-  "version": "2.0.2",
-  "description": "Forja — framework CLI-first de orquestração multiagente, memória hierárquica e geração de projetos com IA",
+  "version": "2.0.3",
+  "description": "ForjaJS é uma plataforma local-first para memória, contexto, governança e execução supervisionada de agentes de desenvolvimento",
   "type": "module",
   "main": "index.js",
   "bin": {
@@ -89,10 +89,20 @@
     "dashboard:start": "npm --prefix apps/dashboard run start",
     "build": "tsc -p tsconfig.build.json",
     "types:check": "tsc --noEmit",
-    "test": "node --test test/*.test.js"
+    "test": "node --test test/*.test.js",
+    "demo:autonomy": "node scripts/demo-autonomy.ts",
+    "benchmark:context": "node scripts/context-benchmark.ts"
   },
   "keywords": [
     "agents",
+    "agentic",
+    "agent-runtime",
+    "mcp",
+    "graph-memory",
+    "context-engineering",
+    "local-first",
+    "developer-tools",
+    "autonomous-agents",
     "orchestration",
     "memory",
     "sqlite",
