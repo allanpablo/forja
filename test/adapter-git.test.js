@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { GitGraphDocumentSource, GitWorktreeBackend } from '../packages/adapter-git/src/index.ts';
+import { GitGraphDocumentSource, GitWorktreeBackend, SpawnCommandRunner } from '../packages/adapter-git/src/index.ts';
 
 test('adapter-git: traduz ciclo para comandos Git e aplica patch somente na promoção', async () => {
   const calls = [];
@@ -15,7 +15,7 @@ test('adapter-git: traduz ciclo para comandos Git e aplica patch somente na prom
     return { exitCode: 0, stdout: '', stderr: '', durationMs: 1 };
   }};
   const patches = [];
-  const backend = new GitWorktreeBackend(runner, { repositoryRoot: '/repo', sourceRef: 'HEAD', patchApplier: { apply: async (root, patch) => patches.push({ root, patch }) } });
+  const backend = new GitWorktreeBackend(runner, { repositoryRoot: '/repo', sourceRef: 'HEAD', patchApplier: { apply: async (root, patch) => patches.push({ root, patch }), revert: async (root, patch) => patches.push({ root, patch, reverted: true }) } });
   const session = { id: 'sandbox-1', runId: 'run-1', backend: 'git_worktree', root: '/tmp/worktree', state: 'created', promoted: false, schemaVersion: '2.0', createdAt: '2026-07-31T00:00:00.000Z', updatedAt: '2026-07-31T00:00:00.000Z', correlationId: 'test' };
   await backend.create(session);
   await backend.prepare(session);
@@ -27,6 +27,8 @@ test('adapter-git: traduz ciclo para comandos Git e aplica patch somente na prom
   assert.equal(diff.deletions, 1);
   await backend.promote(session);
   assert.deepEqual(patches, [{ root: '/repo', patch: 'binary patch' }]);
+  await backend.rollback({ ...session, state: 'promoted', promoted: true });
+  assert.deepEqual(patches, [{ root: '/repo', patch: 'binary patch' }, { root: '/repo', patch: 'binary patch', reverted: true }]);
   assert.equal(calls[0].executable, 'git');
   assert.deepEqual(calls[0].args, ['-C', '/repo', 'worktree', 'add', '--detach', '/tmp/worktree', 'HEAD']);
 });
@@ -42,4 +44,26 @@ test('adapter-git: lista somente arquivos rastreáveis e indexáveis', async () 
   assert.deepEqual(documents.map((document) => document.locator), ['src/a.ts']);
   assert.equal(documents[0].content, 'export const a = 1;');
   fs.rmSync(root, { recursive: true, force: true });
+});
+
+test('adapter-git: rejeita caminho indexado que escapa da raiz', async () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'forja-graph-safe-'));
+  const outside = path.join(root, '..', 'forja-outside.js');
+  fs.writeFileSync(outside, 'secret');
+  const source = new GitGraphDocumentSource(root, { run: async () => ({ exitCode: 0, stdout: '../forja-outside.js\0', stderr: '', durationMs: 1 }) });
+  assert.deepEqual(await source.listDocuments(), []);
+  fs.rmSync(outside, { force: true });
+  fs.rmSync(root, { recursive: true, force: true });
+});
+
+test('adapter-git: runner não herda secrets do ambiente por padrão', () => {
+  const previous = process.env.FORJA_TEST_SECRET;
+  process.env.FORJA_TEST_SECRET = 'must-not-leak';
+  try {
+    const result = new SpawnCommandRunner().run({ executable: process.execPath, args: ['-e', 'process.stdout.write(process.env.FORJA_TEST_SECRET ?? "")'] });
+    assert.equal(result.stdout, '');
+  } finally {
+    if (previous === undefined) delete process.env.FORJA_TEST_SECRET;
+    else process.env.FORJA_TEST_SECRET = previous;
+  }
 });

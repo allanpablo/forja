@@ -37,6 +37,7 @@ export interface SandboxBackend {
   validate(session: SandboxSession): SandboxValidation | Promise<SandboxValidation>;
   diff(session: SandboxSession): SandboxDiffData | Promise<SandboxDiffData>;
   promote(session: SandboxSession): void | Promise<void>;
+  rollback(session: SandboxSession): void | Promise<void>;
   reject(session: SandboxSession): void | Promise<void>;
   destroy(session: SandboxSession): void | Promise<void>;
 }
@@ -109,6 +110,15 @@ export class SandboxEngine {
     const session = await this.require(id); this.requireState(session, ['ready_to_promote']);
     if (diff.sessionId !== id || diff.checksum.length === 0) throw new SandboxError('Promotion requires a valid diff for the same sandbox');
     await this.backend.promote(session); const updated = this.updated(session, { state: 'promoted', promoted: true }); await this.store.save(updated); return updated;
+  }
+
+  async rollback(id: EntityId, diff: SandboxDiff): Promise<SandboxSession> {
+    const session = await this.require(id); this.requireState(session, ['promoted']);
+    if (diff.sessionId !== id || diff.checksum.length === 0) throw new SandboxError('Rollback requires a valid diff for the same sandbox');
+    await this.backend.rollback(session);
+    const updated = this.updated(session, { state: 'rolled_back', promoted: false });
+    await this.store.save(updated);
+    return updated;
   }
 
   async reject(id: EntityId): Promise<SandboxSession> {

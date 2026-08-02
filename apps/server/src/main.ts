@@ -8,9 +8,9 @@ import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { CapabilityRegistry } from '../../../packages/core/src/index.ts';
 import { PolicyEngine, type PolicyRule } from '../../../packages/policy/src/index.ts';
 import { McpServer } from '../../../packages/mcp/src/index.ts';
-import { ControlPlane } from '../../../packages/observability/src/index.ts';
+import { ControlPlane, InMemoryObservationStore, ObservabilityRecorder, type ObservationStore } from '../../../packages/observability/src/index.ts';
 import { ApprovalLedger } from '../../../packages/policy/src/index.ts';
-import { HandoffEngine, InMemoryOrchestrationStore, SprintEngine, TaskEngine } from '../../../packages/orchestration/src/index.ts';
+import { HandoffEngine, InMemoryOrchestrationStore, SprintEngine, TaskEngine, type OrchestrationStore } from '../../../packages/orchestration/src/index.ts';
 import { validateTokenBudget, type EntityId, type ISO8601 } from '../../../packages/contracts/src/index.ts';
 import { createBearerAuthenticator, InMemoryEventStream, type LocalAuthenticator } from '../../../packages/adapter-nest/src/index.ts';
 import { AppModule } from './app.module.ts';
@@ -18,7 +18,7 @@ import { RuntimeEngine, type RuntimePlanStep } from '../../../packages/runtime/s
 import { GraphExecutionMemory, GraphLoop } from '../../../packages/graph/src/index.ts';
 import { ContextEngine, GraphContextSource } from '../../../packages/context/src/index.ts';
 import { SqliteContextCache, SqliteGraphStore, SqliteMigrationRunner, SqliteRuntimePersistence } from '../../../packages/adapter-sqlite/src/index.ts';
-import { SqliteApprovalStore, SqliteMcpAuditSink } from '../../../packages/adapter-sqlite/src/index.ts';
+import { SqliteApprovalStore, SqliteMcpAuditSink, SqliteObservationStore, SqliteOrchestrationStore } from '../../../packages/adapter-sqlite/src/index.ts';
 import { EventBus } from '../../../packages/events/src/index.ts';
 import { SqliteEventStore } from '../../../packages/adapter-sqlite/src/index.ts';
 import { getWorkspaceDbDir, getWorkspaceDbPath } from '../../../lib/workspace.ts';
@@ -111,13 +111,13 @@ function runtimeInput(input: unknown): { readonly objective: string; readonly ag
 
 function isRecord(value: unknown): value is Record<string, unknown> { return typeof value === 'object' && value !== null; }
 
-export function createDefaultControlPlane(eventStream: InMemoryEventStream, registry = createDefaultCapabilityRegistry(), policy = createDefaultPolicy(), persistence?: RuntimePersistence, approvals = new ApprovalLedger(), events?: EventBus, graph?: GraphLoop, context?: ContextEngine): ControlPlane {
-  const store = new InMemoryOrchestrationStore();
+export function createDefaultControlPlane(eventStream: InMemoryEventStream, registry = createDefaultCapabilityRegistry(), policy = createDefaultPolicy(), persistence?: RuntimePersistence, approvals = new ApprovalLedger(), events?: EventBus, graph?: GraphLoop, context?: ContextEngine, orchestrationStore: OrchestrationStore = new InMemoryOrchestrationStore(), observationStore: ObservationStore = new InMemoryObservationStore()): ControlPlane {
+  const store = orchestrationStore;
   const sprintEngine = new SprintEngine(store);
   const taskEngine = new TaskEngine(store, sprintEngine);
   const handoffEngine = new HandoffEngine(store);
   const runtime = new DefaultRuntimeApplication(registry, policy, persistence, graph, context);
-  return new ControlPlane(undefined, {
+  return new ControlPlane(new ObservabilityRecorder(observationStore), {
     runtime: { start: (input) => runtime.start(input), get: (input) => runtime.get(input), execute: (input) => runtime.execute(input), pause: (input) => runtime.pause(input), resume: (input) => runtime.resume(input), cancel: (input) => runtime.cancel(input) },
     sprint: { create: (input) => sprintEngine.create(input as Parameters<SprintEngine['create']>[0]), start: (id) => sprintEngine.start(id as EntityId), pause: (id) => sprintEngine.pause(id as EntityId) },
     task: { create: (input) => taskEngine.create(input as Parameters<TaskEngine['create']>[0]), start: (id) => taskEngine.start(id as EntityId), block: (id) => taskEngine.block(id as EntityId) },
@@ -139,10 +139,12 @@ export async function bootstrap(port = Number(process.env.FORJA_PORT ?? 3000)) {
   const mcpAudit = new SqliteMcpAuditSink(runtimeDatabase);
   const events = new EventBus(new SqliteEventStore(runtimeDatabase));
   const graph = new GraphLoop(new SqliteGraphStore(runtimeDatabase));
+  const orchestrationStore = new SqliteOrchestrationStore(runtimeDatabase);
+  const observationStore = new SqliteObservationStore(runtimeDatabase);
   registerGraphSyncCapability(registry, graph, new GitGraphDocumentSource(process.env.FORJA_GRAPH_ROOT ?? process.cwd(), new SpawnCommandRunner()));
   const context = new ContextEngine({ graph: new GraphContextSource({ searchContext: (objective) => graph.contextRecords(objective) }), cache: new SqliteContextCache(runtimeDatabase) });
   const mcp = createDefaultMcp(registry, policy, graph, mcpAudit, context);
-  const app = await NestFactory.create(AppModule.register({ mcp, eventStream, authenticator: createLocalAuthenticator(), controlPlane: createDefaultControlPlane(eventStream, registry, policy, runtimePersistence, approvals, events, graph, context) }));
+  const app = await NestFactory.create(AppModule.register({ mcp, eventStream, authenticator: createLocalAuthenticator(), controlPlane: createDefaultControlPlane(eventStream, registry, policy, runtimePersistence, approvals, events, graph, context, orchestrationStore, observationStore) }));
   const config = new DocumentBuilder().setTitle('ForjaJS 2.0 API').setDescription('Local-first agent control plane').setVersion('2.0.0').build();
   SwaggerModule.setup('docs', app, SwaggerModule.createDocument(app, config));
   await app.listen(port, '127.0.0.1');
