@@ -54,3 +54,17 @@ test('tools:doctor lista as 5 ferramentas e nao trava sem nenhuma', () => {
     fs.rmSync(workspace, { recursive: true, force: true });
   }
 });
+
+test('gsd:handoff resolve agent-router apos migracao para TypeScript', () => {
+  const workspace = fs.mkdtempSync(path.join(os.tmpdir(), 'forja-handoff-'));
+  try {
+    const r = run(
+      ['scripts/agent-harness.ts', 'gsd:handoff', 'spec', 'fixture-router-ts'],
+      { ...process.env, FORJA_WORKSPACE: workspace }
+    );
+    assert.equal(r.status, 0, r.stderr || r.stdout);
+    assert.match(r.stdout, /"intent":"spec"/);
+  } finally {
+    fs.rmSync(workspace, { recursive: true, force: true });
+  }
+});

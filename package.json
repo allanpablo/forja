@@ -1,6 +1,6 @@
 {
   "name": "forjajs",
-  "version": "2.0.3",
+  "version": "2.0.4",
   "description": "ForjaJS é uma plataforma local-first para memória, contexto, governança e execução supervisionada de agentes de desenvolvimento",
   "type": "module",
   "main": "index.js",

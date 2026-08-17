@@ -11,12 +11,9 @@ framework-root (o repo do Forja — produtos vivem no workspace, ADR-0019)
       `tools:doctor` deixa de auditar só ferramentas opcionais e passa a ser gate do núcleo:
       ABI nativa, memória, workspace, deps de runtime, `.mcp.json`. Exit 1 no que trava o fluxo.
 - [x] `spec:new` mantém a allow-list do `.gitignore` — spec nova do framework nascia invisível ao git.
-
-## Próximos candidatos (sem spec ainda)
-- `release-auditor` consumindo `lib/core/health.mjs` em vez de heurística própria — é a terceira
-  superfície prevista no ADR-0023 e a única que ainda não migrou.
-- Checks de núcleo no CI (`tools:doctor` como step), fechando o ciclo: hoje o CI roda os testes,
-  mas não o gate.
+- [x] SPEC-022 — Release Auditor consome a saúde canônica (`specs/release-auditor-health/`)
+      `tools:doctor` passa a anteceder o gate estrito `release:check --publish`, sem probes duplicados
+      e sem substituir o modo de publicação por `check:all --full`.
 
 ## Ritual CLI
 - Planejar: npm run gsd:plan -- <slug> "<objetivo>"

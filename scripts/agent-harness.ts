@@ -262,7 +262,8 @@ function cmdHermesHandoff([jsonArg]: string[]) {
   const missing = required.filter((field) => !payload[field] || typeof payload[field] !== 'string');
   if (missing.length) fail(`Campos ADR-0005 ausentes: ${missing.join(', ')}`);
 
-  const result = spawnSync('node', ['scripts/agent-router.mjs', 'append', JSON.stringify(payload)], {
+  const router = resolveScript(root, 'scripts/agent-router.mjs');
+  const result = spawnSync(process.execPath, [router, 'append', JSON.stringify(payload)], {
     cwd: root,
     encoding: 'utf8',
   });
@@ -272,7 +273,8 @@ function cmdHermesHandoff([jsonArg]: string[]) {
 }
 
 function appendHandoff(payload: any) {
-  const result = spawnSync('node', ['scripts/agent-router.mjs', 'append', JSON.stringify(payload)], {
+  const router = resolveScript(root, 'scripts/agent-router.mjs');
+  const result = spawnSync(process.execPath, [router, 'append', JSON.stringify(payload)], {
     cwd: root,
     encoding: 'utf8',
   });

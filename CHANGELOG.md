@@ -4,6 +4,22 @@ Histórico consolidado das mudanças estruturais do framework. Para decisões ar
 
 ---
 
+## [2.0.4] — 2026-08-17 — Auditoria de release e handoffs confiáveis
+
+### Alterado
+- **Release Auditor consome a saúde canônica** (SPEC-022): executa `tools:doctor` antes de
+  `release:check --publish`, interrompe a auditoria em falha crítica e preserva avisos no parecer.
+  A prova estrita do tarball continua separada e `npm publish` permanece um ato humano.
+
+### Corrigido
+- **`gsd:handoff` voltou a registrar handoffs após a migração TypeScript**: o harness ainda tentava
+  executar `scripts/agent-router.mjs`, inexistente no repositório atual. Agora usa `resolveScript`
+  para resolver `.ts` em desenvolvimento e `.js` no pacote publicado, com teste de regressão.
+
+### Validação
+- 313 testes, `types:check`, `project:check`, `gsd:check` e `tools:doctor` verdes.
+- `npm audit --omit=dev`: zero vulnerabilidades de produção.
+
 ## [2.0.2] — 2026-08-01 — Integração operacional das Sprints 1–11
 
 Consolida a evolução do ForjaJS 2.x após a fundação 2.0.1, conectando a CLI,

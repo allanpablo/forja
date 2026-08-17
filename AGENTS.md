@@ -68,7 +68,7 @@ Handoffs entre eles passam pela tabela `handoffs` em `~/forja-workspace/memory/s
 
 ## 7. Release Auditor
 **Quando**: antes de publicar no npm — o especialista de release da governança.
-**Faz**: roda `release:check --publish`, interpreta o parecer e autoriza (ou barra) a publicação. Pega quebras que só apareceriam na máquina de quem instala (SPEC-010, ADR-0024).
+**Faz**: roda `tools:doctor` e depois `release:check --publish`, interpreta os dois pareceres e autoriza (ou barra) a publicação. Valida o núcleo pela fonte canônica e pega quebras que só apareceriam na máquina de quem instala (SPEC-022, ADR-0023, ADR-0024).
 **Não faz**: publicar — `npm publish` é ato humano. Ele diagnostica e autoriza.
 
 ---
