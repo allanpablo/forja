@@ -40,7 +40,7 @@ export function listFiles(root: string, env: UpgradeEnv = defaultEnv): string[] 
         continue;
       }
       if (st.isDirectory()) walk(p);
-      else out.push(path.relative(root, p));
+      else out.push(path.relative(root, p).replaceAll(path.sep, '/'));
     }
   };
   walk(root);

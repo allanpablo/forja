@@ -2,6 +2,8 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
 import path from 'node:path';
+import os from 'node:os';
+import fs from 'node:fs';
 import { fileURLToPath } from 'node:url';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -40,10 +42,15 @@ test('code:impact sem codegraph oferece fallback manual', () => {
 });
 
 test('tools:doctor lista as 5 ferramentas e nao trava sem nenhuma', () => {
-  const r = run(['scripts/tools-doctor.ts'], NO_TOOLS_ENV);
-  assert.equal(r.status, 0);
-  for (const name of ['codegraph', 'gitleaks', 'ast-grep', 'lefthook', 'markdownlint']) {
-    assert.ok(r.stdout.includes(name), `esperava ${name} no relatorio`);
+  const workspace = fs.mkdtempSync(path.join(os.tmpdir(), 'forja-doctor-'));
+  try {
+    const r = run(['scripts/tools-doctor.ts'], { ...NO_TOOLS_ENV, FORJA_WORKSPACE: workspace });
+    assert.equal(r.status, 0);
+    for (const name of ['codegraph', 'gitleaks', 'ast-grep', 'lefthook', 'markdownlint']) {
+      assert.ok(r.stdout.includes(name), `esperava ${name} no relatorio`);
+    }
+    assert.match(r.stdout, /0\/5 ferramentas/);
+  } finally {
+    fs.rmSync(workspace, { recursive: true, force: true });
   }
-  assert.match(r.stdout, /0\/5 ferramentas/);
 });

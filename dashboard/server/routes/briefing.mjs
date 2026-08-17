@@ -17,7 +17,7 @@ import {
   getProjectsDir,
   getWorkspaceSpecsDir,
   initWorkspace,
-} from '../../../lib/workspace.mjs';
+} from '../../../lib/workspace.ts';
 
 const SLUG_RE = /^[a-z0-9][a-z0-9-]{1,63}$/;
 

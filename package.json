@@ -91,7 +91,14 @@
     "types:check": "tsc --noEmit",
     "test": "node --test test/*.test.js",
     "demo:autonomy": "node scripts/demo-autonomy.ts",
-    "benchmark:context": "node scripts/context-benchmark.ts"
+    "demo:workspace": "node bin/forja.ts demo:workspace",
+    "benchmark:context": "node scripts/context-benchmark.ts",
+    "llm:profiles:init": "node bin/forja.ts llm:profiles:init",
+    "llm:doctor": "node bin/forja.ts llm:doctor",
+    "llm:probe": "node bin/forja.ts llm:probe",
+    "llm:recommend": "node bin/forja.ts llm:recommend",
+    "llm:run": "node bin/forja.ts llm:run",
+    "llm:eval": "node bin/forja.ts llm:eval"
   },
   "keywords": [
     "agents",

@@ -7,6 +7,7 @@ Ponto de entrada por papel. Para histórico de fases ver `CHANGELOG.md`; para de
 ## Por papel
 
 ### Operacao CLI / Orquestracao
+- `docs/modos-de-operacao.md` — escolha entre uso embedded no projeto consumidor e studio multi-projeto
 - `docs/processo-projeto.md` — **processo nível 0**: criar vs atualizar projeto com a IA (decisão de entrada)
 - `docs/fluxo.md` — **mapa do ciclo** (CLI-first) com as 3 capacidades integradas (codegraph/harness/ai-engineering)
 - `docs/manual-operacional-cli-sdd-gsd.md` — manual principal para operar CLI-first, SDD, GSD, sprints, handoffs e governanca
@@ -14,6 +15,8 @@ Ponto de entrada por papel. Para histórico de fases ver `CHANGELOG.md`; para de
 
 ### Executivo / PM
 - `docs/personas/executive/README.md` — overview, ROI, status
+- `docs/produto/factsheet-marketing.md` — posicionamento, capacidades comprovadas e claims de marketing
+- `docs/produto/roteiro-demo.md` — cenário sintético e roteiro de apresentação
 
 ### Arquiteto / Tech Lead
 - `docs/personas/architect/README.md`
@@ -46,6 +49,7 @@ Ponto de entrada por papel. Para histórico de fases ver `CHANGELOG.md`; para de
 | Tópico | Arquivo |
 |---|---|
 | Manual operacional CLI-first | `docs/manual-operacional-cli-sdd-gsd.md` |
+| Modos embedded e studio | `docs/modos-de-operacao.md` |
 | Guia curto CLI-first | `docs/cli-first-operacao.md` |
 | Mudanças recentes | `CHANGELOG.md` |
 | Decisões arquiteturais | `memory/90-decisions/` |
@@ -57,6 +61,7 @@ Ponto de entrada por papel. Para histórico de fases ver `CHANGELOG.md`; para de
 | Estrutura gerada | `docs/structure.md` |
 | Exemplos de código | `docs/examples.md` |
 | Dashboard web (congelado) | `docs/dashboard.md` |
+| Factsheet de produto e marketing | `docs/produto/factsheet-marketing.md` |
 
 ---
 

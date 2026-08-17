@@ -14,6 +14,9 @@
 
 import fs from 'node:fs';
 import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+
+function portablePath(value: string): string { return value.replaceAll(path.sep, '/'); }
 
 /**
  * Superfícies de instrução. Escaneia o que orienta o agente **agora** — não o histórico.
@@ -86,7 +89,7 @@ export function docFiles(env: any) {
   const seen = new Set<string>();
   for (const surface of DOC_SURFACES) {
     for (const file of collectMarkdown(env, surface)) {
-      seen.add(path.relative(env.root, file));
+      seen.add(portablePath(path.relative(env.root, file)));
     }
   }
   return [...seen];
@@ -133,7 +136,7 @@ export function scanLinks(env: any) {
           file: rel,
           line: i + 1,
           target,
-          resolved: path.normalize(path.join(dir, target)),
+          resolved: portablePath(path.normalize(path.join(dir, target))),
         });
       }
     });
@@ -186,7 +189,7 @@ export function scanAdrRefs(env: any) {
   const seen = new Set<string>();
   for (const surface of ADR_REF_SURFACES) {
     for (const file of collectMarkdown(env, surface)) {
-      const rel = path.relative(env.root, file);
+      const rel = portablePath(path.relative(env.root, file));
       if (seen.has(rel)) continue;
       seen.add(rel);
       const src = safeRead(env, file);
@@ -284,7 +287,7 @@ export function projectCommands(env: any) {
 /** Ambiente padrão para uso fora do runner de checks (o CLI, testes de integração). */
 export function defaultEnv(overrides = {}) {
   return {
-    root: path.resolve(path.dirname(new URL(import.meta.url).pathname), '..', '..'),
+    root: path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..'),
     fs,
     ...overrides,
   };

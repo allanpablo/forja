@@ -72,7 +72,7 @@ test('runCommand: spec:check roda e devolve stream', async () => {
   const { stdout, stderr, done, meta } = runCommand('spec:check');
   assert.equal(meta.name, 'spec:check');
   assert.equal(meta.cmd, 'node');
-  assert.ok(meta.args.includes('check'));
+  assert.ok(meta.args.includes('spec:check'));
 
   let out = '';
   stdout.on('data', (chunk) => { out += chunk; });

@@ -2,7 +2,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { syncUniversal } from '../lib/repo-sync.mjs';
 import { publish } from '../lib/events.mjs';
-import { getProjectsDir, initWorkspace } from '../../../lib/workspace.mjs';
+import { getProjectsDir, initWorkspace } from '../../../lib/workspace.ts';
 
 const SLUG_RE = /^[a-z0-9][a-z0-9-]{1,63}$/;
 

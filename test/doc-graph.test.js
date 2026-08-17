@@ -9,24 +9,26 @@ import { scanCommands, scanLinks, projectCommands, docFiles, scanAdrRefs, adrNum
  * Espelha o padrão dos stubs de health.test.js / release.test.js.
  */
 function stub(files) {
+  files = Object.fromEntries(Object.entries(files).map(([file, content]) => [file.replaceAll('\\', '/'), content]));
   const dirs = new Set();
   for (const f of Object.keys(files)) {
-    for (let d = path.dirname(f); d !== '/' && d !== '.'; d = path.dirname(d)) dirs.add(d);
+    for (let d = path.posix.dirname(f); d !== '/' && d !== '.'; d = path.posix.dirname(d)) dirs.add(d);
   }
+  const key = (value) => String(value).replaceAll('\\', '/');
   return {
-    existsSync: (p) => p in files || dirs.has(p),
+    existsSync: (p) => key(p) in files || dirs.has(key(p)),
     readFileSync: (p) => {
-      if (!(p in files)) throw new Error(`ENOENT: ${p}`);
-      return files[p];
+      if (!(key(p) in files)) throw new Error(`ENOENT: ${p}`);
+      return files[key(p)];
     },
     statSync: (p) => {
-      if (!(p in files) && !dirs.has(p)) throw new Error(`ENOENT: ${p}`);
-      return { isDirectory: () => dirs.has(p) };
+      if (!(key(p) in files) && !dirs.has(key(p))) throw new Error(`ENOENT: ${p}`);
+      return { isDirectory: () => dirs.has(key(p)) };
     },
     readdirSync: (p) => {
       const out = new Set();
       for (const f of [...Object.keys(files), ...dirs]) {
-        if (path.dirname(f) === p) out.add(path.basename(f));
+        if (path.posix.dirname(f) === key(p)) out.add(path.posix.basename(f));
       }
       return [...out];
     },

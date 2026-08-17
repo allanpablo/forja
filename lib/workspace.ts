@@ -28,6 +28,7 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const DEFAULT_WORKSPACE_NAME = 'forja-workspace';
+export type ForjaMode = 'embedded' | 'studio';
 
 function getHomeDir() {
   return os.homedir();
@@ -46,7 +47,22 @@ export function getUserConfigPath() {
   return path.join(getHomeDir(), '.forjarc.json');
 }
 
+/**
+ * Studio administra vários produtos num workspace externo. Embedded opera a instalação do ForjaJS
+ * dentro do projeto consumidor. A detecção pelo package.json torna `npx forja`/bin local natural;
+ * FORJA_MODE existe para scripts e casos sem manifest.
+ */
+export function getForjaMode(): ForjaMode {
+  if (process.env.FORJA_MODE === 'embedded' || process.env.FORJA_MODE === 'studio') return process.env.FORJA_MODE;
+  if (process.env.FORJA_WORKSPACE) return 'studio';
+  const cwd = path.resolve(process.cwd());
+  const frameworkRoot = path.resolve(__dirname, '..');
+  if (cwd !== frameworkRoot && !cwd.startsWith(`${frameworkRoot}${path.sep}`) && fs.existsSync(path.join(cwd, 'package.json'))) return 'embedded';
+  return 'studio';
+}
+
 export function getWorkspaceRoot() {
+  if (getForjaMode() === 'embedded') return path.resolve(process.cwd());
   if (process.env.FORJA_WORKSPACE) {
     return path.resolve(process.env.FORJA_WORKSPACE);
   }
@@ -63,7 +79,9 @@ export function getWorkspaceInfo() {
   const root = getWorkspaceRoot();
   return {
     root,
-    source: process.env.FORJA_WORKSPACE
+    source: getForjaMode() === 'embedded'
+      ? 'project-cwd'
+      : process.env.FORJA_WORKSPACE
       ? 'FORJA_WORKSPACE'
       : fs.existsSync(getUserConfigPath())
         ? '~/.forjarc.json'
@@ -73,6 +91,7 @@ export function getWorkspaceInfo() {
 }
 
 export function getProjectsDir() {
+  if (getForjaMode() === 'embedded') return getWorkspaceRoot();
   return path.join(getWorkspaceRoot(), 'projects');
 }
 
@@ -129,6 +148,13 @@ export function ensureDir(dir: any) {
 
 export function initWorkspace() {
   const root = ensureDir(getWorkspaceRoot());
+  if (getForjaMode() === 'embedded') {
+    ensureDir(getWorkspaceMemoryDir());
+    ensureDir(getWorkspaceDbDir());
+    ensureDir(getWorkspaceSpecsDir());
+    ensureDir(getWorkspaceContextDir());
+    return root;
+  }
   ensureDir(getProjectsDir());
   ensureDir(getWorkspaceMemoryDir());
   ensureDir(getWorkspaceDbDir());

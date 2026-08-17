@@ -20,7 +20,7 @@ import {
   getProjectsDir,
   getWorkspaceContextDir,
   initWorkspace,
-} from '../../../lib/workspace.mjs';
+} from '../../../lib/workspace.ts';
 
 export const CHARS_PER_TOKEN = 4;
 

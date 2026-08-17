@@ -6,6 +6,8 @@ import { fileURLToPath } from 'node:url';
 import { ensureSchema, getDbPath } from './memory-schema.ts';
 import {
   initWorkspace,
+  getForjaMode,
+  getWorkspaceRoot,
   getProjectsDir,
   getWorkspaceSpecsDir,
   getWorkspaceProjectsMemoryDir,
@@ -16,6 +18,8 @@ const __dirname = path.dirname(__filename);
 const root = path.resolve(__dirname, '..');
 
 initWorkspace();
+const mode = getForjaMode();
+const operationRoot = getWorkspaceRoot();
 const dbPath = getDbPath();
 const args = process.argv.slice(2);
 const projectArgIndex = args.indexOf('--project');
@@ -238,9 +242,9 @@ function syncFiles(files: any, projectId = null) {
 if (syncGlobal) {
   log('Sincronizando Memória Global...', 'info');
   const globalFiles = [
-    ...walk(path.join(root, 'memory')),
-    ...walk(path.join(root, 'docs')),
-    ...walk(path.join(root, 'prompts')),
+    ...walk(path.join(mode === 'embedded' ? operationRoot : root, 'memory')),
+    ...walk(path.join(mode === 'embedded' ? operationRoot : root, 'docs')),
+    ...walk(path.join(mode === 'embedded' ? operationRoot : root, 'prompts')),
   ];
   syncFiles(globalFiles);
   syncSpecSummaries();
@@ -249,7 +253,17 @@ if (syncGlobal) {
 
 // 2. Sincronizar Projetos do Workspace
 const projectsDir = getProjectsDir();
-if (syncProjects && fs.existsSync(projectsDir)) {
+if (syncProjects && mode === 'embedded') {
+  const projectName = path.basename(operationRoot);
+  upsertProject.run(projectName, operationRoot, now);
+  const pid = getProjectId.get(projectName).id;
+  syncFiles([
+    ...walk(path.join(operationRoot, 'memory')),
+    ...walk(path.join(operationRoot, 'docs')),
+    ...walk(path.join(operationRoot, 'specs')),
+    ...walk(path.join(operationRoot, 'design-md')),
+  ], pid);
+} else if (syncProjects && fs.existsSync(projectsDir)) {
   const projects = fs.readdirSync(projectsDir, { withFileTypes: true })
     .filter(e => e.isDirectory())
     .filter(e => !onlyProject || e.name === onlyProject);
@@ -273,7 +287,7 @@ if (syncProjects && fs.existsSync(projectsDir)) {
 
 // 3. Sincronizar fichas de projetos no workspace memory/30-projects
 const workspaceProjectsMemoryDir = getWorkspaceProjectsMemoryDir();
-if (fs.existsSync(workspaceProjectsMemoryDir)) {
+if (mode === 'studio' && fs.existsSync(workspaceProjectsMemoryDir)) {
   const fichaFiles = walk(workspaceProjectsMemoryDir);
   syncFiles(fichaFiles);
 }

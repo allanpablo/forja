@@ -36,6 +36,7 @@ import { McpServer } from '../packages/mcp/src/index.ts';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const root = path.resolve(__dirname, '..');
+const STUDIO_COMMANDS = new Set(['workspace:init', 'project:new', 'project:list', 'project:upgrade', 'workspace:project:check', 'init:project', 'demo:workspace']);
 
 function printHelp() {
   console.log('Forja — core executivo (ADR-0020)');
@@ -133,6 +134,13 @@ function jsonFlag(args: readonly string[]): boolean {
 
 function withoutFlag(args: readonly string[], flag: string): string[] {
   return args.filter((arg) => arg !== flag);
+}
+
+// Prompts podem conter dados do projeto. A execução recebe o texto, mas a trilha de auditoria só prova
+// que um prompt foi enviado; nunca preserva seu conteúdo.
+function auditArgs(command: string, args: readonly string[]): readonly string[] {
+  if (command !== 'llm:run') return args;
+  return args.map((arg, index) => args[index - 1] === '--prompt' ? '<redacted>' : arg);
 }
 
 function printExecutionResult(result: unknown, json: boolean): void {
@@ -277,6 +285,10 @@ if (!name || name === 'help' || name === '--help' || name === '-h') {
   process.exit(0);
 }
 
+// O pacote instalado dentro de um projeto opera o próprio cwd. Operações que administram vários
+// projetos permanecem no studio global; FORJA_MODE/FORJA_WORKSPACE sempre vencem a inferência.
+if (STUDIO_COMMANDS.has(name) && !process.env.FORJA_MODE && !process.env.FORJA_WORKSPACE) process.env.FORJA_MODE = 'studio';
+
 if (name === 'capabilities:list' || name === 'capabilities:describe' || name === 'capability:execute') {
   process.exit(await runCapabilityCommand(name, rest));
 }
@@ -303,7 +315,7 @@ if (gateErrors.length) {
   audit({
     ts: new Date().toISOString(),
     cmd: name,
-    args: rest,
+    args: auditArgs(name, rest),
     exitCode: 1,
     durationMs: 0,
     gate: 'blocked',
@@ -343,7 +355,7 @@ const exitCode = result.status ?? 1;
 audit({
   ts: new Date().toISOString(),
   cmd: name,
-  args: rest,
+  args: auditArgs(name, rest),
   exitCode,
   durationMs: Date.now() - started,
 });

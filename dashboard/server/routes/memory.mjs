@@ -1,7 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import Database from 'better-sqlite3';
-import { getWorkspaceDbPath, initWorkspace } from '../../../lib/workspace.mjs';
+import { getWorkspaceDbPath, initWorkspace } from '../../../lib/workspace.ts';
 
 function dbPath() {
   initWorkspace();

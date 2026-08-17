@@ -5,8 +5,6 @@ import { publish, spawnWithEvents, newSource } from '../lib/events.mjs';
 import { commandForProvider } from '../lib/cli-lines.mjs';
 import { readRouting } from '../lib/llm-routing.mjs';
 import { syncUniversal } from '../lib/repo-sync.mjs';
-import { spawnLlm } from '../lib/llm-executor.mjs';
-import { sseEvent } from '../lib/sse.mjs';
 import {
   getProjectsDir,
   getWorkspaceDbPath,
@@ -14,7 +12,7 @@ import {
   getWorkspaceSpecsDir,
   getWorkspaceContextDir,
   initWorkspace,
-} from '../../../lib/workspace.mjs';
+} from '../../../lib/workspace.ts';
 
 const SLUG_RE = /^[a-z0-9][a-z0-9-]{1,63}$/;
 const STATUS_RE = /^(todo|running|blocked|done|review)$/;
@@ -608,105 +606,9 @@ ${workflow.comments.map(c => `- ${c.at}: ${c.comment}`).join('\n') || '-'}
     };
   });
 
-  app.post('/api/workflow/:project/run/:role', async (req, reply) => {
-    const projectSlug = slugify(req.params.project);
-    const role = String(req.params.role || '').trim().toLowerCase();
-    const step = String(req.body?.step || 'execute').trim();
-    const extraPrompt = String(req.body?.prompt || '').trim();
-    const file = workflowPath(repoRoot, projectSlug);
-    const workflow = normalizeWorkflow(readJson(file, null));
-    if (!workflow) return reply.code(404).send({ error: 'workflow not found', code: 'WORKFLOW_NOT_FOUND' });
-    const command = workflow.commands.find(c => c.role === role);
-    if (!command) return reply.code(404).send({ error: 'role command not found', code: 'ROLE_NOT_FOUND' });
-
-    const kanban = workflow.kanban.find(k => k.id === step) || workflow.kanban.find(k => k.role === role) || workflow.kanban.find(k => k.id === 'implement');
-    const prompt = [
-      `Projeto: ${workflow.projectName}`,
-      `Papel: ${role}`,
-      `Step: ${kanban?.title || step}`,
-      '',
-      extraPrompt || workflow.commands.find(c => c.role === role)?.commandLine || '',
-    ].join('\n');
-
-    reply.raw.writeHead(200, {
-      'Content-Type': 'text/event-stream',
-      'Cache-Control': 'no-cache, no-transform',
-      'Connection': 'keep-alive',
-      'X-Accel-Buffering': 'no',
-    });
-
-    const now = new Date().toISOString();
-    if (kanban) {
-      kanban.status = 'running';
-      kanban.updatedAt = now;
-      workflow.updatedAt = now;
-      writeJson(file, workflow);
-      publish('workflow.updated', { projectSlug, step: kanban.id, status: 'running' });
-    }
-
-    let stream;
-    try {
-      stream = spawnLlm(command, prompt, { cwd: path.join(getProjectsDir(), projectSlug) });
-    } catch (err) {
-      reply.raw.write(sseEvent('stderr', err.message));
-      reply.raw.write(sseEvent('exit', { code: -1, error: err.code || 'EXECUTOR_FAILED' }));
-      reply.raw.end();
-      return reply;
-    }
-
-    const chunks = [];
-    const errors = [];
-    reply.raw.write(sseEvent('start', { role, provider: command.provider, model: command.model, cmd: stream.cmd, args: stream.args }));
-
-    function pipe(eventName, chunk) {
-      const target = eventName === 'stderr' ? errors : chunks;
-      for (const line of String(chunk).split(/\r?\n/)) {
-        if (!line) continue;
-        target.push(line);
-        reply.raw.write(sseEvent(eventName, line));
-      }
-    }
-    stream.stdout.on('data', chunk => pipe('stdout', chunk));
-    stream.stderr.on('data', chunk => pipe('stderr', chunk));
-
-    const result = await stream.done;
-    const end = new Date().toISOString();
-    const status = result.code === 0 ? 'review' : 'blocked';
-    if (kanban) {
-      kanban.status = status;
-      kanban.llmReturn = chunks.join('\n') || errors.join('\n') || result.error || '';
-      kanban.details = `Execução ${command.provider}/${command.model || '-'} finalizada com code=${result.code}.`;
-      kanban.updatedAt = end;
-      workflow.updatedAt = end;
-      writeJson(file, workflow);
-    }
-
-    const runDir = path.join(getProjectsDir(), projectSlug, 'memory/60-runs');
-    fs.mkdirSync(runDir, { recursive: true });
-    fs.writeFileSync(path.join(runDir, `${end.replace(/[:]/g, '-')}-${role}-terminal.md`), `# LLM Terminal: ${role}
-
-- **Provider**: ${command.provider}
-- **Model**: ${command.model || '-'}
-- **Step**: ${kanban?.id || step}
-- **Status**: ${status}
-- **Exit code**: ${result.code}
-- **Started at**: ${now}
-- **Finished at**: ${end}
-
-## Prompt
-${prompt}
-
-## STDOUT
-${chunks.join('\n') || '-'}
-
-## STDERR
-${errors.join('\n') || result.error || '-'}
-`, 'utf8');
-
-    publish('workflow.updated', { projectSlug, step: kanban?.id || step, status });
-    const sync = await syncUniversal(repoRoot, `llm-run:${projectSlug}:${role}`, { projectSlug });
-    reply.raw.write(sseEvent('exit', { ...result, status, sync: { code: sync.code, source: sync.source } }));
-    reply.raw.end();
-    return reply;
-  });
+  app.post('/api/workflow/:project/run/:role', async (_req, reply) => reply.code(410).send({
+    error: 'Execução LLM pelo dashboard foi removida para preservar auditoria, política e privacidade.',
+    code: 'USE_FORJA_LLM_RUN',
+    command: 'forja llm:run --profile <perfil> --task <arquivo>',
+  }));
 }

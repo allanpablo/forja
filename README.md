@@ -100,6 +100,8 @@ process followed?", the answer is a file, not a promise.
   brings new scaffold pieces to already-generated projects without touching the user's code.
 - **3 integrated capabilities** (ADR-0016): **codegraph** (code analysis via MCP), **harness**
   (agent-team design), **ai-engineering** (knowledge base).
+- **LLM Fit Loop** — adapters de CLI, perfis no workspace, probes sem custo, observações e
+  recomendação determinística por papel/tarefa; credenciais nunca entram no Forja.
 
 ## ⚡ Quick start
 
@@ -119,6 +121,16 @@ forja spec:new my-feature
 forja spec:plan my-feature
 forja spec:tasks my-feature
 forja spec:check my-feature
+```
+
+### Maintenance commands
+
+```bash
+forja project:upgrade <project> --apply
+forja code:context <domain> --code
+forja memory:audit
+forja token:economy --project <project>
+forja spec:set-status <feature> <spec|plan|tasks> <draft|approved>
 ```
 
 ### Prove supervised autonomy locally
@@ -230,6 +242,13 @@ forja query:universal "<query>"            # FTS5 search
 forja context:smart                        # smart-context (3 modes, ADR-0003)
 forja memory:compress                      # archive old runs + VACUUM
 forja memory:extract                       # extract global knowledge from memory
+
+# LLM adapters and evidence
+forja llm:profiles:init                    # create workspace-local adapter profiles
+forja llm:doctor                           # verify configured CLIs without invoking a model
+forja llm:recommend --role worker --task implementation
+forja llm:run --profile codex --task specs/my-feature/spec.md
+forja llm:eval --scope model --id codex:default
 
 # Quality & release
 forja project:check                        # framework standards (pre-commit)

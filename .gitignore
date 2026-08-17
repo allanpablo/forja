@@ -29,6 +29,7 @@ dashboard/node_modules/
 dashboard/web/dist/
 dashboard/web/node_modules/
 apps/dashboard/.next/
+.playwright-mcp/
 
 # codegraph (índice local — ver ADR-0016 / docs/capacidades-externas.md)
 .codegraph/

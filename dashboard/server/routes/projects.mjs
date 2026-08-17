@@ -21,7 +21,7 @@ import {
   getProjectsDir,
   getWorkspaceDbPath,
   initWorkspace,
-} from '../../../lib/workspace.mjs';
+} from '../../../lib/workspace.ts';
 
 const NAME_RE = /^[a-zA-Z0-9_-]+$/;
 const ADMIN_STATUS = new Set(['active', 'paused', 'archived']);

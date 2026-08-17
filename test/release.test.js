@@ -14,23 +14,27 @@ const PKG_DIR = '/pkg';
  * Só `bin/`, `lib/` e `scripts/` contam como código do pacote — `boilerplates/` é conteúdo.
  */
 function tarballStub(files) {
+  files = Object.fromEntries(Object.entries(files).map(([file, content]) => [file.replaceAll('\\', '/'), content]));
   const dirs = new Set();
   for (const f of Object.keys(files)) {
-    for (let d = path.dirname(f); d !== '/' && d !== '.'; d = path.dirname(d)) dirs.add(d);
+    for (let d = path.posix.dirname(f); d !== '/' && d !== '.'; d = path.posix.dirname(d)) dirs.add(d);
   }
+  // Production resolves relative imports with path.resolve(), which adds the Windows drive to this
+  // POSIX-shaped in-memory tarball root. The fixture namespace intentionally remains drive-neutral.
+  const key = (value) => String(value).replaceAll('\\', '/').replace(/^[A-Za-z]:/, '');
   return {
-    existsSync: (p) => p in files || dirs.has(p),
+    existsSync: (p) => key(p) in files || dirs.has(key(p)),
     readFileSync: (p) => {
-      if (!(p in files)) throw new Error(`ENOENT: ${p}`);
-      return files[p];
+      if (!(key(p) in files)) throw new Error(`ENOENT: ${p}`);
+      return files[key(p)];
     },
-    statSync: (p) => ({ isDirectory: () => dirs.has(p) }),
+    statSync: (p) => ({ isDirectory: () => dirs.has(key(p)) }),
     readdirSync: (p) => {
       const out = new Set();
       for (const f of [...Object.keys(files), ...dirs]) {
-        if (path.dirname(f) === p) out.add(path.basename(f));
+        if (path.posix.dirname(f) === key(p)) out.add(path.posix.basename(f));
       }
-      if (!out.size && !dirs.has(p)) throw new Error(`ENOENT: ${p}`);
+      if (!out.size && !dirs.has(key(p))) throw new Error(`ENOENT: ${p}`);
       return [...out];
     },
   };

@@ -8,7 +8,7 @@ import {
   getWorkspaceSpecsDir,
   getWorkspaceContextDir,
   initWorkspace,
-} from '../../../lib/workspace.mjs';
+} from '../../../lib/workspace.ts';
 
 const NAME_RE = /^[a-zA-Z0-9_-]+$/;
 const FILE_STATUS_RE = /-\s*\*\*Status\*\*:\s*([a-z]+)/i;
@@ -42,6 +42,8 @@ function dbSummary() {
   const db = new Database(dbPath, { readonly: true, timeout: 5000 });
   db.pragma('busy_timeout = 5000');
   try {
+    const table = db.prepare("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'handoffs'").get();
+    if (!table) return empty;
     const handoffs = {};
     for (const row of db.prepare('SELECT status, COUNT(*) AS total FROM handoffs GROUP BY status').all()) {
       handoffs[row.status] = row.total;

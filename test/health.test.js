@@ -443,21 +443,23 @@ test('node-engines: dentro do range → ok', async () => {
 
 /** fs de fixture para um repo do framework inteiro. `files` mapeia path → conteúdo. */
 function repoStub(files, { git = true } = {}) {
+  files = Object.fromEntries(Object.entries(files).map(([file, content]) => [file.replaceAll('\\', '/'), content]));
   const dirs = new Set();
   for (const f of Object.keys(files)) {
-    for (let d = path.dirname(f); d !== '/' && d !== '.'; d = path.dirname(d)) dirs.add(d);
+    for (let d = path.posix.dirname(f); d !== '/' && d !== '.'; d = path.posix.dirname(d)) dirs.add(d);
   }
+  const key = (value) => String(value).replaceAll('\\', '/');
   return {
-    existsSync: (p) => p in files || dirs.has(p) || (git && p === '/repo/.git'),
+    existsSync: (p) => key(p) in files || dirs.has(key(p)) || (git && key(p) === '/repo/.git'),
     readFileSync: (p) => {
-      if (!(p in files)) throw new Error(`ENOENT: ${p}`);
-      return files[p];
+      if (!(key(p) in files)) throw new Error(`ENOENT: ${p}`);
+      return files[key(p)];
     },
-    statSync: (p) => ({ isDirectory: () => dirs.has(p), mtimeMs: 0 }),
+    statSync: (p) => ({ isDirectory: () => dirs.has(key(p)), mtimeMs: 0 }),
     readdirSync: (p) => {
       const out = new Set();
       for (const f of [...Object.keys(files), ...dirs]) {
-        if (path.dirname(f) === p) out.add(path.basename(f));
+        if (path.posix.dirname(f) === key(p)) out.add(path.posix.basename(f));
       }
       return [...out];
     },

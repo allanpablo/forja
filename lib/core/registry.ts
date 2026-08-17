@@ -45,6 +45,7 @@ export const DOMAINS = {
   code: 'Code intelligence (codegraph)',
   memoria: 'Memória',
   contexto: 'Contexto & token economy',
+  llm: 'LLMs & execução supervisionada',
   governanca: 'Governança & qualidade',
   geracao: 'Geração de projetos',
 };
@@ -330,6 +331,56 @@ export const COMMANDS = {
     desc: 'Benchmark JSON determinístico de baseline, contexto mínimo, checksum e cache',
     node: 'scripts/context-benchmark.ts',
   },
+  'spec:set-status': {
+    domain: 'sdd',
+    desc: 'Atualiza o status de um artefato SDD',
+    node: 'scripts/spec-cli.ts',
+    args: ['set-status'],
+  },
+
+  // --- LLMs & execução supervisionada -------------------------------------
+  'llm:profiles:init': {
+    domain: 'llm',
+    desc: 'Cria perfis de adapters LLM no workspace',
+    node: 'scripts/llm-fit.ts',
+    args: ['profiles:init'],
+    gates: ['workspace'],
+  },
+  'llm:doctor': {
+    domain: 'llm',
+    desc: 'Verifica adapters LLM configurados sem usar credenciais',
+    node: 'scripts/llm-fit.ts',
+    args: ['doctor'],
+    gates: ['workspace'],
+  },
+  'llm:probe': {
+    domain: 'llm',
+    desc: 'Executa probe seguro de disponibilidade dos adapters LLM',
+    node: 'scripts/llm-fit.ts',
+    args: ['probe'],
+    gates: ['workspace'],
+  },
+  'llm:recommend': {
+    domain: 'llm',
+    desc: 'Recomenda perfil LLM por papel, tarefa e evidência local',
+    node: 'scripts/llm-fit.ts',
+    args: ['recommend'],
+    gates: ['workspace'],
+  },
+  'llm:run': {
+    domain: 'llm',
+    desc: 'Executa um perfil LLM e registra observação normalizada',
+    node: 'scripts/llm-fit.ts',
+    args: ['run'],
+    gates: ['workspace'],
+  },
+  'llm:eval': {
+    domain: 'llm',
+    desc: 'Avalia execuções LLM com métricas determinísticas',
+    node: 'scripts/llm-fit.ts',
+    args: ['eval'],
+    gates: ['workspace'],
+  },
 
   // --- Governança & qualidade ---------------------------------------------------
   'project:check': {
@@ -346,6 +397,11 @@ export const COMMANDS = {
     domain: 'governanca',
     desc: 'Executa a prova offline de autonomia supervisionada com Git worktree real',
     node: 'scripts/demo-autonomy.ts',
+  },
+  'demo:workspace': {
+    domain: 'governanca',
+    desc: 'Cria um workspace isolado e rotulado para demonstração do produto',
+    node: 'scripts/demo-workspace.ts',
   },
   'release:check': {
     domain: 'governanca',

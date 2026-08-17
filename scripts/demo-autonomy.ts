@@ -141,7 +141,7 @@ export async function runAutonomyDemo(): Promise<DemoResult> {
       const source = fs.readFileSync(worktreeFile, 'utf8');
       if (!source.includes('assert.equal(add(1, 1), 3)')) throw new Error('Expected failing assertion was not found');
       fs.writeFileSync(worktreeFile, source.replace('assert.equal(add(1, 1), 3)', 'assert.equal(add(1, 1), 2)'));
-      const testExecution = await sandbox.execute(session.id, { executable: 'npm', args: ['test'], cwd: session.root });
+      const testExecution = await sandbox.execute(session.id, { executable: process.execPath, args: ['--test'], cwd: session.root });
       if (testExecution.exitCode !== 0) throw new Error(`Fixture tests failed after edit: ${testExecution.stderr || testExecution.stdout}`);
       const validation = await sandbox.validate(session.id);
       if (validation.status !== 'accepted') throw new Error(validation.summary);
@@ -176,7 +176,7 @@ export async function runAutonomyDemo(): Promise<DemoResult> {
   if (completed.state !== 'completed' || completed.validation?.status !== 'accepted') throw new Error(`Runtime did not complete with accepted validation: ${completed.state}/${completed.validation?.status}`);
   const diff = await sandbox.diff(session.id);
   const promoted = await sandbox.promote(session.id, diff);
-  const promotedTests = mustCommand('npm', ['test'], fixtureRoot);
+  const promotedTests = mustCommand(process.execPath, ['--test'], fixtureRoot);
   await sandbox.destroy(session.id);
   const graphAfter = await new GraphIndexer(graph).sync(graphSource);
   const audit = new SqliteAuditStore(database);

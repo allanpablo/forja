@@ -74,7 +74,11 @@ export async function withCleanInstall(fn: any, { root = repoRoot } = {}) {
 
   const npm = (args: any, cwd: any) => {
     try {
-      return execFileSync('npm', args, { cwd, encoding: 'utf8', env, stdio: 'pipe' });
+      const command = process.platform === 'win32' ? process.execPath : 'npm';
+      const commandArgs = process.platform === 'win32'
+        ? [path.join(path.dirname(process.execPath), 'node_modules', 'npm', 'bin', 'npm-cli.js'), ...args]
+        : args;
+      return execFileSync(command, commandArgs, { cwd, encoding: 'utf8', env, stdio: 'pipe' });
     } catch (err) {
       // Engolir o stderr aqui cega o diagnóstico exatamente quando ele importa.
       const e = /** @type {any} */ (err);

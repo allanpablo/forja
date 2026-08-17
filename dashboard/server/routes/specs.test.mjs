@@ -153,9 +153,7 @@ test('POST /api/specs/:slug/status muda status via spec-cli', async () => {
   const os = await import('node:os');
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'dash-stat-'));
   process.env.FORJA_WORKSPACE = root;
-  fs.mkdirSync(path.join(root, 'scripts'), { recursive: true });
   fs.mkdirSync(path.join(root, 'specs', 'foo'), { recursive: true });
-  fs.copyFileSync(path.join(realRepoRoot, 'scripts/spec-cli.mjs'), path.join(root, 'scripts/spec-cli.mjs'));
   fs.writeFileSync(path.join(root, 'specs/foo/spec.md'), '# Spec: foo\n\n- **Status**: draft\n');
 
   const app = buildServer({ logger: false, repoRoot: root });
@@ -177,10 +175,8 @@ test('POST /api/specs/:slug/generate/:stage cria plan via spec-cli', async () =>
   const os = await import('node:os');
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'dash-generate-'));
   process.env.FORJA_WORKSPACE = root;
-  fs.mkdirSync(path.join(root, 'scripts'), { recursive: true });
   fs.mkdirSync(path.join(root, 'specs', '_templates'), { recursive: true });
   fs.mkdirSync(path.join(root, 'specs', 'foo'), { recursive: true });
-  fs.copyFileSync(path.join(realRepoRoot, 'scripts/spec-cli.mjs'), path.join(root, 'scripts/spec-cli.mjs'));
   fs.copyFileSync(path.join(realRepoRoot, 'specs/_templates/plan.md'), path.join(root, 'specs/_templates/plan.md'));
   fs.writeFileSync(path.join(root, 'specs/foo/spec.md'), '# Spec: foo\n\n- **Status**: approved\n');
 
@@ -200,10 +196,8 @@ test('POST /api/specs/:slug/generate/:stage retorna 409 se gate falhar', async (
   const os = await import('node:os');
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'dash-generate-fail-'));
   process.env.FORJA_WORKSPACE = root;
-  fs.mkdirSync(path.join(root, 'scripts'), { recursive: true });
   fs.mkdirSync(path.join(root, 'specs', '_templates'), { recursive: true });
   fs.mkdirSync(path.join(root, 'specs', 'foo'), { recursive: true });
-  fs.copyFileSync(path.join(realRepoRoot, 'scripts/spec-cli.mjs'), path.join(root, 'scripts/spec-cli.mjs'));
   fs.copyFileSync(path.join(realRepoRoot, 'specs/_templates/plan.md'), path.join(root, 'specs/_templates/plan.md'));
   fs.writeFileSync(path.join(root, 'specs/foo/spec.md'), '# Spec: foo\n\n- **Status**: draft\n');
 

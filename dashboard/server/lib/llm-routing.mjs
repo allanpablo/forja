@@ -1,4 +1,5 @@
 import fs from 'node:fs';
+import os from 'node:os';
 import path from 'node:path';
 
 export const PROVIDERS = Object.freeze([
@@ -119,21 +120,13 @@ export const PROVIDERS = Object.freeze([
 const VERSION = 1;
 
 export function routingPath(repoRoot) {
-  return path.join(repoRoot, '.memory', 'agent-llm-routing.json');
+  return path.join(workspaceRoot(), '.context', 'llm-profiles.json');
 }
 
 export function defaultRouting() {
   return {
     version: VERSION,
-    assignments: {
-      orchestrator: {
-        provider: 'codex',
-        model: 'gpt-5.3-codex',
-        command: 'codex',
-        taskTypes: ['orchestration', 'handoffs', 'coordination'],
-        notes: 'Codex autenticado localmente; bom padrão para coordenação e mudanças no repo.',
-      },
-    },
+    assignments: {},
   };
 }
 
@@ -142,22 +135,26 @@ export function readRouting(repoRoot) {
   if (!fs.existsSync(file)) return defaultRouting();
   try {
     const parsed = JSON.parse(fs.readFileSync(file, 'utf8'));
-    return {
-      version: VERSION,
-      assignments: { ...(parsed.assignments || {}) },
-    };
+    if (parsed.version !== 1 || !parsed.profiles || typeof parsed.profiles !== 'object') return defaultRouting();
+    const assignments = {};
+    for (const [name, profile] of Object.entries(parsed.profiles)) {
+      if (!profile || typeof profile !== 'object' || !Array.isArray(profile.roles)) continue;
+      for (const role of profile.roles) assignments[role] = assignmentForProfile(name, profile);
+    }
+    return { version: VERSION, assignments };
   } catch {
     return defaultRouting();
   }
 }
 
 export function writeAssignment(repoRoot, role, assignment) {
-  const current = readRouting(repoRoot);
+  const file = routingPath(repoRoot);
+  const current = readProfiles(file);
   fs.mkdirSync(path.dirname(routingPath(repoRoot)), { recursive: true });
-  const normalized = normalizeAssignment(assignment);
-  current.assignments[role] = normalized;
-  fs.writeFileSync(routingPath(repoRoot), `${JSON.stringify(current, null, 2)}\n`);
-  return normalized;
+  const normalized = normalizeProfile(role, assignment);
+  current.profiles[role] = normalized;
+  fs.writeFileSync(file, `${JSON.stringify(current, null, 2)}\n`);
+  return assignmentForProfile(role, normalized);
 }
 
 export function normalizeAssignment(input = {}) {
@@ -175,5 +172,52 @@ export function normalizeAssignment(input = {}) {
     command,
     taskTypes: taskTypes.map(t => String(t).trim()).filter(Boolean).slice(0, 12),
     notes,
+  };
+}
+
+function workspaceRoot() {
+  if (process.env.FORJA_WORKSPACE) return path.resolve(process.env.FORJA_WORKSPACE);
+  try {
+    const config = JSON.parse(fs.readFileSync(path.join(os.homedir(), '.forjarc.json'), 'utf8'));
+    if (config.workspaceRoot) return path.resolve(config.workspaceRoot);
+  } catch {}
+  return path.join(os.homedir(), 'forja-workspace');
+}
+
+function readProfiles(file) {
+  try {
+    const parsed = JSON.parse(fs.readFileSync(file, 'utf8'));
+    if (parsed.version === 1 && parsed.profiles && typeof parsed.profiles === 'object') return { version: 1, profiles: { ...parsed.profiles } };
+  } catch {}
+  return { version: 1, profiles: {} };
+}
+
+function normalizeProfile(role, input = {}) {
+  const assignment = normalizeAssignment(input);
+  const known = PROVIDERS.find(provider => provider.id === assignment.provider);
+  const parts = assignment.command.split(/\s+/).filter(Boolean);
+  const command = parts[0] || known?.command?.split(/\s+/)[0] || assignment.provider;
+  const commandArgs = parts.slice(1);
+  return {
+    provider: assignment.provider,
+    model: assignment.model || 'default',
+    command,
+    commandArgs,
+    roles: [role],
+    taskTypes: assignment.taskTypes,
+    privacy: assignment.provider === 'ollama' ? 'local' : 'external',
+    enabled: true,
+  };
+}
+
+function assignmentForProfile(name, profile) {
+  return {
+    profile: name,
+    provider: String(profile.provider || ''),
+    model: String(profile.model || ''),
+    command: [profile.command, ...(Array.isArray(profile.commandArgs) ? profile.commandArgs : [])].filter(Boolean).join(' '),
+    taskTypes: Array.isArray(profile.taskTypes) ? profile.taskTypes : [],
+    notes: `Perfil canônico do workspace: ${name}`,
+    enabled: profile.enabled === true,
   };
 }

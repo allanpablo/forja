@@ -16,7 +16,7 @@ import { buildServer } from '../index.mjs';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const repoRoot = path.resolve(__dirname, '..', '..', '..');
-import { getWorkspaceDbPath, initWorkspace } from '../../../lib/workspace.mjs';
+import { getWorkspaceDbPath, initWorkspace } from '../../../lib/workspace.ts';
 
 function setupTestWorkspace() {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'dash-handoffs-'));

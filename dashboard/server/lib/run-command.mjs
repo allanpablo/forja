@@ -15,6 +15,7 @@ import { spawn } from 'node:child_process';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { getCommand, ALLOWED_NAMES, validateCommandArgs } from './allowlist.mjs';
+import { forjaArgs } from './forja-cli.mjs';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -52,7 +53,7 @@ export function runCommand(name, opts = {}) {
   const cwd = opts.cwd || defaultCwd;
   const env = { ...process.env, ...(opts.env || {}) };
 
-  const args = [...entry.args, ...extraArgs];
+  const args = entry.forja ? forjaArgs(entry.args[0], [...entry.args.slice(1), ...extraArgs]) : [...entry.args, ...extraArgs];
   const proc = spawn(entry.cmd, args, {
     cwd,
     env,

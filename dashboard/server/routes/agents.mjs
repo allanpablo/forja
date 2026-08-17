@@ -2,7 +2,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import Database from 'better-sqlite3';
 import { readRouting } from '../lib/llm-routing.mjs';
-import { getWorkspaceDbPath, initWorkspace } from '../../../lib/workspace.mjs';
+import { getWorkspaceDbPath, initWorkspace } from '../../../lib/workspace.ts';
 
 const SLUG_RE = /^[a-z0-9][a-z0-9-]{0,63}$/;
 

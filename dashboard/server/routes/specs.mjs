@@ -11,7 +11,8 @@ import path from 'node:path';
 import { parseSpec } from '../lib/spec-parser.mjs';
 import { spawnWithEvents, publish, newSource } from '../lib/events.mjs';
 import { syncUniversal } from '../lib/repo-sync.mjs';
-import { getWorkspaceSpecsDir, initWorkspace } from '../../../lib/workspace.mjs';
+import { forjaArgs } from '../lib/forja-cli.mjs';
+import { getWorkspaceSpecsDir, initWorkspace } from '../../../lib/workspace.ts';
 
 const SLUG_RE = /^[a-z0-9][a-z0-9-]{0,63}$/;
 const STAGES = new Set(['spec', 'plan', 'tasks']);
@@ -95,7 +96,7 @@ export default async function specsRoutes(app, { repoRoot }) {
       return reply.code(404).send({ error: 'stage file not found', code: 'STAGE_NOT_FOUND' });
     }
     const source = newSource();
-    const result = await spawnWithEvents('node', ['scripts/spec-cli.mjs', 'set-status', slug, stage, status], {
+    const result = await spawnWithEvents('node', forjaArgs('spec:set-status', [slug, stage, status]), {
       cwd: repoRoot, name: `spec-cli set-status ${slug}/${stage} → ${status}`, source,
     });
     if (result.code !== 0) {
@@ -120,7 +121,7 @@ export default async function specsRoutes(app, { repoRoot }) {
     }
 
     const source = newSource();
-    const result = await spawnWithEvents('node', ['scripts/spec-cli.mjs', stage, slug], {
+    const result = await spawnWithEvents('node', forjaArgs(`spec:${stage}`, [slug]), {
       cwd: repoRoot, name: `spec-cli ${stage} ${slug}`, source,
     });
     if (result.code !== 0) {

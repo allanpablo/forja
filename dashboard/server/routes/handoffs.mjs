@@ -13,7 +13,8 @@ import fs from 'node:fs';
 import path from 'node:path';
 import Database from 'better-sqlite3';
 import { spawnWithEvents, publish, newSource } from '../lib/events.mjs';
-import { getWorkspaceDbPath, initWorkspace } from '../../../lib/workspace.mjs';
+import { getWorkspaceDbPath, initWorkspace } from '../../../lib/workspace.ts';
+import { forjaArgs } from '../lib/forja-cli.mjs';
 
 const VALID_STATUS = new Set(['open', 'in_progress', 'done', 'cancelled', 'archived']);
 const TRANSITION_TARGETS = new Set(['in_progress', 'done', 'cancelled', 'archived']);
@@ -37,6 +38,10 @@ function openDb() {
   return db;
 }
 
+function hasHandoffsTable(db) {
+  return Boolean(db.prepare("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'handoffs'").get());
+}
+
 export default async function handoffsRoutes(app, { repoRoot }) {
   app.get('/api/handoffs', async (req, reply) => {
     const { status, to, from, spec, limit = '50' } = req.query || {};
@@ -57,6 +62,10 @@ export default async function handoffsRoutes(app, { repoRoot }) {
       if (err.code === 'DB_MISSING') return [];
       throw err;
     }
+    if (!hasHandoffsTable(db)) {
+      db.close();
+      return [];
+    }
     const where = filters.length ? `WHERE ${filters.join(' AND ')}` : '';
     const rows = db.prepare(
       `SELECT id, created_at, from_agent, to_agent, intent, status, spec_slug, context, acceptance, constraints, return_to
@@ -74,6 +83,10 @@ export default async function handoffsRoutes(app, { repoRoot }) {
     catch (err) {
       if (err.code === 'DB_MISSING') return reply.code(404).send({ error: 'handoff not found', code: 'HANDOFF_NOT_FOUND' });
       throw err;
+    }
+    if (!hasHandoffsTable(db)) {
+      db.close();
+      return reply.code(404).send({ error: 'handoff not found', code: 'HANDOFF_NOT_FOUND' });
     }
     const row = db.prepare('SELECT * FROM handoffs WHERE id = ?').get(id);
     db.close();
@@ -95,7 +108,7 @@ export default async function handoffsRoutes(app, { repoRoot }) {
     const source = newSource();
     const result = await spawnWithEvents(
       'node',
-      ['scripts/agent-router.mjs', AGENT_ROUTER_CMD[target], String(id)],
+      forjaArgs('agent:route', [AGENT_ROUTER_CMD[target], String(id)]),
       { cwd: repoRoot, name: `agent-router ${AGENT_ROUTER_CMD[target]} #${id}`, source },
     );
     if (result.code !== 0) {
