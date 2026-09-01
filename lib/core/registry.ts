@@ -244,6 +244,37 @@ export const COMMANDS = {
     args: ['graph'],
     gates: ['workspace-warn'],
   },
+  'architecture:compile': {
+    domain: 'code',
+    desc: 'ADRs (## Constraints) → .context/architecture/constitution.json (SPEC-033)',
+    node: 'scripts/architecture.ts',
+    args: ['compile'],
+  },
+  'architecture:check': {
+    domain: 'code',
+    desc: 'Verifica o código real contra a Architecture Constitution compilada (SPEC-033)',
+    node: 'scripts/architecture.ts',
+    args: ['check'],
+    gates: ['workspace-warn'],
+  },
+  'architecture:status': {
+    domain: 'code',
+    desc: 'Resumo da Constitution: regras active/proposed, última compilação (SPEC-033)',
+    node: 'scripts/architecture.ts',
+    args: ['status'],
+  },
+  'architecture:explain': {
+    domain: 'code',
+    desc: 'Explica uma regra da Constitution: ADR de origem, severidade, texto original (SPEC-033)',
+    node: 'scripts/architecture.ts',
+    args: ['explain'],
+  },
+  'architecture:approve': {
+    domain: 'code',
+    desc: 'Promove uma regra proposed a active via ApprovalLedger (SPEC-033)',
+    node: 'scripts/architecture.ts',
+    args: ['approve'],
+  },
   'code:context': {
     domain: 'code',
     desc: 'Pacote de contexto mínimo de um domínio: o mapa (context.md), + código com --code (ADR-0009)',

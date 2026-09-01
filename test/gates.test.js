@@ -91,3 +91,29 @@ test('runGates --with-drift adiciona o grupo do drift sentinel sem escalar o ver
   assert.ok(groups.some((g) => g.name.includes('drift')));
   assert.equal(overallStatus(groups), 'warn', 'drift é severity warn — nunca reprova check:all sozinho');
 });
+
+test('runGates não roda architecture:check por padrão (SPEC-033 AC-7 é opt-in)', async () => {
+  let architectureChamado = false;
+  const groups = await runGates({
+    deps: {
+      health: async () => [r('a', 'ok')],
+      smoke: async () => [r('b', 'ok')],
+      architecture: async () => { architectureChamado = true; return [r('architecture-check', 'ok')]; },
+    },
+  });
+  assert.equal(architectureChamado, false);
+  assert.ok(!groups.some((g) => g.name.includes('architecture')));
+});
+
+test('runGates --with-architecture adiciona o grupo e ESCALA o veredito para fail numa violação (diferente de drift)', async () => {
+  const groups = await runGates({
+    withArchitecture: true,
+    deps: {
+      health: async () => [r('a', 'ok')],
+      smoke: async () => [r('b', 'ok')],
+      architecture: async () => [r('architecture-check', 'fail', 'critical')],
+    },
+  });
+  assert.ok(groups.some((g) => g.name.includes('architecture')));
+  assert.equal(overallStatus(groups), 'fail', 'uma regra active violada é reprovação real, não só sinal — ao contrário de drift');
+});

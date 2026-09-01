@@ -97,6 +97,14 @@ subsequente exigir de fato um breaking change de contrato, esse será o gatilho 
 - Adicionar um bounded context novo (`packages/engineering`) aumenta a superfície do monorepo;
   mitigado por manter os quatro sub-domínios sem imports cruzados entre si desde o primeiro commit.
 
+## Constraints
+
+Regra real, checável hoje (não hipotética) — a primeira que `architecture:compile` (SPEC-033)
+compila deste repositório: `packages/policy` é domínio puro (ADR-0020), nunca deveria depender de
+um driver de persistência concreto.
+
+- packages/policy não depende de better-sqlite3
+
 ## Rastreamento
 
 - Documento de arquitetura: `docs/architecture/FORJA-3-ENGINEERING-INTELLIGENCE-ARCHITECTURE.md`

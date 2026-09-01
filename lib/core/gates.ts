@@ -13,6 +13,7 @@ import { runChecks as runHealthChecks, worstStatus } from './health.ts';
 import { runProjectSmoke } from './project-smoke.ts';
 import { runReleaseChecks } from './release.ts';
 import { runDriftGate } from './drift-gate.ts';
+import { runArchitectureGate } from './architecture-gate.ts';
 
 export interface GateGroup {
   name: string;
@@ -25,6 +26,7 @@ export interface GatesDeps {
   smoke?: (opts: { full: boolean }) => Promise<any[]>;
   release?: () => Promise<any[]>;
   drift?: () => Promise<any[]>;
+  architecture?: () => Promise<any[]>;
 }
 
 /**
@@ -37,18 +39,20 @@ export interface GatesDeps {
  * rodar em todo commit sem medição, daí opt-in em vez de padrão.
  */
 export async function runGates(
-  { full = false, withDrift = false, deps = {} }: { full?: boolean; withDrift?: boolean; deps?: GatesDeps } = {}
+  { full = false, withDrift = false, withArchitecture = false, deps = {} }: { full?: boolean; withDrift?: boolean; withArchitecture?: boolean; deps?: GatesDeps } = {}
 ): Promise<GateGroup[]> {
   const health = deps.health ?? (() => runHealthChecks());
   const smoke = deps.smoke ?? ((o: { full: boolean }) => runProjectSmoke(o));
   const release = deps.release ?? (() => runReleaseChecks({}));
   const drift = deps.drift ?? (() => runDriftGate());
+  const architecture = deps.architecture ?? (() => runArchitectureGate());
 
   const groups: GateGroup[] = [];
   groups.push({ name: 'núcleo & coerência', results: await health() });
   groups.push({ name: 'projeto gerado', results: await smoke({ full }) });
   if (full) groups.push({ name: 'tarball (instalação limpa)', results: await release() });
   if (withDrift) groups.push({ name: 'drift sentinel (opt-in, SPEC-030)', results: await drift() });
+  if (withArchitecture) groups.push({ name: 'architecture constitution (opt-in, SPEC-033)', results: await architecture() });
   return groups;
 }
 

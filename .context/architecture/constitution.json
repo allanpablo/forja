@@ -1,0 +1,22 @@
+{
+  "compiledAt": "2026-09-01T09:45:43.143Z",
+  "rules": [
+    {
+      "id": "0078-forjajs-3-engineering-control-plane-forbid_import-0",
+      "source": "memory/90-decisions/0078-forjajs-3-engineering-control-plane.md",
+      "status": "active",
+      "scope": {
+        "paths": [
+          "packages/policy/**"
+        ]
+      },
+      "constraint": {
+        "kind": "forbid_import",
+        "target": "better-sqlite3"
+      },
+      "severity": "high",
+      "rationale": "packages/policy não depende de better-sqlite3",
+      "confidence": 1
+    }
+  ]
+}
