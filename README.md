@@ -245,6 +245,8 @@ forja architecture:check                   # real code vs. the compiled Constitu
 forja architecture:status                  # active/proposed rules, last compile
 forja architecture:explain <rule-id>       # source ADR, original text, severity
 forja architecture:approve <rule-id>       # promotes a proposed rule to active (via ApprovalLedger)
+forja risk:assess [ref]                    # 0-100 change risk score, 7 named factors (SPEC-034)
+forja risk:explain <assessment-id>         # replays a computed assessment, factor by factor
 
 # Memory & context (workspace)
 forja sync:universal                       # reindex the workspace SQLite FTS5
