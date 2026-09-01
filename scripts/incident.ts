@@ -23,7 +23,8 @@ import Database from 'better-sqlite3';
 import { GraphLoop } from '../packages/graph/src/index.ts';
 import { SqliteGraphStore, SqliteMigrationRunner } from '../packages/adapter-sqlite/src/index.ts';
 import { getWorkspaceDbDir, getWorkspaceDbPath } from '../lib/workspace.ts';
-import type { EntityId, GraphNode, ISO8601 } from '../packages/contracts/src/index.ts';
+import { incidentRecords, rankIncidentsByQuery, titleOf } from '../lib/core/incident-search.ts';
+import type { EntityId, ISO8601 } from '../packages/contracts/src/index.ts';
 
 function flag(args: readonly string[], name: string): string | undefined {
   const index = args.indexOf(name);
@@ -58,26 +59,12 @@ function cmdRecord(args: string[]): void {
   });
 }
 
-function incidents(store: SqliteGraphStore): readonly GraphNode[] {
-  return store.listNodes().filter((node) => node.type === 'Incident').sort((left, right) => right.createdAt.localeCompare(left.createdAt));
-}
-
-function titleOf(node: GraphNode): string {
-  return node.label.split('\n')[0];
-}
-
 function cmdList(): void {
   withGraph((_graph, store) => {
-    const records = incidents(store);
+    const records = incidentRecords(store);
     if (records.length === 0) { console.log('Nenhum incidente registrado ainda — rode forja incident:record --title <t> primeiro.'); return; }
     for (const record of records) console.log(`${record.createdAt}  ${record.id}  ${titleOf(record)}`);
   });
-}
-
-const STOPWORDS = new Set(['o', 'a', 'os', 'as', 'de', 'do', 'da', 'em', 'um', 'uma', 'e', 'que', 'para', 'com', 'não']);
-
-function terms(text: string): readonly string[] {
-  return text.toLowerCase().split(/[^a-z0-9áéíóúâêôãõç]+/).filter((term) => term.length > 1 && !STOPWORDS.has(term));
 }
 
 function cmdSimilar(args: string[]): void {
@@ -85,17 +72,7 @@ function cmdSimilar(args: string[]): void {
   if (!query) { console.error('Uso: forja incident:similar "<busca>"'); process.exitCode = 1; return; }
 
   withGraph((_graph, store) => {
-    const records = incidents(store);
-    const queryTerms = terms(query);
-    const ranked = records
-      .map((record) => {
-        const recordTerms = new Set(terms(record.label));
-        const matches = queryTerms.filter((term) => recordTerms.has(term)).length;
-        return { record, matches, relevance: queryTerms.length === 0 ? 0 : matches / queryTerms.length };
-      })
-      .filter((item) => item.matches > 0)
-      .sort((left, right) => right.relevance - left.relevance || left.record.id.localeCompare(right.record.id));
-
+    const ranked = rankIncidentsByQuery(incidentRecords(store), query);
     if (ranked.length === 0) { console.log('Nenhum incidente parecido encontrado (busca por palavra-chave, sem entendimento semântico — AC-3).'); return; }
     for (const item of ranked) console.log(`[${item.relevance.toFixed(2)}] ${item.record.id}  ${titleOf(item.record)}`);
     console.log('\n(sugestão por palavra-chave, não uma alegação de causa igual — leitura, nunca aplicação automática, SPEC-041 AC-4)');

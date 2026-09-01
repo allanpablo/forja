@@ -248,7 +248,7 @@ forja architecture:approve <rule-id>       # promotes a proposed rule to active 
 forja risk:assess [ref]                    # 0-100 change risk score, 7 named factors (SPEC-034)
 forja risk:explain <assessment-id>         # replays a computed assessment, factor by factor
 forja evidence:show <run-id>               # aggregated view of a persisted run (SPEC-035)
-forja engineer "<objetivo>" [--ref <ref>] [--json]  # façade: context + relevant ADRs + architecture check + risk + recommended flow (SPEC-035)
+forja engineer "<objetivo>" [--ref <ref>] [--role <role>] [--json]  # façade: context + relevant ADRs + architecture check + risk + recommended agents + similar incidents + recommended flow (SPEC-035, SPEC-042)
 forja agent:register <id> --role <role> [--provider <p>] [--model <m>] [--capabilities <c1,c2>] [--domains <d1,d2>]  # register/update an agent (SPEC-036)
 forja agent:list                           # registered agents, with trustLevel if already scored
 forja agent:show <id>                      # detail of one registered agent

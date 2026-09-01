@@ -94,9 +94,60 @@ test('engineer — texto legível (sem --json) contém todas as seções', () =>
   try {
     const result = run('scripts/engineer.ts', ['refatorar auth'], graphRoot, workspace);
     assert.equal(result.status, 0, result.stderr);
-    for (const heading of ['CONTEXTO', 'ADRs/SPECs RELEVANTES', 'ARCHITECTURE CHECK', 'RISCO', 'FLUXO RECOMENDADO']) {
+    for (const heading of ['CONTEXTO', 'ADRs/SPECs RELEVANTES', 'ARCHITECTURE CHECK', 'RISCO', 'INCIDENTES PARECIDOS', 'FLUXO RECOMENDADO']) {
       assert.match(result.stdout, new RegExp(heading));
     }
+    assert.doesNotMatch(result.stdout, /AGENTES RECOMENDADOS/, 'sem --role, a seção de agentes não deveria aparecer (AC-1)');
+  } finally {
+    cleanup(graphRoot, workspace);
+  }
+});
+
+test('engineer --role: inclui agentes recomendados reais (SPEC-042 AC-1)', () => {
+  const graphRoot = createFixture();
+  const workspace = fs.mkdtempSync(path.join(os.tmpdir(), 'forja-engineer-workspace-'));
+  try {
+    const register = run('scripts/agent.ts', ['register', 'agent-a', '--role', 'developer', '--domains', 'backend'], graphRoot, workspace);
+    assert.equal(register.status, 0, register.stderr);
+
+    const result = run('scripts/engineer.ts', ['refatorar auth', '--role', 'developer', '--json'], graphRoot, workspace);
+    assert.equal(result.status, 0, result.stderr);
+    const report = JSON.parse(result.stdout);
+    assert.equal(report.role, 'developer');
+    assert.ok(Array.isArray(report.recommendedAgents));
+    assert.equal(report.recommendedAgents.length, 1);
+    assert.equal(report.recommendedAgents[0].agentId, 'agent-a');
+    assert.equal(report.recommendedAgents[0].score, 100, 'role casado, sem domain no objetivo, sem trustLevel ainda — score só do papel');
+  } finally {
+    cleanup(graphRoot, workspace);
+  }
+});
+
+test('engineer — sempre inclui incidentes parecidos, achando o que casa e ignorando o que não casa (SPEC-042 AC-2)', () => {
+  const graphRoot = createFixture();
+  const workspace = fs.mkdtempSync(path.join(os.tmpdir(), 'forja-engineer-workspace-'));
+  try {
+    run('scripts/incident.ts', ['record', '--title', 'npm test hangs in a sandboxed worktree', '--description', 'sandboxEnvironment strips HOME'], graphRoot, workspace);
+    run('scripts/incident.ts', ['record', '--title', 'Frontend build fails on CI', '--description', 'Webpack config references a missing asset path'], graphRoot, workspace);
+
+    const result = run('scripts/engineer.ts', ['npm hangs in a sandboxed worktree', '--json'], graphRoot, workspace);
+    assert.equal(result.status, 0, result.stderr);
+    const report = JSON.parse(result.stdout);
+    assert.equal(report.similarIncidents.length, 1);
+    assert.match(report.similarIncidents[0].title, /npm test hangs/);
+  } finally {
+    cleanup(graphRoot, workspace);
+  }
+});
+
+test('engineer — sem incidente algum registrado, seção vazia, não erro', () => {
+  const graphRoot = createFixture();
+  const workspace = fs.mkdtempSync(path.join(os.tmpdir(), 'forja-engineer-workspace-'));
+  try {
+    const result = run('scripts/engineer.ts', ['refatorar auth', '--json'], graphRoot, workspace);
+    assert.equal(result.status, 0, result.stderr);
+    const report = JSON.parse(result.stdout);
+    assert.deepEqual(report.similarIncidents, []);
   } finally {
     cleanup(graphRoot, workspace);
   }

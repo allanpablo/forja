@@ -76,6 +76,7 @@ apps/dashboard/.next/
 !/specs/ai-code-provenance
 !/specs/agent-runtime-monitoring
 !/specs/learning-loop-incidents
+!/specs/engineer-facade-extension
 
 # Runbooks GSD e context packs são gerados/efêmeros e podem carregar dados de
 # produto. São regeneráveis (gsd:plan, context:build), então ficam fora do git.
