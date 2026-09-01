@@ -87,6 +87,7 @@ E cada comando acima ficou gravado em `.context/forja-runs.jsonl` — quando a g
 - **Economia de token medida, não afirmada** — a memória (`context.md` como mapa) economiza ~60% vs explorar no frio, e `token:economy` **prova** isso nos seus domínios. `code:context` entrega o mapa pronto; `memory:audit` garante que ele não mente sobre o código.
 - **Geração de projetos** — `project:new` cria scaffold completo no workspace (memória, agentes, instruções multi-IA, backend NestJS como boilerplate padrão) e registra a ficha; `project:upgrade` traz peças novas para projetos já gerados sem tocar no código do usuário.
 - **3 capacidades integradas** (ADR-0016): **codegraph** (análise de código via MCP), **harness** (desenho de times de agentes), **ai-engineering** (base de conhecimento).
+- **Engineering Control Plane** (v3.0, ADR-0078) — o Engineering Graph vira ADRs/SPECs em nós de primeira classe consultáveis; a Architecture Constitution checa o código real contra decisões já registradas; o Change Risk Engine pontua uma mudança 0-100 com fatores nomeados e evidenciados; `forja simulate` testa um ref num worktree isolado e nunca promove sozinho. Uma façade só, `forja engineer "<objetivo>"`, compõe tudo isso — contexto, ADRs relevantes, checagem de arquitetura, risco, agentes recomendados, incidentes parecidos — antes de você começar. Todo score é informação pra um humano/regra de política consultar, nunca uma decisão autônoma por si só.
 
 ## ⚡ Quick start
 
@@ -300,6 +301,34 @@ O fio condutor: **converter conhecimento que vive em convenção em invariante e
 item abaixo ou fecha uma fronteira do framework por um gate, ou leva esse padrão para os projetos
 gerados.
 
+**Entregue** (v3.0.0 — Engineering Control Plane, ADR-0078)
+
+- [x] **Engineering Graph** — ADRs/SPECs como nós de primeira classe consultáveis
+  (`adr:list/show/impact/graph`), extração determinística, sem LLM (SPEC-032).
+- [x] **Architecture Constitution** — `## Constraints` de ADR viram regras checadas contra o código
+  real (`architecture:compile/check/status/explain/approve`), reaproveitando o `ApprovalLedger`, não
+  um sistema de aprovação paralelo (SPEC-033).
+- [x] **Change Risk Engine** — score 0-100 com 7 fatores nomeados e evidenciados
+  (`risk:assess/explain`); o `PolicyEngine` pode opcionalmente consultá-lo (`riskScoreRange`), nunca
+  um motor de decisão paralelo (SPEC-034).
+- [x] **Evidence Ledger + `forja engineer`** — view agregada por run, e a façade que compõe contexto
+  + ADRs relevantes + arquitetura + risco + agentes recomendados + incidentes parecidos + fluxo
+  recomendado antes de você começar (SPEC-035, estendida em SPEC-042).
+- [x] **Agent Identity & Reputation, Smart Routing** — registro persistente de agente com reputação
+  derivada de comportamento real, nunca auto-declarada (`agent:register/score/recommend`,
+  SPEC-036/037).
+- [x] **Predictive Change Simulation** — `forja simulate <ref>` testa um ref num worktree git
+  isolado; nunca promove sozinho (SPEC-038).
+- [x] **AI Code Provenance + Runtime Monitoring** — `forja blame`/`sbom` (proveniência em
+  granularidade de arquivo), `agent:monitor` (detecção de anomalia de comportamento contra a
+  própria linha de base do agente) — os dois são informação pro `PolicyEngine`/um humano consultar,
+  nunca automático (SPEC-039/040).
+- [x] **Learning Loop** — `incident:record/list/similar`, sugestão por palavra-chave, nunca
+  aplicação automática (SPEC-041).
+- [x] **Prontidão de Autonomous Maintenance** — ADR-0079 documenta os guardrails que qualquer spec
+  futura de manutenção autônoma real precisará respeitar; deliberadamente não habilitada ainda, por
+  desenho explícito da própria visão.
+
 **Entregue** (até v1.6.0)
 
 - [x] **Família de gates** — cada fronteira do framework guarda por um invariante que roda: núcleo
@@ -315,16 +344,16 @@ gerados.
   sobrescreve (SPEC-018).
 - [x] **Clean Architecture calibrado** — camadas onde se pagam, enxuto onde não; e a claim de token
   **medida e corrigida** — a economia é da memória, não das camadas (ADR-0027).
-
-**Próximos passos** (por dependência, não por desejo)
-
 - [x] **`builds` do backend gerado sob toolchain novo** — o template alinhou o `better-sqlite3` ao
   do framework (^12, com prebuilds); o `check:all --full` compila o backend gerado em Node 26.
 - [x] **`release-auditor` consome o gate** — o agente executa e julga `release:check --publish`
   (ADR-0024), incluindo o `consumer-spec-new`; não reimplementa o procedimento.
+
+**Próximos passos** (por dependência, não por desejo)
+
+- [ ] **Cross-project Intelligence** (resto da Fase 6) — correlacionar incidentes entre múltiplos
+  repositórios; exige uma fonte de dado que este workspace de um único repositório ainda não tem.
 - [ ] **Boilerplates além de NestJS** — o processo é agnóstico de stack; os templates vão atrás.
-- [ ] **(visão) o motor de orquestração** — a cadeia de handoffs que **roda**, não só é coerente
-  (SPEC-019 deixou como futuro). O namesake executando: candidato ao 2.0.
 
 Sugestões? Abra uma issue — feature não-trivial aqui começa por spec, inclusive as suas.
 

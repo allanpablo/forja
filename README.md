@@ -102,6 +102,13 @@ process followed?", the answer is a file, not a promise.
   (agent-team design), **ai-engineering** (knowledge base).
 - **LLM Fit Loop** — adapters de CLI, perfis no workspace, probes sem custo, observações e
   recomendação determinística por papel/tarefa; credenciais nunca entram no Forja.
+- **Engineering Control Plane** (v3.0, ADR-0078) — the Engineering Graph turns ADRs/SPECs into
+  first-class, queryable nodes; the Architecture Constitution checks real code against decisions
+  already recorded; the Change Risk Engine scores a change 0-100 with named, evidenced factors;
+  `forja simulate` tests a ref in an isolated worktree and never promotes on its own. One façade,
+  `forja engineer "<goal>"`, composes all of it — context, relevant ADRs, architecture check, risk,
+  recommended agents, similar past incidents — before you start. Every score is information for a
+  human/policy rule to consult, never an autonomous decision on its own.
 
 ## ⚡ Quick start
 
@@ -360,6 +367,31 @@ output, code, and ADRs are readable regardless of language.
 The throughline: **turn knowledge that lives as convention into an executable invariant.** Each item
 below either closes a framework frontier with a gate, or carries that pattern into generated projects.
 
+**Shipped** (v3.0.0 — Engineering Control Plane, ADR-0078)
+
+- [x] **Engineering Graph** — ADRs/SPECs as first-class, queryable nodes (`adr:list/show/impact/graph`),
+  deterministic extraction, no LLM (SPEC-032).
+- [x] **Architecture Constitution** — ADR `## Constraints` compile into rules checked against real
+  code (`architecture:compile/check/status/explain/approve`), reusing `ApprovalLedger`, not a
+  parallel approval system (SPEC-033).
+- [x] **Change Risk Engine** — a 0-100 score with 7 named, evidenced factors (`risk:assess/explain`);
+  `PolicyEngine` can optionally consult it (`riskScoreRange`), never a parallel decision engine
+  (SPEC-034).
+- [x] **Evidence Ledger + `forja engineer`** — a per-run aggregated view, and the façade that
+  composes context + relevant ADRs + architecture + risk + recommended agents + similar incidents +
+  recommended flow before you start (SPEC-035, extended in SPEC-042).
+- [x] **Agent Identity & Reputation, Smart Routing** — persistent agent registry with reputation
+  derived from real behavior, never self-declared (`agent:register/score/recommend`, SPEC-036/037).
+- [x] **Predictive Change Simulation** — `forja simulate <ref>` tests a ref in an isolated git
+  worktree; never promotes on its own (SPEC-038).
+- [x] **AI Code Provenance + Runtime Monitoring** — `forja blame`/`sbom` (file-granularity
+  provenance), `agent:monitor` (behavior-anomaly detection vs. an agent's own baseline) — both
+  information for `PolicyEngine`/a human to consult, never automatic (SPEC-039/040).
+- [x] **Learning Loop** — `incident:record/list/similar`, keyword-based suggestion, never automatic
+  application (SPEC-041).
+- [x] **Autonomous Maintenance readiness** — ADR-0079 documents the guardrails any future real
+  autonomous-maintenance spec must respect; deliberately not enabled yet, by the vision's own design.
+
 **Shipped** (through v1.6.0)
 
 - [x] **Gate family** — every framework frontier is guarded by an invariant that runs: core
@@ -375,17 +407,17 @@ below either closes a framework frontier with a gate, or carries that pattern in
   overwrites (SPEC-018).
 - [x] **Calibrated Clean Architecture** — layers where they pay off, lean where they don't; and the
   token claim **measured and corrected** — the saving is memory's, not the layers' (ADR-0027).
-
-**Next** (by dependency, not by wish)
-
 - [x] **Generated backend `builds` under new toolchains** — the template now matches the
   framework's `better-sqlite3` (^12, with prebuilds); `check:all --full` compiles the generated
   backend on Node 26.
 - [x] **`release-auditor` consumes the gate** — the agent runs and judges `release:check --publish`
   (ADR-0024), including `consumer-spec-new`; it doesn't reimplement the procedure.
+
+**Next** (by dependency, not by wish)
+
+- [ ] **Cross-project Intelligence** (Phase 6 remainder) — correlating incidents across multiple
+  repositories; needs a data source this single-repo workspace doesn't have yet.
 - [ ] **Boilerplates beyond NestJS** — the process is stack-agnostic; the templates will follow.
-- [ ] **(vision) the orchestration engine** — the handoff chain that **runs**, not just is coherent
-  (SPEC-019 left it as future). The namesake executing: a 2.0 candidate.
 
 Suggestions? Open an issue — a non-trivial feature here starts from a spec, yours included.
 
