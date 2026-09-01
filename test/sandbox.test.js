@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { InMemorySandboxStore, SandboxEngine, SandboxError } from '../packages/sandbox/src/index.ts';
+import { InMemorySandboxStore, SandboxEngine, SandboxError, runSandboxedCapability } from '../packages/sandbox/src/index.ts';
 
 const runId = 'run-sandbox';
 const command = { executable: 'npm', args: ['test'] };
@@ -83,4 +83,45 @@ test('sandbox: falha de execução não permite continuar para validação', asy
   await assert.rejects(() => engine.execute(session.id, command), /command failed/);
   assert.equal((await store.get(session.id)).state, 'failed');
   await assert.rejects(() => engine.validate(session.id), SandboxError);
+});
+
+test('runSandboxedCapability: ciclo completo promove e sempre destrói ao final', async () => {
+  const store = new InMemorySandboxStore();
+  const fixture = backend();
+  const engine = new SandboxEngine(store, fixture.value);
+  const result = await runSandboxedCapability({
+    sandbox: engine,
+    runId,
+    root: '/tmp/forja-sandbox',
+    correlationId: 'sandboxed-capability-test',
+    work: async (session) => { await engine.execute(session.id, command); return 'work-done'; },
+  });
+  assert.equal(result.outcome, 'promoted');
+  assert.equal(result.workResult, 'work-done');
+  assert.equal(result.session.state, 'destroyed');
+  assert.equal(result.diff?.files[0], 'src/a.ts');
+  assert.deepEqual(fixture.calls, ['create', 'prepare', 'execute', 'validate', 'diff', 'promote', 'destroy']);
+});
+
+test('runSandboxedCapability: validação reprovada rejeita e destrói, sem promover', async () => {
+  const store = new InMemorySandboxStore();
+  const fixture = backend({ validate: async () => { fixture.calls.push('validate'); return { status: 'rejected', evidenceIds: [], summary: 'nope' }; } });
+  const engine = new SandboxEngine(store, fixture.value);
+  const result = await runSandboxedCapability({ sandbox: engine, runId, root: '/tmp/forja-sandbox', work: async (session) => { await engine.execute(session.id, command); return 'attempted'; } });
+  assert.equal(result.outcome, 'rejected');
+  assert.equal(result.workResult, 'attempted');
+  assert.equal(result.validation?.status, 'rejected');
+  assert.equal(result.session.state, 'destroyed');
+  assert.equal(fixture.calls.includes('promote'), false);
+});
+
+test('runSandboxedCapability: exceção em work() não promove, faz limpeza best-effort e devolve o erro', async () => {
+  const store = new InMemorySandboxStore();
+  const fixture = backend();
+  const engine = new SandboxEngine(store, fixture.value);
+  const result = await runSandboxedCapability({ sandbox: engine, runId, root: '/tmp/forja-sandbox', work: async () => { throw new Error('handler blew up'); } });
+  assert.equal(result.outcome, 'failed');
+  assert.match(String(result.error), /handler blew up/);
+  assert.equal(result.session.state, 'destroyed');
+  assert.equal(fixture.calls.includes('promote'), false);
 });

@@ -137,3 +137,79 @@ export class SandboxEngine {
   private checksum(value: SandboxDiffData): string { return createHash('sha256').update(JSON.stringify({ files: [...value.files].sort(), additions: value.additions, deletions: value.deletions, evidenceIds: [...value.evidenceIds].sort() })).digest('hex'); }
   private audit<T extends SandboxSession | SandboxExecution | SandboxDiff>(correlationId: string, value: Omit<T, 'schemaVersion' | 'createdAt' | 'updatedAt' | 'correlationId'>): T { const now = new Date().toISOString() as ISO8601; return { ...value, schemaVersion: CONTRACT_VERSION, createdAt: now, updatedAt: now, correlationId } as T; }
 }
+
+export interface SandboxedCapabilityOptions<T> {
+  readonly sandbox: SandboxEngine;
+  readonly runId: RunId;
+  /** Directory the isolated worktree/copy is created at — never the live project root. */
+  readonly root: string;
+  readonly backend?: SandboxSession['backend'];
+  readonly correlationId?: string;
+  /**
+   * Does the actual work: write files under `session.root` (never outside it), and run whatever
+   * verification the capability needs via `sandbox.execute(session.id, ...)` on the same instance
+   * passed in `options.sandbox`. Its return value is threaded through untouched as `workResult`.
+   */
+  readonly work: (session: SandboxSession) => T | Promise<T>;
+}
+
+export type SandboxedCapabilityOutcome = 'promoted' | 'rejected' | 'failed';
+
+export interface SandboxedCapabilityResult<T> {
+  readonly session: SandboxSession;
+  readonly outcome: SandboxedCapabilityOutcome;
+  readonly workResult?: T;
+  readonly validation?: SandboxValidation;
+  readonly diff?: SandboxDiff;
+  readonly error?: unknown;
+}
+
+/**
+ * The create→prepare→work→validate→diff→promote(-or-reject/rollback)→destroy lifecycle, as a
+ * single call instead of hand-rolled per call site. Extracted from `scripts/demo-autonomy.ts`,
+ * which proved the pattern for one capability (`fixture.code.write`) — this is that same pattern
+ * made reusable, so a future capability that edits real project files has a paved, tested path to
+ * real isolation instead of either reinventing this state machine or (as every capability
+ * registered in `apps/cli/src/index.ts` does today) skipping isolation entirely because none of
+ * them currently write to project source — see docs/security/2026-08-31 audit for why that's
+ * currently fine and when it stops being fine: the moment a capability's handler starts writing
+ * to arbitrary project files, it needs to go through this, not straight `fs`/`spawnSync` on the
+ * live tree.
+ *
+ * Always destroys the session before returning, on every outcome — a caller never has to remember
+ * cleanup. Never throws for a rejected/failed *validation* (that's a normal outcome, reported via
+ * the return value); only rethrows if `options.work` itself throws, after best-effort cleanup.
+ *
+ * `options.work` must call `sandbox.execute(session.id, ...)` (on the same `sandbox` passed in
+ * `options.sandbox`) at least once before returning: `SandboxEngine.validate()` requires the
+ * session to already be in the `'validating'` state, and only `execute()` puts it there — this
+ * mirrors `demo-autonomy.ts`'s own capability handler, which always runs its verification command
+ * (`npm test` in the worktree) before considering the edit done. Writing files without ever
+ * calling `execute()` is a caller error, not something this helper can validate away.
+ */
+export async function runSandboxedCapability<T>(options: SandboxedCapabilityOptions<T>): Promise<SandboxedCapabilityResult<T>> {
+  const { sandbox } = options;
+  const session = await sandbox.create({ runId: options.runId, root: options.root, backend: options.backend, correlationId: options.correlationId });
+  try {
+    await sandbox.prepare(session.id);
+    const workResult = await options.work(session);
+    const validation = await sandbox.validate(session.id);
+    if (validation.status !== 'accepted') {
+      // `validate()` already moved the session to 'rejected' when validation.status is itself
+      // 'rejected'; for 'blocked'/'inconclusive' it stays 'validating', so reject() is still a
+      // valid transition. Try it either way and ignore the "already rejected" case.
+      try { await sandbox.reject(session.id); } catch { /* already in a terminal reject state */ }
+      const destroyed = await sandbox.destroy(session.id);
+      return { session: destroyed, outcome: 'rejected', workResult, validation };
+    }
+    const diff = await sandbox.diff(session.id);
+    await sandbox.promote(session.id, diff);
+    const destroyed = await sandbox.destroy(session.id);
+    return { session: destroyed, outcome: 'promoted', workResult, validation, diff };
+  } catch (error) {
+    try { await sandbox.reject(session.id); } catch { /* already in a terminal reject state */ }
+    let destroyed = session;
+    try { destroyed = await sandbox.destroy(session.id); } catch { /* best-effort — nothing more we can do */ }
+    return { session: destroyed, outcome: 'failed', error };
+  }
+}
