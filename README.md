@@ -260,6 +260,9 @@ forja provenance:record <run-id>           # extracts file<->agent provenance fr
 forja blame <file>                         # provenance history for a file — file granularity, not line
 forja sbom [--json]                        # AI-SBOM: provenance report aggregated by agent
 forja agent:monitor <id> [--window-hours <n>]  # compares recent behavior against historical baseline — information, never blocks (SPEC-040)
+forja incident:record --title <t> [--description <d>]  # records an incident in the Engineering Graph (SPEC-041)
+forja incident:list                        # recorded incidents, most recent first
+forja incident:similar "<query>"           # keyword-based similar-incident suggestion — never applies anything
 
 # Memory & context (workspace)
 forja sync:universal                       # reindex the workspace SQLite FTS5

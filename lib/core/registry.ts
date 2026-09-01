@@ -350,6 +350,27 @@ export const COMMANDS = {
     args: ['monitor'],
     gates: ['workspace-warn'],
   },
+  'incident:record': {
+    domain: 'code',
+    desc: 'Grava um incidente no Engineering Graph (SPEC-041)',
+    node: 'scripts/incident.ts',
+    args: ['record'],
+    gates: ['workspace-warn'],
+  },
+  'incident:list': {
+    domain: 'code',
+    desc: 'Incidentes registrados, mais recentes primeiro (SPEC-041)',
+    node: 'scripts/incident.ts',
+    args: ['list'],
+    gates: ['workspace-warn'],
+  },
+  'incident:similar': {
+    domain: 'code',
+    desc: 'Sugere incidentes parecidos por palavra-chave — sugestão, nunca aplicação automática (SPEC-041)',
+    node: 'scripts/incident.ts',
+    args: ['similar'],
+    gates: ['workspace-warn'],
+  },
   'simulate': {
     domain: 'code',
     desc: 'Testa+arquitetura+risco de um ref num worktree isolado, nunca promove (SPEC-038)',
