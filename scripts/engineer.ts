@@ -1,17 +1,21 @@
 #!/usr/bin/env node
 /**
- * engineer (SPEC-035) — façade que compõe o que Sprints 1-2 já construíram.
+ * engineer (SPEC-035, estendida por SPEC-042) — façade que compõe o que os Sprints 1-9 já
+ * construíram.
  *
- *   forja engineer "<objetivo>" [--ref <ref>] [--json]
+ *   forja engineer "<objetivo>" [--ref <ref>] [--role <role>] [--json]
  *
- * Ordem de composição (specs/engineering-evidence-ledger/plan.md):
+ * Ordem de composição (specs/engineering-evidence-ledger/plan.md, +SPEC-042):
  *   ContextEngine.build() → GraphLoop.contextRecords() filtrado a ADR/SPEC (SPEC-032) →
  *   architecture:check não escopado (SPEC-033) → RiskEngine.assess() só com --ref (SPEC-034,
- *   D1: sem diff ainda, não há arquivo pra escopar) → fluxo recomendado, parseado da tabela
- *   "Etapa → papel → comando" de docs/fluxo.md (D2 — uma fonte de verdade, não copiada aqui).
+ *   D1: sem diff ainda, não há arquivo pra escopar) → agentes recomendados só com --role
+ *   (recommendAgent, SPEC-037) → incidentes parecidos (rankIncidentsByQuery, SPEC-041) → fluxo
+ *   recomendado, parseado da tabela "Etapa → papel → comando" de docs/fluxo.md (D2 — uma fonte de
+ *   verdade, não copiada aqui).
  *
- * Nenhuma lógica de negócio nova (AC-4): cada seção é exatamente o que o subsistema já produziu.
- * Sem síntese de texto livre (AC-3) — não há chamada de LLM em nenhum ponto deste arquivo.
+ * Nenhuma lógica de negócio nova (AC-4/AC-3 de SPEC-035, reafirmado em AC-3 de SPEC-042): cada
+ * seção é exatamente o que o subsistema já produziu. Sem síntese de texto livre (AC-3) — não há
+ * chamada de LLM em nenhum ponto deste arquivo.
  */
 
 import fs from 'node:fs';
@@ -21,11 +25,13 @@ import Database from 'better-sqlite3';
 import { ContextEngine, GraphContextSource } from '../packages/context/src/index.ts';
 import { checkConstitution, type ArchitectureCheckReport, type ArchitectureRule } from '../packages/engineering/architecture/src/index.ts';
 import { assessRisk, type ChangeRiskAssessment } from '../packages/engineering/risk/src/index.ts';
+import { recommendAgent, type AgentRecommendation } from '../packages/engineering/identity/src/index.ts';
 import { GitGraphDocumentSource, SpawnCommandRunner } from '../packages/adapter-git/src/index.ts';
 import { GraphIndexer, GraphLoop } from '../packages/graph/src/index.ts';
-import { SqliteGraphStore, SqliteMigrationRunner } from '../packages/adapter-sqlite/src/index.ts';
+import { SqliteAgentProfileStore, SqliteGraphStore, SqliteMigrationRunner } from '../packages/adapter-sqlite/src/index.ts';
 import { getWorkspaceDbDir, getWorkspaceDbPath } from '../lib/workspace.ts';
 import { buildRiskInput, changedFiles, graphRoot } from '../lib/core/risk-collect.ts';
+import { incidentRecords, rankIncidentsByQuery, titleOf } from '../lib/core/incident-search.ts';
 import type { ContextPackage } from '../packages/contracts/src/index.ts';
 
 const CONSTITUTION_PATH = '.context/architecture/constitution.json';
@@ -61,14 +67,17 @@ function relevantAdrs(graph: GraphLoop, objective: string): readonly { readonly 
 interface EngineerReport {
   readonly objective: string;
   readonly ref?: string;
+  readonly role?: string;
   readonly context: { readonly references: number; readonly content: readonly string[] };
   readonly relevantAdrs: readonly { readonly content: string; readonly relevance: number }[];
   readonly architectureCheck: ArchitectureCheckReport | { readonly note: string };
   readonly risk?: ChangeRiskAssessment;
+  readonly recommendedAgents?: readonly AgentRecommendation[];
+  readonly similarIncidents: readonly { readonly id: string; readonly title: string; readonly relevance: number }[];
   readonly recommendedFlow: readonly FluxoStep[];
 }
 
-async function buildReport(objective: string, ref: string | undefined): Promise<EngineerReport> {
+async function buildReport(objective: string, ref: string | undefined, role: string | undefined): Promise<EngineerReport> {
   fs.mkdirSync(getWorkspaceDbDir(), { recursive: true });
   const database = new Database(process.env.FORJA_RUNTIME_DB ?? getWorkspaceDbPath());
   new SqliteMigrationRunner(database).apply();
@@ -111,13 +120,25 @@ async function buildReport(objective: string, ref: string | undefined): Promise<
       }
     }
 
+    // Só com --role: nunca inventa um papel que o usuário não informou (AC-1 de SPEC-042).
+    const recommendedAgents = role === undefined ? undefined : recommendAgent(new SqliteAgentProfileStore(database).list(), { role });
+
+    // Sempre presente (mesmo vazio) — incidentes parecidos com o objetivo, mesma busca por
+    // palavra-chave de `incident:similar` (AC-2 de SPEC-042).
+    const similarIncidents = rankIncidentsByQuery(incidentRecords(store), objective)
+      .slice(0, 5)
+      .map((item) => ({ id: item.record.id, title: titleOf(item.record), relevance: item.relevance }));
+
     return {
       objective,
       ...(ref === undefined ? {} : { ref }),
+      ...(role === undefined ? {} : { role }),
       context: { references: context.references.length, content: context.content },
       relevantAdrs: relevantAdrs(graph, objective),
       architectureCheck,
       ...(risk === undefined ? {} : { risk }),
+      ...(recommendedAgents === undefined ? {} : { recommendedAgents }),
+      similarIncidents,
       recommendedFlow: recommendedFlow(),
     };
   } finally {
@@ -157,6 +178,18 @@ function printText(report: EngineerReport): void {
   }
   console.log('');
 
+  if (report.recommendedAgents !== undefined) {
+    console.log(`AGENTES RECOMENDADOS (role: ${report.role})`);
+    if (report.recommendedAgents.length === 0) console.log('  (nenhum agente registrado — rode forja agent:register primeiro)');
+    for (const item of report.recommendedAgents) console.log(`  ${item.agentId}  score:${item.score}  ${item.reasons.join(', ')}`);
+    console.log('');
+  }
+
+  console.log(`INCIDENTES PARECIDOS (${report.similarIncidents.length})`);
+  if (report.similarIncidents.length === 0) console.log('  (nenhum)');
+  for (const item of report.similarIncidents) console.log(`  [${item.relevance.toFixed(2)}] ${item.id}  ${item.title}`);
+  console.log('');
+
   console.log('FLUXO RECOMENDADO (docs/fluxo.md)');
   for (const step of report.recommendedFlow) console.log(`  ${step.numero}. ${step.etapa} (${step.papel}) — ${step.comandos}`);
 }
@@ -164,11 +197,19 @@ function printText(report: EngineerReport): void {
 async function cmdEngineer(args: string[]): Promise<void> {
   const json = args.includes('--json');
   const refIndex = args.indexOf('--ref');
+  const roleIndex = args.indexOf('--role');
   const ref = refIndex === -1 ? undefined : args[refIndex + 1];
-  const objective = args.filter((arg, index) => arg !== '--json' && (refIndex === -1 || (index !== refIndex && index !== refIndex + 1)))[0];
-  if (!objective) { console.error('Uso: forja engineer "<objetivo>" [--ref <ref>] [--json]'); process.exitCode = 1; return; }
+  const role = roleIndex === -1 ? undefined : args[roleIndex + 1];
+  // Cada índice só entra em `consumed` quando a flag correspondente foi de fato encontrada — achado
+  // real da primeira versão deste arquivo: computar `refIndex + 1` incondicionalmente, mesmo com
+  // `refIndex === -1` (valendo 0), engolia o próprio objetivo quando nenhuma flag era passada.
+  const consumed = new Set<number>();
+  if (refIndex !== -1) { consumed.add(refIndex); consumed.add(refIndex + 1); }
+  if (roleIndex !== -1) { consumed.add(roleIndex); consumed.add(roleIndex + 1); }
+  const objective = args.find((arg, index) => arg !== '--json' && !consumed.has(index));
+  if (!objective) { console.error('Uso: forja engineer "<objetivo>" [--ref <ref>] [--role <role>] [--json]'); process.exitCode = 1; return; }
 
-  const report = await buildReport(objective, ref);
+  const report = await buildReport(objective, ref, role);
   if (json) console.log(JSON.stringify(report, null, 2));
   else printText(report);
 }
