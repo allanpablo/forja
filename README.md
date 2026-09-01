@@ -247,6 +247,8 @@ forja architecture:explain <rule-id>       # source ADR, original text, severity
 forja architecture:approve <rule-id>       # promotes a proposed rule to active (via ApprovalLedger)
 forja risk:assess [ref]                    # 0-100 change risk score, 7 named factors (SPEC-034)
 forja risk:explain <assessment-id>         # replays a computed assessment, factor by factor
+forja evidence:show <run-id>               # aggregated view of a persisted run (SPEC-035)
+forja engineer "<objetivo>" [--ref <ref>] [--json]  # façade: context + relevant ADRs + architecture check + risk + recommended flow (SPEC-035)
 
 # Memory & context (workspace)
 forja sync:universal                       # reindex the workspace SQLite FTS5

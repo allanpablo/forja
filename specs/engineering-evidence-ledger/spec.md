@@ -1,7 +1,7 @@
 # Spec: Engineering Evidence Ledger + `forja engineer` (façade)
 
 - **ID**: SPEC-035
-- **Status**: draft
+- **Status**: done
 - **Owner**: apk
 - **Criado em**: 2026-09-01
 - **Sprint alvo**: Sprint 3
@@ -31,18 +31,19 @@ que já existe — sem introduzir nenhuma fonte de dado nova.
 
 ## 4. Critérios de aceite (Definition of Done)
 
-- [ ] AC-1: view agregada (função pura sobre `AuditRecord`/`Observation`/`RuntimeRun` já
+- [x] AC-1: view agregada (função pura sobre `AuditRecord`/`Observation`/`RuntimeRun` já
       persistidos) produz o JSON no formato do exemplo da visão original (`run`, `intent`, `agent`,
       `risk`, `architectureCheck`, `tests`, `approvals`, `commit`) — sem nova tabela SQLite além
       das já existentes.
-- [ ] AC-2: `forja engineer "<objetivo>"` compõe, nesta ordem: `ContextEngine.build()` (já
-      existente) → `GraphLoop`/ADR relevantes (SPEC-032) → `architecture:check` no escopo afetado
-      (SPEC-033) → `RiskEngine.assess()` (SPEC-034) → fluxo recomendado (lista estática de passos
-      SDD/GSD, já documentada em `docs/fluxo.md`, reaproveitada não reinventada).
-- [ ] AC-3: saída de `forja engineer` é estruturada (JSON opcional via `--json`, texto legível por
+- [x] AC-2: `forja engineer "<objetivo>"` compõe, nesta ordem: `ContextEngine.build()` (já
+      existente) → `GraphLoop`/ADR relevantes (SPEC-032) → `architecture:check` (SPEC-033;
+      não escopado sem `--ref`, ver D1 do plan — não há diff ainda antes do trabalho começar) →
+      `RiskEngine.assess()` (SPEC-034, só com `--ref`) → fluxo recomendado (parseado de
+      `docs/fluxo.md`, D2 do plan — não reinventado).
+- [x] AC-3: saída de `forja engineer` é estruturada (JSON opcional via `--json`, texto legível por
       padrão) e nunca afirma nada que os componentes subjacentes não afirmaram — sem síntese de
       LLM que possa alucinar arquitetura inexistente.
-- [ ] AC-4: nenhuma lógica de negócio nova em `forja engineer` além de composição e formatação —
+- [x] AC-4: nenhuma lógica de negócio nova em `forja engineer` além de composição e formatação —
       qualquer decisão real continua nos engines que ela chama.
 
 ## 5. Escopo
@@ -74,3 +75,16 @@ sobre dados que Sprints 1-2 e o framework já existente produzem.
 Rodar `forja engineer` para uma mudança real proposta neste repositório produz uma saída que um
 humano usaria sem edição para decidir se e como prosseguir — mesma métrica da spec master, aqui
 verificada no nível do comando específico.
+
+**Validado**: `forja engineer "compilar a architecture constitution deste repositório"` rodado
+contra este próprio repositório (grafo real, 1013 arquivos). Produziu contexto relevante (specs e
+testes de SPEC-033), ADRs/SPECs corretos (ADR-0078, SPEC-032/033/034), `architecture:check` real
+(constitution já compilada neste repo) e o fluxo recomendado de `docs/fluxo.md` — utilizável sem
+edição.
+
+**Achado real corrigido durante a implementação (não um bug de lógica — um limite de exibição
+ausente)**: a primeira execução sem `maxItems` devolveu **1013** referências de contexto (todo o
+grafo do repositório caiu dentro do orçamento de 20k tokens), tornando a saída inutilizável sem
+edição — o oposto do que esta métrica pede. Corrigido passando `maxItems: 10` para
+`ContextEngine.build()` (as 10 mais relevantes, já ordenadas por `ContextEngine`); a lista completa
+continua disponível via `context:smart`/`code:query`, que `forja engineer` não substitui.

@@ -288,6 +288,19 @@ export const COMMANDS = {
     node: 'scripts/risk.ts',
     args: ['explain'],
   },
+  'evidence:show': {
+    domain: 'code',
+    desc: 'View agregada de evidência de um run: intent, agente, testes, aprovações (SPEC-035)',
+    node: 'scripts/evidence.ts',
+    args: ['show'],
+    gates: ['workspace-warn'],
+  },
+  'engineer': {
+    domain: 'code',
+    desc: 'Façade: contexto + ADRs relevantes + architecture:check + risco + fluxo recomendado (SPEC-035)',
+    node: 'scripts/engineer.ts',
+    gates: ['workspace-warn'],
+  },
   'code:context': {
     domain: 'code',
     desc: 'Pacote de contexto mínimo de um domínio: o mapa (context.md), + código com --code (ADR-0009)',
