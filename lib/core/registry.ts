@@ -381,6 +381,12 @@ export const COMMANDS = {
     args: ['eval'],
     gates: ['workspace'],
   },
+  'cost:economy': {
+    domain: 'llm',
+    desc: 'Custo real acumulado (USD) das execuções LLM registradas, por modelo — tabela de preço local (SPEC-029)',
+    node: 'scripts/cost-economy.ts',
+    gates: ['workspace'],
+  },
 
   // --- Governança & qualidade ---------------------------------------------------
   'project:check': {

@@ -9,6 +9,7 @@ import { EvaluationEngine } from '../packages/evals/src/index.ts';
 import { ObservabilityRecorder } from '../packages/observability/src/index.ts';
 import { SqliteMigrationRunner, SqliteObservationStore } from '../packages/adapter-sqlite/src/index.ts';
 import { getWorkspaceContextDir, getWorkspaceDbDir, getWorkspaceDbPath } from '../lib/workspace.ts';
+import { computeCostUsd, isPriceStale, loadPricingTable, lookupPrice, STALE_PRICE_MAX_AGE_DAYS } from '../lib/core/model-pricing.ts';
 
 const profilePath = () => path.join(getWorkspaceContextDir(), 'llm-profiles.json');
 
@@ -50,15 +51,33 @@ function storage() {
   return { db, store: new SqliteObservationStore(db) };
 }
 
+/**
+ * Aviso de preço (SPEC-029, AC-4 e risco "tabela desatualizada"): não bloqueia nada — `doctor()`
+ * segue reportando disponibilidade dos adapters como sempre. `pricing.missing`/`pricing.stale` são
+ * só o ponto onde um humano descobre "atualize lib/core/model-pricing.json" antes que o gap vire
+ * surpresa na fatura, sem que a checagem de disponibilidade dependa de ter preço conhecido.
+ */
+function pricingInfo(model: string): { readonly known: boolean; readonly asOf?: string; readonly stale?: boolean } {
+  const price = lookupPrice(loadPricingTable(), model);
+  if (price === undefined) return { known: false };
+  return { known: true, asOf: price.asOf, stale: isPriceStale(price) };
+}
+
 function doctor(name?: string): void {
   const configured = profiles().profiles;
   if (name && !configured[name]) throw new Error(`Perfil não encontrado: ${name}`);
   const result = Object.entries(configured).filter(([profileName]) => name === undefined || profileName === name).map(([profileName, value]) => {
     const probe = spawnSync(value.command, ['--version'], { encoding: 'utf8', timeout: 10_000, shell: false });
     const errorCode = (probe.error as NodeJS.ErrnoException | undefined)?.code;
-    return { name: profileName, provider: value.provider, model: value.model, enabled: value.enabled, executable: value.command, available: !probe.error && probe.status === 0, detail: errorCode ?? (probe.status === 0 ? String(probe.stdout).trim().split('\n')[0] : String(probe.stderr).trim().split('\n')[0]) };
+    const model = `${value.provider}:${value.model}`;
+    const pricing = pricingInfo(model);
+    return { name: profileName, provider: value.provider, model: value.model, enabled: value.enabled, executable: value.command, available: !probe.error && probe.status === 0, detail: errorCode ?? (probe.status === 0 ? String(probe.stdout).trim().split('\n')[0] : String(probe.stderr).trim().split('\n')[0]), pricing };
   });
   console.log(JSON.stringify({ profiles: result }, null, 2));
+  for (const item of result) {
+    if (!item.pricing.known) console.warn(`Aviso: sem preço local para ${item.provider}:${item.model} (lib/core/model-pricing.json) — custo dessas execuções não é computado. Adicione uma entrada quando souber o preço real.`);
+    else if (item.pricing.stale) console.warn(`Aviso: preço de ${item.provider}:${item.model} não é revisado desde ${item.pricing.asOf} (> ${STALE_PRICE_MAX_AGE_DAYS} dias) — confira se ainda reflete o preço real do provider.`);
+  }
   if (result.some((item) => item.enabled && !item.available)) process.exitCode = 1;
 }
 
@@ -73,8 +92,15 @@ async function run(): Promise<void> {
   try {
     const recorder = new ObservabilityRecorder(store);
     const refs = (input.get('--context') ?? []).map((value) => path.resolve(value));
-    const observation = await recorder.record({ traceId: `llm:${name}:${randomUUID()}`, model: `${selected.provider}:${selected.model}`, inputHash: createHash('sha256').update(prompt).digest('hex'), contextRefs: refs, inputTokens: Math.ceil(Buffer.byteLength(prompt) / 4), outputTokens: Math.ceil(Buffer.byteLength(result.stdout) / 4), durationMs: result.durationMs, tools: [selected.command], commands: [selected.command], outcome: result.exitCode === 0 ? 'succeeded' : 'failed', errorCode: result.errorCode });
-    console.log(JSON.stringify({ profile: name, model: observation.model, exitCode: result.exitCode, durationMs: result.durationMs, observationId: observation.id, stdout: result.stdout, stderr: result.stderr }, null, 2));
+    const model = `${selected.provider}:${selected.model}`;
+    const inputTokens = Math.ceil(Buffer.byteLength(prompt) / 4);
+    const outputTokens = Math.ceil(Buffer.byteLength(result.stdout) / 4);
+    // AC-6/AC-4 (SPEC-029): custo real quando a tabela local conhece o preço; fail-open (undefined,
+    // não bloqueia, apenas avisa) quando não conhece — mesma tabela usada por `checkLimits`/AC-2.
+    const costUsd = computeCostUsd(loadPricingTable(), model, inputTokens, outputTokens);
+    if (costUsd === undefined) console.warn(`Aviso: preço desconhecido para ${model} — custo desta execução não computado. Rode \`forja llm:doctor\` ou adicione uma entrada em lib/core/model-pricing.json.`);
+    const observation = await recorder.record({ traceId: `llm:${name}:${randomUUID()}`, model, inputHash: createHash('sha256').update(prompt).digest('hex'), contextRefs: refs, inputTokens, outputTokens, durationMs: result.durationMs, cost: costUsd, tools: [selected.command], commands: [selected.command], outcome: result.exitCode === 0 ? 'succeeded' : 'failed', errorCode: result.errorCode });
+    console.log(JSON.stringify({ profile: name, model: observation.model, exitCode: result.exitCode, durationMs: result.durationMs, costUsd: observation.cost, observationId: observation.id, stdout: result.stdout, stderr: result.stderr }, null, 2));
     if (result.exitCode !== 0) process.exitCode = result.exitCode;
   } finally { db.close(); }
 }

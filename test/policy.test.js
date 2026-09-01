@@ -26,6 +26,15 @@ test('policy: regra allow with limits retorna limites estruturados', () => {
   assert.deepEqual(result.limits, { maxFiles: 2, maxTokens: 500 });
 });
 
+// SPEC-029, AC-1: maxCostUsd é só mais um campo de PolicyLimits — asNumericLimits itera
+// Object.entries genericamente, então uma regra que o declara já flui para PolicyDecision.limits
+// sem qualquer mudança em PolicyEngine.
+test('policy: maxCostUsd flui de PolicyLimits para PolicyDecision.limits como qualquer outro limite', () => {
+  const result = new PolicyEngine({ rules: [{ id: 'developer-cost', priority: 10, effect: 'ALLOW_WITH_LIMITS', reason: 'bounded cost', scope: { roles: ['developer'] }, limits: { maxCostUsd: 2.5 } }] }).authorize(request());
+  assert.equal(result.effect, 'ALLOW_WITH_LIMITS');
+  assert.deepEqual(result.limits, { maxCostUsd: 2.5 });
+});
+
 test('policy: risco crítico exige aprovação mesmo com allow', () => {
   const critical = { ...definition, id: 'deployment.release', risk: 'critical' };
   const result = new PolicyEngine({ rules: [{ id: 'release', priority: 10, effect: 'ALLOW', reason: 'release window', scope: {} }] }).authorize(request({ definition: critical, categories: ['deployment'] }));

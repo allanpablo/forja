@@ -70,6 +70,16 @@ export interface CapabilityExecutionRequest {
   readonly files?: readonly string[];
   readonly budget?: TokenBudget;
   readonly approval?: CapabilityAuthorizationRequest['approval'];
+  /**
+   * Real dollar cost projected for this call (SPEC-029), computed by the CALLER from tokens +
+   * a local price table before `execute` runs. `packages/core` deliberately stays decoupled from
+   * pricing-table specifics (see docs/architecture/FORJA-2.0-ARCHITECTURE.md, "Direção de
+   * dependência") — it only compares this plain number against `PolicyLimits.maxCostUsd`, the same
+   * way `budget.totalTokens` is compared against `maxTokens`. Leave undefined when the caller has no
+   * price for the model/provider in play (unknown pricing must fail OPEN for cost enforcement
+   * specifically — see `checkLimits` — never DENY a legitimate execution over a pricing-table gap).
+   */
+  readonly estimatedCostUsd?: number;
 }
 
 export class CapabilityRegistryError extends Error {
@@ -172,9 +182,10 @@ export class CapabilityRegistry {
     }
 
     // `ALLOW_WITH_LIMITS` is only meaningful if the limits it carries actually bound the call —
-    // otherwise it behaves exactly like ALLOW, silently. maxFiles and maxTokens are checked here
-    // because both are already known before the handler runs; maxDurationMs/maxRetries govern
-    // the runtime engine's own retry/step loop (RuntimeEngine.limits) rather than a single call.
+    // otherwise it behaves exactly like ALLOW, silently. maxFiles, maxTokens and maxCostUsd are
+    // checked here because all three are already known before the handler runs; maxDurationMs/
+    // maxRetries govern the runtime engine's own retry/step loop (RuntimeEngine.limits) rather than
+    // a single call.
     const limitError = this.checkLimits(decision, request);
     if (limitError !== undefined) return this.failure(runId, timestamps, limitError);
 
@@ -198,6 +209,12 @@ export class CapabilityRegistry {
     const requestedTokens = request.budget?.totalTokens ?? 0;
     if (limits.maxTokens !== undefined && requestedTokens > limits.maxTokens) {
       return { code: 'POLICY_LIMIT_EXCEEDED', message: `Policy limit exceeded: budget of ${requestedTokens} tokens exceeds maxTokens ${limits.maxTokens}`, retryable: false };
+    }
+    // Fail-open by design (SPEC-029, AC-4): when the caller has no estimated cost (unknown
+    // provider/model pricing, or a capability that isn't priced at all), maxCostUsd simply isn't
+    // enforced for this call — a pricing-table gap must never block otherwise-legitimate work.
+    if (limits.maxCostUsd !== undefined && request.estimatedCostUsd !== undefined && request.estimatedCostUsd > limits.maxCostUsd) {
+      return { code: 'POLICY_LIMIT_EXCEEDED', message: `Policy limit exceeded: estimated cost $${request.estimatedCostUsd.toFixed(4)} exceeds maxCostUsd $${limits.maxCostUsd}`, retryable: false };
     }
     return undefined;
   }

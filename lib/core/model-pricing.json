@@ -1,0 +1,19 @@
+{
+  "version": 1,
+  "currency": "USD",
+  "prices": {
+    "claude:opus": { "inputPer1kUsd": 0.015, "outputPer1kUsd": 0.075, "asOf": "2026-08-31" },
+    "claude:sonnet": { "inputPer1kUsd": 0.003, "outputPer1kUsd": 0.015, "asOf": "2026-08-31" },
+    "claude:haiku": { "inputPer1kUsd": 0.0008, "outputPer1kUsd": 0.004, "asOf": "2026-08-31" },
+    "claude:default": { "inputPer1kUsd": 0.003, "outputPer1kUsd": 0.015, "asOf": "2026-08-31" },
+    "codex:gpt-4-turbo": { "inputPer1kUsd": 0.01, "outputPer1kUsd": 0.03, "asOf": "2026-08-31" },
+    "codex:gpt-4o": { "inputPer1kUsd": 0.0025, "outputPer1kUsd": 0.01, "asOf": "2026-08-31" },
+    "codex:default": { "inputPer1kUsd": 0.0025, "outputPer1kUsd": 0.01, "asOf": "2026-08-31" },
+    "gemini-cli:gemini-1.5-pro": { "inputPer1kUsd": 0.00125, "outputPer1kUsd": 0.005, "asOf": "2026-08-31" },
+    "gemini-cli:gemini-1.5-flash": { "inputPer1kUsd": 0.000075, "outputPer1kUsd": 0.0003, "asOf": "2026-08-31" },
+    "gemini-cli:default": { "inputPer1kUsd": 0.00125, "outputPer1kUsd": 0.005, "asOf": "2026-08-31" },
+    "ollama:llama3.3": { "inputPer1kUsd": 0, "outputPer1kUsd": 0, "asOf": "2026-08-31" },
+    "openai:gpt-4o": { "inputPer1kUsd": 0.0025, "outputPer1kUsd": 0.01, "asOf": "2026-08-31" },
+    "openai:gpt-4-turbo": { "inputPer1kUsd": 0.01, "outputPer1kUsd": 0.03, "asOf": "2026-08-31" }
+  }
+}

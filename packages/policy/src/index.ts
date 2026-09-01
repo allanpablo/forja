@@ -30,6 +30,12 @@ export interface PolicyLimits {
   readonly maxFiles?: number;
   readonly maxDurationMs?: number;
   readonly maxRetries?: number;
+  /**
+   * Real dollar ceiling per execution (SPEC-029). Enforced the same way as maxFiles/maxTokens, in
+   * `CapabilityRegistry.checkLimits` — see that method for why this is a `checkLimits` concern and
+   * not part of rule matching. Optional so every existing rule keeps working unchanged.
+   */
+  readonly maxCostUsd?: number;
 }
 
 export interface PolicyRule {
