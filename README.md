@@ -255,6 +255,7 @@ forja agent:show <id>                      # detail of one registered agent
 forja agent:score <id> [--domain <d>]      # computes and persists trustLevel/autonomyLevel from real Observations
 forja agent:history <id>                   # an agent's Observations, most recent first
 forja agent:recommend --role <role> [--domain <d>]  # ranks registered agents by fit — information, not assignment (SPEC-037)
+forja simulate <ref> [--command "npm test"] [--json]  # test+architecture+risk against an isolated worktree, never promotes (SPEC-038)
 
 # Memory & context (workspace)
 forja sync:universal                       # reindex the workspace SQLite FTS5
