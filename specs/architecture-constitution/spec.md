@@ -1,7 +1,7 @@
 # Spec: Architecture Constitution — ADRs como regras executáveis
 
 - **ID**: SPEC-033
-- **Status**: draft
+- **Status**: done
 - **Owner**: apk
 - **Criado em**: 2026-09-01
 - **Sprint alvo**: Sprint 1
@@ -35,26 +35,41 @@ consumidor optar por isso.
 
 ## 4. Critérios de aceite (Definition of Done)
 
-- [ ] AC-1: formato de `## Constraints` em ADR é determinístico e documentado (ex.: lista com
+- [x] AC-1: formato de `## Constraints` em ADR é determinístico e documentado (ex.: lista com
       prefixo fixo — `- billing não importa database diretamente` vira
       `{kind: 'forbid_import', patterns: ['**/database/**']}` só quando a frase casa um padrão
       reconhecido; frases que não casam viram regra `proposed` com `confidence < 1`, nunca
       `active` por adivinhação).
-- [ ] AC-2: `forja architecture:compile` lê `memory/90-decisions/*.md` com `## Constraints`,
+- [x] AC-2: `forja architecture:compile` lê `memory/90-decisions/*.md` com `## Constraints`,
       produz `ArchitectureRule[]`, grava `.context/architecture/constitution.json`.
-- [ ] AC-3: `forja architecture:check` compara `constitution.json` contra o Engineering Graph
+- [x] AC-3: `forja architecture:check` compara `constitution.json` contra o Engineering Graph
       (arestas `depends_on`/`imports` já extraídas por `extractDeterministicRelations`) e reporta
       violações com severidade (`info|low|medium|high|critical`), path do arquivo, ADR de origem,
       remediação sugerida.
-- [ ] AC-4: `forja architecture:status` resume: N regras ativas, N propostas, última compilação.
-- [ ] AC-5: `forja architecture:explain <rule-id>` mostra a ADR de origem, o texto original da
+- [x] AC-4: `forja architecture:status` resume: N regras ativas, N propostas, última compilação.
+- [x] AC-5: `forja architecture:explain <rule-id>` mostra a ADR de origem, o texto original da
       restrição, e a severidade/razão.
-- [ ] AC-6: uma regra `proposed` só vira `active` por `forja architecture:approve <rule-id>`
+- [x] AC-6: uma regra `proposed` só vira `active` por `forja architecture:approve <rule-id>`
       (reaproveita `ApprovalLedger` de `packages/policy` — **não** um sistema de aprovação
       paralelo).
-- [ ] AC-7: `architecture:check` pode participar de `check:all` como item opcional
+- [x] AC-7: `architecture:check` pode participar de `check:all` como item opcional
       (`--with-architecture`), não obrigatório por padrão (mesma decisão de opt-in já tomada para
       `drift:check` em SPEC-030 AC-5, pelo mesmo motivo: custo em repos grandes ainda não medido).
+
+**Nota de implementação (achado real, fora de escopo desta spec)**: testar `architecture:check`
+contra o workspace real (`~/forja-workspace`) expôs um diagnóstico enganoso em `memory-db`
+(`lib/core/health.ts`): o gate reportou "banco existe mas não abre (SQLITE_ERROR) — provavelmente
+corrompido", mas `sqlite3 ... PRAGMA integrity_check` confirmou "ok" — não é corrupção. Causa real:
+`getWorkspaceDbPath()` aponta para o mesmo arquivo físico usado por dois mecanismos independentes —
+`scripts/sync-universal-memory.ts` cria sua própria tabela `memory_nodes` via `CREATE TABLE IF NOT
+EXISTS` fora de qualquer migration, enquanto `adr:*`/`architecture:*` (e o já mergeado `drift:check`,
+SPEC-030) usam `SqliteMigrationRunner` (schema do Engineering Graph/policy/runtime). Os dois são
+aditivos — não há conflito de dados — mas se `sync:universal` nunca rodou nesse workspace, a tabela
+`memory_nodes` simplesmente não existe ainda, e o `SELECT count(*) FROM memory_nodes` do health check
+cai no branch genérico de erro, que rotula como "provavelmente corrompido" em vez de "rode `npm run
+sync:universal`". Nenhum dado foi perdido (o arquivo de teste era novo, criado só pelos meus testes
+desta sprint, removido com segurança). Vale uma correção pontual em `health.ts` para diferenciar
+"tabela ausente" de corrupção de fato — não implementada aqui por estar fora do escopo desta spec.
 
 ## 5. Escopo
 

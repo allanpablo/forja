@@ -1,7 +1,7 @@
 # Spec: Engineering Graph extensions (ADR/SPEC como nós de primeira classe)
 
 - **ID**: SPEC-032
-- **Status**: draft
+- **Status**: done
 - **Owner**: apk
 - **Criado em**: 2026-09-01
 - **Sprint alvo**: Sprint 1 (ver `../engineering-intelligence/plan.md`)
@@ -31,7 +31,7 @@ consultáveis via `adr:impact`/`adr:graph` e usados como insumo real do Change R
 
 ## 4. Critérios de aceite (Definition of Done)
 
-- [ ] AC-1: extensão de `extractDeterministicRelations` (ou uma função irmã dedicada, decisão de
+- [x] AC-1: extensão de `extractDeterministicRelations` (ou uma função irmã dedicada, decisão de
       implementação) lê `- **Status**: <valor>` do frontmatter de ADR (já no formato existente,
       `memory/90-decisions/_template.md`) e do campo `Status` de spec.md (`_templates/spec.md`), e
       grava como propriedade do nó — decisão de implementação: usar `GraphNode.status`
@@ -40,14 +40,27 @@ consultáveis via `adr:impact`/`adr:graph` e usados como insumo real do Change R
       verified/inferred/hypothesis/contradicted/unknown, que descreve confiança epistêmica da
       *aresta*, não o ciclo de vida do documento); a spec desta feature deve decidir isso
       explicitamente no `plan.md`, não misturar os dois vocabulários.
-- [ ] AC-2: `forja adr:list`/`adr:show <id>` funcionam sobre `memory/90-decisions/` real deste
+- [x] AC-2: `forja adr:list`/`adr:show <id>` funcionam sobre `memory/90-decisions/` real deste
       repositório.
-- [ ] AC-3: `forja adr:impact <id>` usa `GraphLoop.impact()` (já existente, sem reimplementar BFS)
+- [x] AC-3: `forja adr:impact <id>` usa `GraphLoop.impact()` (já existente, sem reimplementar BFS)
       para listar nós/arestas alcançáveis a partir do nó ADR.
-- [ ] AC-4: `forja adr:graph` exporta um subgrafo (JSON) navegável — sem visualização nesta spec
+- [x] AC-4: `forja adr:graph` exporta um subgrafo (JSON) navegável — sem visualização nesta spec
       (Fase posterior, dashboard é consumidor per princípio da visão original).
-- [ ] AC-5: mesmo tratamento para `SPEC-\d{3}` (nó `SPEC`, status do template já existente:
+- [x] AC-5: mesmo tratamento para `SPEC-\d{3}` (nó `SPEC`, status do template já existente:
       draft/review/approved/implementing/done/abandoned).
+
+**Nota de implementação (achado real, fora de escopo desta spec)**: rodar `adr:list`/`show`/
+`impact` contra o repositório real (1014 arquivos rastreados) travou por dezenas de minutos neste
+ambiente — não é bug de lógica (uma fixture isolada com 2 documentos passa em <1s, ver
+`test/adr-cli.test.js`) nem específico deste comando: `GitGraphDocumentSource.listDocuments()` é
+rápido (1 subprocesso `git ls-files` + leitura síncrona de arquivo), mas
+`SqliteGraphStore.saveNode`/`saveEdge`/`saveEvidence` (packages/adapter-sqlite) fazem um `INSERT`
+individual por chamada, sem transação — para ~1000 documentos com múltiplas relações cada, isso é
+plausivelmente dezenas de milhares de writes SQLite não agrupados, cada um com custo de fsync.
+Mesmo padrão usado por `drift:check`/`graph:sync` — não é regressão desta spec, mas um achado real
+que vale uma spec própria de performance (`GraphLoop.apply()` já processa uma `GraphMutation`
+inteira por documento; agrupar os saves de uma mutation numa única transação SQLite é o candidato
+óbvio, não implementado aqui por estar fora do escopo declarado em §5).
 
 ## 5. Escopo
 

@@ -236,6 +236,15 @@ forja code:check                           # trustworthy index (worktree + fresh
 forja code:impact <symbol>                 # callers + blast radius before you edit
 forja code:query "<term>"                  # also: code:index · code:sync · code:status
 forja drift:check [--domain <d>]           # reindex + flag 'verified' relations that stopped being true
+forja adr:list                             # ADRs as first-class graph nodes, with status (SPEC-032)
+forja adr:show <id>                        # status, source file, constraints
+forja adr:impact <id>                      # who/what depends on this ADR — GraphLoop.impact()
+forja adr:graph [<id>]                     # ADR/SPEC subgraph as JSON
+forja architecture:compile                 # ADRs (## Constraints) → constitution.json (SPEC-033)
+forja architecture:check                   # real code vs. the compiled Constitution
+forja architecture:status                  # active/proposed rules, last compile
+forja architecture:explain <rule-id>       # source ADR, original text, severity
+forja architecture:approve <rule-id>       # promotes a proposed rule to active (via ApprovalLedger)
 
 # Memory & context (workspace)
 forja sync:universal                       # reindex the workspace SQLite FTS5

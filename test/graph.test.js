@@ -75,6 +75,35 @@ test('graph: extractor cria símbolos, chamadas, ADRs, tarefas, testes e agents'
   assert.ok(mutation.edges.every((edge) => edge.evidenceIds.length > 0));
 });
 
+test('graph: extractor lê o status da própria ADR/SPEC, não de quem só a cita', () => {
+  const adrDoc = { nodeId: 'adr-doc', locator: 'memory/90-decisions/0041-exemplo.md', capturedAt: now, content: '# ADR-0041: Exemplo\n\n- **Status**: accepted\n- **Data**: 2026-01-01\n' };
+  const adrMutation = extractDeterministicRelations(adrDoc);
+  const adrNode = adrMutation.nodes.find((node) => node.type === 'ADR' && node.label === 'ADR-0041');
+  assert.equal(adrNode?.documentStatus, 'accepted');
+
+  const specDoc = { nodeId: 'spec-doc', locator: 'specs/exemplo/spec.md', capturedAt: now, content: '# Spec: Exemplo\n\n- **ID**: SPEC-099\n- **Status**: draft\n' };
+  const specMutation = extractDeterministicRelations(specDoc);
+  const specNode = specMutation.nodes.find((node) => node.type === 'SPEC' && node.label === 'SPEC-099');
+  assert.equal(specNode?.documentStatus, 'draft');
+
+  // Um documento que só *menciona* a ADR não sabe o status dela — não deve reivindicar um.
+  const mentionDoc = { nodeId: 'mention-doc', locator: 'docs/outro.md', capturedAt: now, content: 'Ver ADR-0041 para contexto.' };
+  const mentionMutation = extractDeterministicRelations(mentionDoc);
+  const mentionedNode = mentionMutation.nodes.find((node) => node.type === 'ADR' && node.label === 'ADR-0041');
+  assert.equal(mentionedNode?.documentStatus, undefined);
+});
+
+test('graph: upsertNode preserva documentStatus quando uma atualização posterior não o informa', () => {
+  const value = new GraphLoop();
+  value.upsertNode({ id: 'adr-0041', type: 'ADR', label: 'ADR-0041', status: 'verified', documentStatus: 'accepted' });
+  // Reindexar um documento que só cita a ADR de passagem não deve apagar o status real.
+  value.upsertNode({ id: 'adr-0041', type: 'ADR', label: 'ADR-0041', status: 'verified' });
+  assert.equal(value.query({ type: 'ADR' })[0].documentStatus, 'accepted');
+  // Uma atualização que INFORMA um novo status ainda pode mudá-lo de propósito.
+  value.upsertNode({ id: 'adr-0041', type: 'ADR', label: 'ADR-0041', status: 'verified', documentStatus: 'superseded' });
+  assert.equal(value.query({ type: 'ADR' })[0].documentStatus, 'superseded');
+});
+
 test('graph: extractor lê dependências de package manifest e ignora JSON inválido', () => {
   const manifest = extractDeterministicRelations({ nodeId: 'package-node', locator: 'package.json', capturedAt: now, content: JSON.stringify({ dependencies: { zod: '^3.0.0' }, devDependencies: { typescript: '^5.0.0' } }) });
   assert.equal(manifest.nodes.filter((item) => item.type === 'Technology').length, 2);

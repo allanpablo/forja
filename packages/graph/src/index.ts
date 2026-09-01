@@ -20,6 +20,7 @@ export interface GraphNodeSpec {
   readonly status: KnowledgeStatus;
   readonly validFrom?: ISO8601;
   readonly validTo?: ISO8601;
+  readonly documentStatus?: string;
 }
 
 export interface GraphEdgeSpec {
@@ -145,7 +146,12 @@ export class GraphLoop {
   upsertNode(spec: GraphNodeSpec): GraphNode {
     if (spec.id.trim().length === 0 || spec.type.trim().length === 0 || spec.label.trim().length === 0) throw new GraphError('Graph node id, type and label are required');
     const current = this.store.getNode(spec.id);
-    const node: GraphNode = { ...this.auditFields(current?.correlationId ?? `node:${spec.id}`), ...spec };
+    // `documentStatus` specifically survives an update that doesn't mention it: a document that
+    // only references this node in passing (e.g. "see ADR-0020") doesn't know that ADR's real
+    // status, and re-indexing it after the ADR's own file shouldn't erase what the ADR's own file
+    // already established — see extractDeterministicRelations' "Self-status" comment.
+    const documentStatus = spec.documentStatus ?? current?.documentStatus;
+    const node: GraphNode = { ...this.auditFields(current?.correlationId ?? `node:${spec.id}`), ...spec, ...(documentStatus === undefined ? {} : { documentStatus }) };
     this.store.saveNode(node);
     return node;
   }
@@ -365,6 +371,8 @@ export function extractDeterministicRelations(document: DeterministicDocument): 
     if (implementsMatch?.[1] !== undefined) addRelation(implementsMatch[1], 'IMPLEMENTS', index + 1, 'Symbol');
     const adrMatches = line.match(/\bADR-\d{4}\b/g) ?? [];
     for (const adr of adrMatches) addRelation(adr, 'DERIVED_FROM', index + 1, 'ADR');
+    const specMatches = line.match(/\bSPEC-\d{3,4}\b/g) ?? [];
+    for (const spec of specMatches) addRelation(spec, 'DERIVED_FROM', index + 1, 'SPEC');
     const taskMatch = line.match(/^\s*-\s*\[[ xX]\]\s+(.+)$/);
     if (taskMatch?.[1] !== undefined) addRelation(taskMatch[1], 'CONTAINS', index + 1, 'Task');
     const handoffAgentMatch = line.match(/^\s*-\s*\*\*(?:to|next agent)\*\*:\s*(.+)$/i);
@@ -377,6 +385,34 @@ export function extractDeterministicRelations(document: DeterministicDocument): 
       if (name !== undefined && !new Set(['if', 'for', 'while', 'switch', 'catch', 'function', 'describe', 'it', 'test']).has(name)) addRelation(name, 'CALLS', index + 1, 'Symbol');
     }
   });
+  // Self-status: when `document` IS an ADR or a spec.md (not just mentioning one in passing),
+  // attach the document's own `- **Status**: <value>` line to the ADR/SPEC node it represents —
+  // via the `nodes` map, not a direct `upsertNode` call, since this function stays pure/stateless
+  // (packages/graph SPEC-032 §5). A later `apply()` of some OTHER document that only references
+  // this same ADR/SPEC in passing won't know its status and won't include `documentStatus` in its
+  // own spec — `GraphLoop.upsertNode` preserves the previous value in that case rather than wiping
+  // it, so processing order across the corpus can't flip a real status back to unknown.
+  const adrSelfMatch = /^memory\/90-decisions\/(\d{4})-/.exec(document.locator);
+  const specSelfMatch = /^specs\/[^/]+\/spec\.md$/.test(document.locator);
+  if (adrSelfMatch || specSelfMatch) {
+    const statusMatch = /^-\s*\*\*Status\*\*:\s*(\S[^\n]*?)\s*$/m.exec(document.content);
+    const documentStatus = statusMatch?.[1];
+    if (documentStatus !== undefined) {
+      const label = adrSelfMatch ? `ADR-${adrSelfMatch[1]}` : /^-\s*\*\*ID\*\*:\s*(SPEC-\d{3,4})\s*$/m.exec(document.content)?.[1];
+      const type = adrSelfMatch ? 'ADR' : 'SPEC';
+      if (label !== undefined) {
+        // `addRelation` keys a node by `${relationType}:${label}` (e.g. `DERIVED_FROM:ADR-0041`),
+        // not `${nodeType}:${label}` — an existing quirk of this function, not something to change
+        // here. Reuse whatever id the self-reference already produced (present whenever the
+        // document's own text repeats its own ADR/SPEC id, which it always does per the template)
+        // instead of guessing that scheme, so this stays correct even if the keying convention
+        // changes later.
+        const existingEntry = [...nodes.entries()].find(([, node]) => node.type === type && node.label === label);
+        const targetId = existingEntry?.[0] ?? stableId(`DERIVED_FROM:${label}`);
+        nodes.set(targetId, { id: targetId, type, label, status: 'verified', documentStatus, ...(existingEntry?.[1].validFrom !== undefined ? { validFrom: existingEntry[1].validFrom } : {}) });
+      }
+    }
+  }
   if (document.locator.endsWith('package.json')) {
     try {
       const manifest = JSON.parse(document.content) as unknown;

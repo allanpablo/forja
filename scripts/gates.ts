@@ -6,6 +6,8 @@
  *   forja check:all --full        + tarball (release:check) + build do gerado (smoke --full)
  *   forja check:all --with-drift  + drift:check (SPEC-030) — opt-in, não roda por padrão (custo de
  *                                  reindexar o workspace inteiro não foi medido em repos grandes)
+ *   forja check:all --with-architecture  + architecture:check (SPEC-033) — mesmo custo de reindexar,
+ *                                  mesmo motivo pra ser opt-in
  *
  * Não substitui os gates focados — os agrega. "A casa está coerente?" num comando só.
  */
@@ -17,12 +19,14 @@ const TAG = { ok: 'OK   ', warn: 'AVISO', fail: 'FALHA', skipped: '—    ' };
 async function main() {
   const full = process.argv.includes('--full');
   const withDrift = process.argv.includes('--with-drift');
+  const withArchitecture = process.argv.includes('--with-architecture');
 
-  console.log(`\nForja check:all${full ? ' (--full)' : ''}${withDrift ? ' (--with-drift)' : ''} — a bateria inteira, um veredito\n`);
+  console.log(`\nForja check:all${full ? ' (--full)' : ''}${withDrift ? ' (--with-drift)' : ''}${withArchitecture ? ' (--with-architecture)' : ''} — a bateria inteira, um veredito\n`);
   if (full) console.log('Inclui os gates caros (empacota o tarball, builda o backend gerado) — leva minutos.\n');
   if (withDrift) console.log('Inclui drift:check (SPEC-030) — reindexa o workspace inteiro por extração determinística.\n');
+  if (withArchitecture) console.log('Inclui architecture:check (SPEC-033) — mesmo custo de reindexação de drift:check.\n');
 
-  const groups = await runGates({ full, withDrift });
+  const groups = await runGates({ full, withDrift, withArchitecture });
 
   for (const g of groups) {
     console.log(`▚ ${g.name}`);

@@ -80,3 +80,11 @@ apps/dashboard/.next/
 /memory/30-projects/*
 !/memory/30-projects/README.md
 /dist/
+
+# constitution.json (SPEC-033) precisa ser revisável em PR, ao contrário do resto de .context/
+# (efêmero/regenerável) — negar cada nível do path é necessário: o git não desce em diretório
+# já ignorado para avaliar exceções de arquivo dentro dele.
+!/.context/
+/.context/*
+!/.context/architecture/
+!/.context/architecture/constitution.json
