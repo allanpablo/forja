@@ -69,3 +69,35 @@ test('buildContextPack marca found=false quando o domínio não tem mapa', () =>
 test('estimateTokens é bytes/4 (o proxy do framework)', () => {
   assert.equal(estimateTokens('a'.repeat(40)), 10);
 });
+
+// domain vem direto do argv de `forja code:context <domínio>` — sem allowlist, "../../etc" (ou
+// qualquer coisa fora de memory/30-domains/*) caminha para fora do projectRoot via path.join
+// tanto no context.md quanto na varredura recursiva de --code.
+test('buildContextPack rejeita domain com path traversal e não escapa do projectRoot', () => {
+  const root = fixtureProject({ 'memory/30-domains/orders/context.md': '# orders' });
+  const outsideDir = fs.mkdtempSync(path.join(os.tmpdir(), 'forja-codectx-outside-'));
+  fs.writeFileSync(path.join(outsideDir, 'secret.md'), 'segredo fora do projeto');
+  try {
+    const traversal = `..${path.sep}..${path.sep}${path.basename(outsideDir)}`;
+    const pack = buildContextPack({ projectRoot: root, domain: traversal });
+    assert.equal(pack.found, false, 'domain fora da allowlist deve ser rejeitado');
+    assert.equal(pack.map, null);
+    assert.equal(pack.mapPath, null);
+
+    const packCode = buildContextPack({ projectRoot: root, domain: traversal, includeCode: true });
+    assert.equal(packCode.code.length, 0, 'com --code, também não deve varrer nada fora do projectRoot');
+  } finally {
+    fs.rmSync(root, { recursive: true, force: true });
+    fs.rmSync(outsideDir, { recursive: true, force: true });
+  }
+});
+
+test('buildContextPack rejeita até um "../" que ainda resolveria dentro do projectRoot (allowlist, não sanitização)', () => {
+  const root = fixtureProject({
+    'memory/30-domains/orders/context.md': '# orders',
+    'memory/other-secret/context.md': '# não é um domínio declarado em 30-domains',
+  });
+  const pack = buildContextPack({ projectRoot: root, domain: `..${path.sep}other-secret` });
+  assert.equal(pack.found, false);
+  fs.rmSync(root, { recursive: true, force: true });
+});

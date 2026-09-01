@@ -179,6 +179,11 @@ export class OpsService {
     'backend/src/modules/ops/ops.controller.ts': `import { Controller, Get } from '@nestjs/common';
 import { OpsService } from './ops.service';
 
+/** Escapa HTML para evitar XSS refletido/armazenado via agent_name/current_task/status/title etc. (dados livres vindos do SQLite). */
+function esc(value: unknown): string {
+  return String(value).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' } as Record<string, string>)[c]);
+}
+
 @Controller('ops')
 export class OpsController {
   constructor(private readonly opsService: OpsService) {}
@@ -191,7 +196,7 @@ export class OpsController {
   @Get()
   renderDashboard() {
     const stats = this.opsService.getStats();
-    
+
     return \`
       <!DOCTYPE html>
       <html lang="pt-BR">
@@ -218,8 +223,8 @@ export class OpsController {
                       <div class="space-y-4">
                           \${stats.agents.map((a: any) => \`
                               <div class="p-3 bg-gray-900 rounded-lg border-l-4 \${a.status === 'IDLE' ? 'border-green-500' : 'border-yellow-500'}">
-                                  <div class="font-bold">\${a.agent_name}</div>
-                                  <div class="text-xs text-gray-400">\${a.status} \${a.current_task ? ' - ' + a.current_task : ''}</div>
+                                  <div class="font-bold">\${esc(a.agent_name)}</div>
+                                  <div class="text-xs text-gray-400">\${esc(a.status)} \${a.current_task ? ' - ' + esc(a.current_task) : ''}</div>
                               </div>
                           \`).join('')}
                       </div>
@@ -233,8 +238,8 @@ export class OpsController {
                       <div class="space-y-4">
                           \${stats.tasks.map((t: any) => \`
                               <div class="flex justify-between items-center">
-                                  <span class="capitalize">\${t.status}</span>
-                                  <span class="bg-blue-600 px-2 py-1 rounded text-xs">\${t.count}</span>
+                                  <span class="capitalize">\${esc(t.status)}</span>
+                                  <span class="bg-blue-600 px-2 py-1 rounded text-xs">\${esc(t.count)}</span>
                               </div>
                           \`).join('')}
                       </div>
@@ -248,8 +253,8 @@ export class OpsController {
                       <div class="space-y-3">
                           \${stats.handoffs.map((h: any) => \`
                               <div class="text-xs border-b border-gray-700 pb-2">
-                                  <div class="text-blue-300 font-medium">\${h.from_agent} → \${h.to_agent}</div>
-                                  <div class="text-gray-400 truncate">\${h.title}</div>
+                                  <div class="text-blue-300 font-medium">\${esc(h.from_agent)} → \${esc(h.to_agent)}</div>
+                                  <div class="text-gray-400 truncate">\${esc(h.title)}</div>
                               </div>
                           \`).join('')}
                       </div>

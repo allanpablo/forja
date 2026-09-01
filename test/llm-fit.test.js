@@ -4,7 +4,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { spawnSync } from 'node:child_process';
-import { DEFAULT_LLM_PROFILES, buildLlmExecution, recommendProfile, validateProfiles } from '../packages/llm/src/index.ts';
+import { DEFAULT_LLM_PROFILES, buildLlmExecution, recommendProfile, runLlm, validateProfiles } from '../packages/llm/src/index.ts';
 
 test('LLM profiles reject shell-like commands and preserve an explicit adapter contract', () => {
   assert.throws(() => validateProfiles({ version: 1, profiles: { invalid: { provider: 'x', model: 'x', command: 'tool --unsafe', commandArgs: [], roles: [], taskTypes: [], privacy: 'local', enabled: true } } }), /one executable/);
@@ -55,5 +55,27 @@ test('CLI initializes workspace-local profiles and recommends a compatible profi
     assert.equal(JSON.parse(evaluation.stdout).metrics.observationCount, 1);
   } finally {
     fs.rmSync(workspace, { recursive: true, force: true });
+  }
+});
+
+// A CLI tool that ignores SIGTERM (or a runaway grandchild it spawned) must not survive a
+// runLlm timeout — bare child.kill() alone can leave it running (and, for API-backed
+// providers, still accruing cost) after Forja has already moved on.
+test('runLlm derruba com SIGKILL um subprocesso que ignora SIGTERM após o timeout', async () => {
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'forja-llm-kill-'));
+  const pidFile = path.join(tmp, 'pid');
+  try {
+    const script = `require('fs').writeFileSync(${JSON.stringify(pidFile)}, String(process.pid)); process.on('SIGTERM', () => {}); setInterval(() => {}, 1000);`;
+    const result = await runLlm({ executable: process.execPath, args: ['-e', script] }, process.cwd(), 200);
+    assert.equal(result.errorCode, 'TIMEOUT');
+
+    // runLlm resolves as soon as SIGTERM is sent (doesn't block the caller on the kill sequence);
+    // give the SIGTERM-grace → SIGKILL escalation time to actually land before checking liveness.
+    await new Promise((resolve) => setTimeout(resolve, 4_000));
+
+    const pid = Number(fs.readFileSync(pidFile, 'utf8').trim());
+    assert.throws(() => process.kill(pid, 0), /ESRCH/, 'processo que ignora SIGTERM deveria ter sido derrubado com SIGKILL');
+  } finally {
+    fs.rmSync(tmp, { recursive: true, force: true });
   }
 });

@@ -58,3 +58,38 @@ test('mcp: normaliza erros, exige dependências configuradas e aplica policy no 
   const resource = await server().readResource('forja://missing');
   assert.equal(resource.structuredContent.code, 'RESOURCE_NOT_FOUND');
 });
+
+// Antes só forja_handoff_create passava por authorize(); as demais tools (queries de leitura,
+// spec_check/test_run/execution_validate) executavam sem nenhum gate de policy na superfície MCP.
+test('mcp: aplica policy também nas tools antes não-checadas (query, impact, task_next, spec/test/validate)', async () => {
+  const deny = { authorize: () => ({ effect: 'DENY', reason: 'mcp policy denied', policyId: 'deny-all' }) };
+  let ran = false;
+  const memory = { query: () => { ran = true; return { hit: true }; } };
+  const specChecker = { check: () => { ran = true; return { ok: true }; } };
+  const testRunner = { run: () => { ran = true; return { ok: true }; } };
+  const executionValidator = { validate: () => { ran = true; return { ok: true }; } };
+
+  const blocked = server({ mcpPolicy: deny, memory, specChecker, testRunner, executionValidator });
+
+  for (const [tool, input] of [
+    ['forja_memory_query', { objective: 'x' }],
+    ['forja_graph_query', {}],
+    ['forja_code_impact', { origin: 'node-1' }],
+    ['forja_task_next', { sprintId: 'sprint-1' }],
+    ['forja_spec_check', {}],
+    ['forja_test_run', {}],
+    ['forja_execution_validate', {}],
+  ]) {
+    ran = false;
+    const result = await blocked.callTool(tool, input);
+    assert.equal(result.isError, true, `${tool} deveria ser bloqueada pela mcpPolicy`);
+    assert.equal(result.structuredContent.code, 'TOOL_FAILED');
+    assert.equal(ran, false, `${tool} não deveria ter chegado a executar o adapter subjacente`);
+  }
+
+  // policy que ALLOW ainda deixa a mesma query passar normalmente
+  const allowed = server({ mcpPolicy: { authorize: () => ({ effect: 'ALLOW', reason: 'ok', policyId: 'allow-all' }) }, memory });
+  const passed = await allowed.callTool('forja_memory_query', { objective: 'x' });
+  assert.equal(passed.isError, false);
+  assert.deepEqual(passed.structuredContent, { hit: true });
+});

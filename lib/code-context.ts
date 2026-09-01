@@ -89,6 +89,13 @@ export function buildContextPack(
   { projectRoot, domain, includeCode = false }: { projectRoot: string; domain: string; includeCode?: boolean },
   env: CodeContextEnv = defaultFsEnv
 ): ContextPack {
+  // Allowlist against the domains the project actually declares (memory/30-domains/*) — rejects early
+  // rather than sanitizing, since it's information this function already has and a traversal payload
+  // (e.g. "../../etc") can never literally equal one of those directory names.
+  if (!domainsOf(projectRoot, env).includes(domain)) {
+    return { domain, found: false, mapPath: null, map: null, mapTokens: 0, code: [], codeTokens: 0, totalTokens: 0 };
+  }
+
   const mapPath = path.join(projectRoot, 'memory', '30-domains', domain, 'context.md');
   let map: string | null = null;
   try {
