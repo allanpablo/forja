@@ -343,6 +343,13 @@ export const COMMANDS = {
     args: ['recommend'],
     gates: ['workspace-warn'],
   },
+  'agent:monitor': {
+    domain: 'code',
+    desc: 'Compara comportamento recente de um agente contra a linha de base histórica — informação, não bloqueio (SPEC-040)',
+    node: 'scripts/agent.ts',
+    args: ['monitor'],
+    gates: ['workspace-warn'],
+  },
   'simulate': {
     domain: 'code',
     desc: 'Testa+arquitetura+risco de um ref num worktree isolado, nunca promove (SPEC-038)',

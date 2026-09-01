@@ -133,3 +133,27 @@ test('policy: regra sem riskScoreRange continua casando normalmente, riskScore p
   assert.equal(engine.authorize(request()).effect, 'ALLOW');
   assert.equal(engine.authorize(request({ riskScore: 99 })).effect, 'ALLOW');
 });
+
+// SPEC-040 AC-4: anomalyScoreRange segue exatamente o mesmo padrão de riskScoreRange.
+test('policy: anomalyScoreRange casa regra por faixa de score de anomalia', () => {
+  const rules = [{ id: 'high-anomaly-review', priority: 10, effect: 'REQUIRE_APPROVAL', reason: 'anomalia alta', scope: { anomalyScoreRange: [51, 100] } }];
+  const engine = new PolicyEngine({ rules });
+  const highAnomaly = engine.authorize(request({ anomalyScore: 80 }));
+  assert.equal(highAnomaly.effect, 'REQUIRE_APPROVAL');
+  assert.equal(highAnomaly.policyId, 'high-anomaly-review');
+});
+
+test('policy: anomalyScoreRange não casa fora da faixa nem quando anomalyScore está ausente', () => {
+  const rules = [{ id: 'high-anomaly-review', priority: 10, effect: 'REQUIRE_APPROVAL', reason: 'anomalia alta', scope: { anomalyScoreRange: [51, 100] } }];
+  const engine = new PolicyEngine({ rules });
+  assert.equal(engine.authorize(request({ anomalyScore: 20 })).effect, 'DENY');
+  assert.equal(engine.authorize(request()).effect, 'DENY');
+});
+
+test('policy: riskScoreRange e anomalyScoreRange podem ser combinados na mesma regra (ambos precisam casar)', () => {
+  const rules = [{ id: 'high-risk-and-anomaly', priority: 10, effect: 'DENY', reason: 'risco e anomalia altos', scope: { riskScoreRange: [51, 100], anomalyScoreRange: [51, 100] } }];
+  const engine = new PolicyEngine({ rules });
+  assert.equal(engine.authorize(request({ riskScore: 80, anomalyScore: 20 })).effect, 'DENY', 'sem regra casando, default-deny — mas policyId confirma qual caminho');
+  assert.equal(engine.authorize(request({ riskScore: 80, anomalyScore: 20 })).policyId, 'default-deny', 'anomalyScore fora da faixa não casa a regra específica, cai no default');
+  assert.equal(engine.authorize(request({ riskScore: 80, anomalyScore: 80 })).policyId, 'high-risk-and-anomaly');
+});
