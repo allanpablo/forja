@@ -249,19 +249,17 @@ Pipeline: `memory/90-decisions/*.md` (fonte legível por humano) → parser dete
 `.context/architecture/constitution.json` (versionado em git, revisável em PR como qualquer outro
 artefato gerado — mesmo padrão de `.context/forja-runs.jsonl`).
 
-Comandos (novos, seguindo o padrão `forja <domínio>:<ação>` já usado por `code:*`/`spec:*`):
+Comandos propostos (nenhum existe ainda — nomenclatura sem prefixo `forja`, ver §12):
 
-```bash
-forja architecture:compile   # ADRs → constitution.json (determinístico)
-forja architecture:check     # constitution.json vs. CodeGraph vs. código atual
-forja architecture:status    # resumo: N regras ativas, última compilação
-forja architecture:explain <rule-id>   # por que essa regra existe, qual ADR, qual severidade
-```
+- `architecture:compile` — ADRs → `constitution.json` (determinístico)
+- `architecture:check` — `constitution.json` vs. CodeGraph vs. código atual
+- `architecture:status` — resumo: N regras ativas, última compilação
+- `architecture:explain <rule-id>` — por que essa regra existe, qual ADR, qual severidade
 
 `architecture:compile` **nunca** usa LLM para gerar uma regra `active` diretamente. Fluxo com LLM
 (opcional, Fase 6+): quando um ADR tem `## Constraints` mal-formado ou ambíguo, o parser
 determinístico produz uma regra com `confidence < 1.0` e `status: 'proposed'`; só passa a `active`
-depois de `forja architecture:approve <rule-id>` (reaproveita `ApprovalLedger` — **não** um sistema
+depois de `architecture:approve <rule-id>` (comando proposto, ver §12; reaproveita `ApprovalLedger` — **não** um sistema
 de aprovação paralelo).
 
 `architecture:check` reaproveita o mesmo motor de "isso que era verdade parou de ser" que o
@@ -348,30 +346,22 @@ Cada um é **puro domínio** (sem `fs`/`spawnSync`/rede) — os adapters (`apps/
 
 ## 12. CLI Plan
 
-Sem explosão de comandos — agrupado por domínio, `forja engineer` como façade principal:
+Sem explosão de comandos — agrupado por domínio, uma façade principal (`engineer`) por cima do
+resto. **Nenhum comando abaixo existe ainda** — esta é a superfície proposta para os Sprints 1-3;
+por isso a tabela usa nome do comando sem o prefixo `forja`/`npm run` (convenção deste repositório
+para citação de comando *proposto*, não real — ver `lib/core/doc-graph.ts`, `DOC_SURFACES`: `docs/`
+é superfície que orienta o agente *agora*, então só cita comando que já existe no registry;
+comando proposto pertence à spec que o define, referenciada na coluna "Spec").
 
-```bash
-forja engineer "<objetivo>"          # façade — compõe tudo abaixo
-
-forja architecture:compile
-forja architecture:check
-forja architecture:status
-forja architecture:explain <rule-id>
-
-forja risk:assess "<mudança>"        # change:analyze / change:risk da visão, unificado
-forja risk:explain <assessment-id>
-
-forja adr:list | show | impact | graph
-
-forja agent:list | show | score | history
-
-forja provenance:blame <arquivo>
-forja provenance:generate            # AI-SBOM
-
-forja simulate "<mudança>"
-forja explain <arquivo|classe|função|commit|run>
-forja timeline
-```
+| Domínio | Comando proposto | Spec |
+|---|---|---|
+| Façade | `engineer "<objetivo>"` — compõe tudo abaixo | SPEC-035 |
+| Arquitetura | `architecture:compile` / `:check` / `:status` / `:explain <rule-id>` / `:approve <rule-id>` | SPEC-033 |
+| Risco | `risk:assess "<mudança>"` / `:explain <assessment-id>` | SPEC-034 |
+| ADR | `adr:list` / `:show <id>` / `:impact <id>` / `:graph` | SPEC-032 |
+| Agente | `agent:list` / `:show` / `:score` / `:history` | Fase 3 (fora desta spec master) |
+| Proveniência | `provenance:blame <arquivo>` / `:generate` (AI-SBOM) | Fase 5 (fora desta spec master) |
+| Outros | `simulate "<mudança>"`, `explain <alvo>`, `timeline` | Fases 4/2 (fora desta spec master) |
 
 `eval:*`, `route`, `learn:*`, `watch` ficam para Fases 3/6/7 — não fazem parte da primeira entrega
 de comandos (P0).
