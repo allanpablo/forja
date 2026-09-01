@@ -126,6 +126,20 @@ test('esc() gerado neutraliza <script> em campo livre (título de handoff malici
   });
 });
 
+// ops.service.ts gerado abre um handle better-sqlite3 no construtor sem nunca fechá-lo — mesma
+// classe de bug do apps/server/src/main.ts (audit: nenhum handler de SIGINT/SIGTERM fecha o DB).
+test('ops.service.ts gerado fecha o handle sqlite em onModuleDestroy, e main.ts habilita shutdown hooks', () => {
+  withTempDir((dir) => {
+    generateNestStructure(dir, 'shutdown-project', { noGitkeep: true });
+    const service = fs.readFileSync(path.join(dir, 'backend/src/modules/ops/ops.service.ts'), 'utf8');
+    assert.match(service, /implements OnModuleDestroy/);
+    assert.match(service, /onModuleDestroy\(\)\s*\{\s*this\.db\.close\(\);/);
+
+    const main = fs.readFileSync(path.join(dir, 'backend/src/main.ts'), 'utf8');
+    assert.match(main, /app\.enableShutdownHooks\(\)/, 'sem isso o Nest nunca invoca onModuleDestroy em SIGINT/SIGTERM');
+  });
+});
+
 // --- README Generator ---
 
 test('generateReadme cria o README.md', () => {

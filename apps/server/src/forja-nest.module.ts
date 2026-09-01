@@ -2,7 +2,7 @@ import { CanActivate, Controller, DynamicModule, ExecutionContext, Get, Global, 
 import type { Request, Response } from 'express';
 import type { Observable } from 'rxjs';
 import { Observable as RxObservable } from 'rxjs';
-import { ForjaNestAdapter, type EventStream, type HttpRequest, type LocalAuthenticator } from '../../../packages/adapter-nest/src/index.ts';
+import { ForjaNestAdapter, isLoopbackAddress, type EventStream, type HttpRequest, type LocalAuthenticator } from '../../../packages/adapter-nest/src/index.ts';
 import type { McpServer } from '../../../packages/mcp/src/index.ts';
 import type { ControlPlanePort } from '../../../packages/observability/src/index.ts';
 
@@ -27,8 +27,13 @@ export class ForjaLocalAuthGuard implements CanActivate {
   private readonly authenticator?: LocalAuthenticator;
   constructor(@Optional() @Inject(FORJA_AUTHENTICATOR) authenticator?: LocalAuthenticator) { this.authenticator = authenticator; }
   async canActivate(context: ExecutionContext): Promise<boolean> {
-    if (this.authenticator === undefined) return true;
     const request = context.switchToHttp().getRequest<Request>();
+    if (this.authenticator === undefined) {
+      // Fail closed, not open: no FORJA_AUTH_TOKEN configured means loopback-only, not allow-all —
+      // otherwise a port-forward or container-network hop reaches this server fully unauthenticated.
+      if (isLoopbackAddress(request.socket?.remoteAddress)) return true;
+      throw new UnauthorizedException('Local authentication required (no FORJA_AUTH_TOKEN configured; only loopback requests are allowed)');
+    }
     if (await this.authenticator.authenticate(headers(request))) return true;
     throw new UnauthorizedException('Local authentication required');
   }
@@ -75,7 +80,7 @@ export class ForjaNestController {
   }
 
   private async route(request: Request, response: Response, method: HttpRequest['method'], path: string, body?: unknown): Promise<unknown> {
-    const result = await this.adapter.handle({ method, path, query: request.query as Readonly<Record<string, string | undefined>>, body, headers: headers(request), correlationId: this.correlation(request) });
+    const result = await this.adapter.handle({ method, path, query: request.query as Readonly<Record<string, string | undefined>>, body, headers: headers(request), correlationId: this.correlation(request), remoteAddress: request.socket?.remoteAddress });
     response.status(result.status);
     for (const [key, value] of Object.entries(result.headers)) response.setHeader(key, value);
     return result.body;

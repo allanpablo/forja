@@ -110,6 +110,9 @@ import { AppModule } from './app.module';
 async function bootstrap(): Promise<void> {
   const app = await NestFactory.create(AppModule);
   app.setGlobalPrefix('api');
+  // Lets Nest call each provider's onModuleDestroy (e.g. OpsService closing its sqlite handle)
+  // on SIGINT/SIGTERM instead of the process exiting with the database handle left open.
+  app.enableShutdownHooks();
   await app.listen(process.env.PORT ? Number(process.env.PORT) : 3000);
 }
 
@@ -153,12 +156,12 @@ export class AppService {
 }
 `,
 
-    'backend/src/modules/ops/ops.service.ts': `import { Injectable } from '@nestjs/common';
+    'backend/src/modules/ops/ops.service.ts': `import { Injectable, OnModuleDestroy } from '@nestjs/common';
 import * as Database from 'better-sqlite3';
 import * as path from 'node:path';
 
 @Injectable()
-export class OpsService {
+export class OpsService implements OnModuleDestroy {
   private db: any;
 
   constructor() {
@@ -170,8 +173,14 @@ export class OpsService {
     const agents = this.db.prepare('SELECT agent_name, status, current_task FROM agent_sessions').all();
     const tasks = this.db.prepare('SELECT status, COUNT(*) as count FROM tasks GROUP BY status').all();
     const handoffs = this.db.prepare('SELECT from_agent, to_agent, title, created_at FROM handoffs ORDER BY created_at DESC LIMIT 5').all();
-    
+
     return { agents, tasks, handoffs };
+  }
+
+  // Closes the sqlite handle on SIGINT/SIGTERM (via app.enableShutdownHooks() in main.ts),
+  // rather than leaving it open for the process to exit around.
+  onModuleDestroy() {
+    this.db.close();
   }
 }
 `,
