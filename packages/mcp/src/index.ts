@@ -171,15 +171,18 @@ export class McpServer {
       case 'forja_capabilities_list': return this.dependencies.registry.list({ agent: this.dependencies.agent, policy: this.dependencies.policy });
       case 'forja_capability_describe': return this.dependencies.registry.describe(this.string(input, 'capabilityId'), { agent: this.dependencies.agent, policy: this.dependencies.policy });
       case 'forja_capability_execute': return this.executeCapability(input);
-      case 'forja_context_build': return this.requireContext().build(this.contextRequest(input));
-      case 'forja_memory_query': return this.requireMemory().query(this.string(input, 'objective'));
-      case 'forja_graph_query': return this.requireGraph().query(this.graphQuery(input));
-      case 'forja_code_impact': return this.requireGraph().impact(this.entity(input, 'origin'), this.number(input, 'depth', 2), this.direction(input));
-      case 'forja_task_next': return this.requireTasks().next(this.entity(input, 'sprintId'));
+      // read-only queries: low-risk read gate — same authorize() surface as forja_handoff_create, scoped down
+      case 'forja_context_build': this.authorize('forja_context_build', 'read', 'low', []); return this.requireContext().build(this.contextRequest(input));
+      case 'forja_memory_query': this.authorize('forja_memory_query', 'read', 'low', []); return this.requireMemory().query(this.string(input, 'objective'));
+      case 'forja_graph_query': this.authorize('forja_graph_query', 'read', 'low', []); return this.requireGraph().query(this.graphQuery(input));
+      case 'forja_code_impact': this.authorize('forja_code_impact', 'read', 'low', []); return this.requireGraph().impact(this.entity(input, 'origin'), this.number(input, 'depth', 2), this.direction(input));
+      case 'forja_task_next': this.authorize('forja_task_next', 'read', 'low', []); return this.requireTasks().next(this.entity(input, 'sprintId'));
       case 'forja_handoff_create': return this.createHandoff(input);
-      case 'forja_spec_check': return this.requireSpecChecker().check(input);
-      case 'forja_test_run': return this.requireTestRunner().run(input);
-      case 'forja_execution_validate': return this.requireExecutionValidator().validate(input);
+      // spec_check/test_run/execution_validate call adapters directly (not through CapabilityRegistry.execute,
+      // which has its own policy gate), so this authorize() is their only checkpoint at the MCP surface.
+      case 'forja_spec_check': this.authorize('forja_spec_check', 'validate', 'low', []); return this.requireSpecChecker().check(input);
+      case 'forja_test_run': this.authorize('forja_test_run', 'execute', 'medium', []); return this.requireTestRunner().run(input);
+      case 'forja_execution_validate': this.authorize('forja_execution_validate', 'validate', 'low', []); return this.requireExecutionValidator().validate(input);
       default:
         if (name.startsWith('forja_capability_')) return this.executeDynamicCapability(name, input);
         throw new McpAdapterError(`MCP tool not implemented: ${name}`);

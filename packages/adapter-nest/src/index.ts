@@ -9,6 +9,21 @@ export interface HttpRequest {
   readonly body?: unknown;
   readonly headers: Readonly<Record<string, string | undefined>>;
   readonly correlationId?: string;
+  /** `req.socket.remoteAddress` (or equivalent) of the caller, when known. Used to fail closed to
+   *  loopback-only access when no authenticator is configured — see `isLoopbackAddress`. */
+  readonly remoteAddress?: string;
+}
+
+/**
+ * True for 127.0.0.0/8 and ::1 (with the common ::ffff:-mapped IPv4 form normalized first).
+ * `address === undefined` returns false — "unknown" is not "trusted" — but callers that only have
+ * a real remote address for genuine network connections (never for direct in-process calls) may
+ * choose to treat a missing address as trusted at the call site; this helper stays strict.
+ */
+export function isLoopbackAddress(address: string | undefined): boolean {
+  if (address === undefined) return false;
+  const value = address.startsWith('::ffff:') ? address.slice(7) : address;
+  return value === '127.0.0.1' || value === '::1' || value.startsWith('127.');
 }
 
 export interface HttpResponse {
@@ -86,12 +101,25 @@ export class ForjaNestAdapter {
   async handle(request: HttpRequest): Promise<HttpResponse> {
     const correlationId = request.correlationId ?? request.headers['x-correlation-id'] ?? `http:${request.method}:${request.path}`;
     try {
-      if (this.authenticator !== undefined && !(await this.authenticator.authenticate(request.headers))) return { status: 401, headers: { 'content-type': 'application/json; charset=utf-8', 'x-correlation-id': correlationId, 'www-authenticate': 'Bearer' }, body: { error: { code: 'UNAUTHENTICATED', message: 'Local authentication required' } }, correlationId };
+      if (!(await this.isAuthenticated(request))) return { status: 401, headers: { 'content-type': 'application/json; charset=utf-8', 'x-correlation-id': correlationId, 'www-authenticate': 'Bearer' }, body: { error: { code: 'UNAUTHENTICATED', message: 'Local authentication required' } }, correlationId };
       const result = await this.dispatch(request);
       return this.result(correlationId, result);
     } catch (error: unknown) {
       return this.error(correlationId, error instanceof Error ? error.message : 'Unknown HTTP adapter error');
     }
+  }
+
+  /**
+   * Fails closed when no authenticator is configured: previously this meant "allow everyone", which
+   * left any request that reached the process (e.g. a container-network or port-forward hop) fully
+   * unauthenticated. Now it means "loopback callers only". `remoteAddress` being unset (rather than
+   * a real non-loopback address) is treated as an internal/direct call — e.g. dispatched in-process,
+   * not received over an actual socket — and stays trusted; a genuine HTTP layer always supplies it
+   * (see ForjaLocalAuthGuard, which reads it straight off the raw socket).
+   */
+  private async isAuthenticated(request: HttpRequest): Promise<boolean> {
+    if (this.authenticator === undefined) return request.remoteAddress === undefined || isLoopbackAddress(request.remoteAddress);
+    return this.authenticator.authenticate(request.headers);
   }
 
   subscribeSse(listener: (event: SseEvent) => void): () => void {

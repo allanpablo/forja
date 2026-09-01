@@ -1,5 +1,7 @@
 // @ts-expect-error Next resolves the adjacent TypeScript helper.
 import { buildApprovalDecisionBody } from '../approval';
+// @ts-expect-error Next resolves the adjacent TypeScript helper.
+import { isCallerAuthorized, matchesAllowedPrefix } from '../guard';
 
 const allowedPrefixes = ['/control-plane/metrics', '/observability/observations', '/events/stream', '/executions/', '/graph/query', '/graph/impact', '/approvals'];
 
@@ -7,8 +9,12 @@ export async function GET(request: Request, context: { params: Promise<{ path: s
 export async function POST(request: Request, context: { params: Promise<{ path: string[] }> }): Promise<Response> { return forward(request, await context.params, 'POST'); }
 
 async function forward(request: Request, params: { path: string[] }, method: 'GET' | 'POST'): Promise<Response> {
+  // Fails closed: without FORJA_DASHBOARD_TOKEN configured, or without the caller presenting it,
+  // this route refuses every request rather than silently forwarding the server's own backend
+  // credential (FORJA_API_TOKEN, below) on an unauthenticated caller's behalf.
+  if (!isCallerAuthorized(request)) return new Response(JSON.stringify({ error: { code: 'FORBIDDEN', message: 'Dashboard caller authentication required' } }), { status: 403, headers: { 'content-type': 'application/json' } });
   const path = `/${params.path.join('/')}`;
-  if (!allowedPrefixes.some((prefix) => path === prefix || path.startsWith(prefix))) return new Response(JSON.stringify({ error: { code: 'FORBIDDEN', message: 'Dashboard route is not allowed' } }), { status: 403, headers: { 'content-type': 'application/json' } });
+  if (!allowedPrefixes.some((prefix) => matchesAllowedPrefix(path, prefix))) return new Response(JSON.stringify({ error: { code: 'FORBIDDEN', message: 'Dashboard route is not allowed' } }), { status: 403, headers: { 'content-type': 'application/json' } });
   const backend = process.env.FORJA_API_URL ?? 'http://localhost:3000';
   const token = process.env.FORJA_API_TOKEN;
   const headers = new Headers({ accept: request.headers.get('accept') ?? 'application/json' });

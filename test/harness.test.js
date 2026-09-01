@@ -68,3 +68,43 @@ test('gsd:handoff resolve agent-router apos migracao para TypeScript', () => {
     fs.rmSync(workspace, { recursive: true, force: true });
   }
 });
+
+test('design:check rejeita brief lido de diretorio irmao (bypass do startsWith ingenuo)', () => {
+  const base = fs.mkdtempSync(path.join(os.tmpdir(), 'forja-designcheck-'));
+  try {
+    // Diretorio irmao cujo nome apenas compartilha o prefixo de string de `project` —
+    // startsWith(projectRoot) aceitava isso; isPathWithinRoot deve rejeitar.
+    const projectRoot = path.join(base, 'project');
+    const evilDir = path.join(base, 'project-evil');
+    fs.mkdirSync(projectRoot, { recursive: true });
+    fs.mkdirSync(evilDir, { recursive: true });
+    fs.writeFileSync(path.join(evilDir, 'secret.md'), '# not the users brief');
+
+    const r = spawnSync(process.execPath, [path.join(root, 'scripts/agent-harness.ts'), 'design:check', '../project-evil/secret.md'], {
+      cwd: projectRoot,
+      encoding: 'utf8',
+    });
+    assert.equal(r.status, 1);
+    assert.match(r.stderr + r.stdout, /Caminho fora do projeto/);
+  } finally {
+    fs.rmSync(base, { recursive: true, force: true });
+  }
+});
+
+test('design:check ainda le um brief legitimo dentro do projeto', () => {
+  const base = fs.mkdtempSync(path.join(os.tmpdir(), 'forja-designcheck-ok-'));
+  try {
+    const briefPath = path.join(base, 'brief.md');
+    fs.writeFileSync(briefPath, '# brief incompleto de proposito');
+
+    const r = spawnSync(process.execPath, [path.join(root, 'scripts/agent-harness.ts'), 'design:check', 'brief.md'], {
+      cwd: base,
+      encoding: 'utf8',
+    });
+    // Conteudo incompleto falha por campos ausentes, nao pelo guardrail de caminho.
+    assert.doesNotMatch(r.stderr + r.stdout, /Caminho fora do projeto/);
+    assert.match(r.stdout, /Campos ausentes/);
+  } finally {
+    fs.rmSync(base, { recursive: true, force: true });
+  }
+});

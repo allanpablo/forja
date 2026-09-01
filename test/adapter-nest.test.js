@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { CapabilityRegistry } from '../packages/core/src/index.ts';
 import { McpServer } from '../packages/mcp/src/index.ts';
-import { ForjaNestAdapter, InMemoryEventStream } from '../packages/adapter-nest/src/index.ts';
+import { ForjaNestAdapter, InMemoryEventStream, isLoopbackAddress } from '../packages/adapter-nest/src/index.ts';
 import { createForjaServer } from '../apps/server/src/index.ts';
 import { ControlPlane } from '../packages/observability/src/index.ts';
 
@@ -73,3 +73,33 @@ test('adapter-nest: normaliza rota inválida e expõe SSE por stream injetado', 
   assert.equal(received.length, 1);
   assert.equal(received[0].event, 'execution.completed');
 });
+
+test('isLoopbackAddress reconhece 127.0.0.0/8, ::1 e a forma ::ffff:-mapeada, e nada mais', () => {
+  assert.equal(isLoopbackAddress('127.0.0.1'), true);
+  assert.equal(isLoopbackAddress('127.0.0.53'), true);
+  assert.equal(isLoopbackAddress('::1'), true);
+  assert.equal(isLoopbackAddress('::ffff:127.0.0.1'), true);
+  assert.equal(isLoopbackAddress('203.0.113.5'), false, 'endereço remoto real não é loopback');
+  assert.equal(isLoopbackAddress('10.0.0.5'), false, 'rede privada não é loopback');
+  assert.equal(isLoopbackAddress(undefined), false, 'desconhecido não é "confiável" por padrão');
+});
+
+test('adapter-nest: sem autenticador configurado, falha fechado para não-loopback em vez de allow-all', async () => {
+  const fixture = adapter();
+  const http = new ForjaNestAdapter(fixture.mcp);
+  // Sem authenticator e sem remoteAddress (chamada direta/in-process): mantém o comportamento
+  // pré-existente usado pelos demais testes deste arquivo.
+  const direct = await http.handle({ method: 'GET', path: '/health', query: {}, headers: {} });
+  assert.equal(direct.status, 200);
+  // Sem authenticator e com remoteAddress real, não-loopback: era aceito antes do fix; agora nega.
+  const remote = await http.handle({ method: 'GET', path: '/health', query: {}, headers: {}, remoteAddress: '203.0.113.5' });
+  assert.equal(remote.status, 401);
+  // Sem authenticator, loopback genuíno: continua permitido (não quebra o dev local sem token).
+  const loopback = await http.handle({ method: 'GET', path: '/health', query: {}, headers: {}, remoteAddress: '127.0.0.1' });
+  assert.equal(loopback.status, 200);
+});
+
+// ForjaLocalAuthGuard (apps/server/src/forja-nest.module.ts) has decorators, so it can't be
+// imported under plain `node --test` (no transform for @Injectable()/@Controller()); it's
+// exercised via test/forja-local-auth-guard-probe.mjs instead, spawned with `--import tsx` — see
+// test/forja-local-auth-guard.test.js.

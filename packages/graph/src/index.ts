@@ -91,6 +91,21 @@ export class GraphError extends Error {
   }
 }
 
+/**
+ * Evidence sources allowed to claim `status: 'verified'` directly. Without this, any caller —
+ * including an LLM/agent whose output feeds `addEvidence`/`upsertEdge` — could write
+ * `status: 'verified'` on a bare assertion and GraphLoop would store it as indistinguishable
+ * from a fact derived by the deterministic extractor or a real sandboxed execution. Anything
+ * outside this allowlist is clamped to `'inferred'` (see `addEvidence`/`upsertEdge`) instead of
+ * being rejected, so the graph stays usable for genuinely uncertain input — it just can't be
+ * mislabeled as verified.
+ */
+const DEFAULT_TRUSTED_EVIDENCE_SOURCES: readonly string[] = ['deterministic-extractor', 'sandbox', 'forja.graph', 'forja.cli'];
+
+export interface GraphLoopOptions {
+  readonly trustedEvidenceSources?: readonly string[];
+}
+
 export class InMemoryGraphStore implements GraphStore {
   readonly nodes = new Map<EntityId, GraphNode>();
   readonly edges = new Map<string, GraphEdge>();
@@ -111,13 +126,20 @@ export class InMemoryGraphStore implements GraphStore {
 
 export class GraphLoop {
   private readonly store: GraphStore;
+  private readonly trustedEvidenceSources: readonly string[];
 
-  constructor(store: GraphStore = new InMemoryGraphStore()) {
+  constructor(store: GraphStore = new InMemoryGraphStore(), options: GraphLoopOptions = {}) {
     this.store = store;
+    this.trustedEvidenceSources = options.trustedEvidenceSources ?? DEFAULT_TRUSTED_EVIDENCE_SOURCES;
+  }
+
+  private isTrustedSource(source: string): boolean {
+    return this.trustedEvidenceSources.some((prefix) => source === prefix || source.startsWith(`${prefix}.`));
   }
 
   addEvidence(item: Evidence): void {
-    this.store.saveEvidence(item);
+    const stored = item.status === 'verified' && !this.isTrustedSource(item.source) ? { ...item, status: 'inferred' as KnowledgeStatus } : item;
+    this.store.saveEvidence(stored);
   }
 
   upsertNode(spec: GraphNodeSpec): GraphNode {
@@ -131,11 +153,19 @@ export class GraphLoop {
   upsertEdge(spec: GraphEdgeSpec): GraphEdge {
     if (this.store.getNode(spec.from) === undefined || this.store.getNode(spec.to) === undefined) throw new GraphError('Graph edge endpoints must exist');
     if (spec.evidenceIds.length === 0) throw new GraphError('Graph edge requires at least one evidence id');
-    for (const id of spec.evidenceIds) if (this.store.getEvidence(id) === undefined) throw new GraphError(`Graph edge evidence not found: ${id}`);
+    const referencedEvidence: Evidence[] = [];
+    for (const id of spec.evidenceIds) {
+      const item = this.store.getEvidence(id);
+      if (item === undefined) throw new GraphError(`Graph edge evidence not found: ${id}`);
+      referencedEvidence.push(item);
+    }
     if (!Number.isFinite(spec.confidence) || spec.confidence < 0 || spec.confidence > 1) throw new GraphError('Graph edge confidence must be between 0 and 1');
+    // An edge can't be more verified than the evidence it rests on — otherwise 'verified' becomes
+    // a label the edge asserts about itself, exactly the self-declared-truth gap this guards.
+    const status = spec.status === 'verified' && !referencedEvidence.every((item) => item.status === 'verified') ? 'inferred' : spec.status;
     const key = this.edgeKey(spec);
     const current = this.store.getEdge(key);
-    const edge: GraphEdge = { ...this.auditFields(current?.correlationId ?? `edge:${key}`), ...spec, id: current?.id ?? spec.id ?? randomUUID() as EntityId };
+    const edge: GraphEdge = { ...this.auditFields(current?.correlationId ?? `edge:${key}`), ...spec, status, id: current?.id ?? spec.id ?? randomUUID() as EntityId };
     this.store.saveEdge(key, edge);
     return edge;
   }

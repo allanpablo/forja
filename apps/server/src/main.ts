@@ -144,10 +144,18 @@ export async function bootstrap(port = Number(process.env.FORJA_PORT ?? 3000)) {
   registerGraphSyncCapability(registry, graph, new GitGraphDocumentSource(process.env.FORJA_GRAPH_ROOT ?? process.cwd(), new SpawnCommandRunner()));
   const context = new ContextEngine({ graph: new GraphContextSource({ searchContext: (objective) => graph.contextRecords(objective) }), cache: new SqliteContextCache(runtimeDatabase) });
   const mcp = createDefaultMcp(registry, policy, graph, mcpAudit, context);
-  const app = await NestFactory.create(AppModule.register({ mcp, eventStream, authenticator: createLocalAuthenticator(), controlPlane: createDefaultControlPlane(eventStream, registry, policy, runtimePersistence, approvals, events, graph, context, orchestrationStore, observationStore) }));
+  const authenticator = createLocalAuthenticator();
+  if (authenticator === undefined) console.warn('[forja] FORJA_AUTH_TOKEN is not set — only loopback (127.0.0.1/::1) requests will be accepted. Set FORJA_AUTH_TOKEN before exposing this server beyond localhost.');
+  const app = await NestFactory.create(AppModule.register({ mcp, eventStream, authenticator, controlPlane: createDefaultControlPlane(eventStream, registry, policy, runtimePersistence, approvals, events, graph, context, orchestrationStore, observationStore) }));
   const config = new DocumentBuilder().setTitle('ForjaJS 2.0 API').setDescription('Local-first agent control plane').setVersion('2.0.0').build();
   SwaggerModule.setup('docs', app, SwaggerModule.createDocument(app, config));
   await app.listen(port, '127.0.0.1');
+  const shutdown = (signal: NodeJS.Signals) => {
+    console.log(`[forja] received ${signal}, closing database and shutting down`);
+    void app.close().finally(() => { runtimeDatabase.close(); process.exit(0); });
+  };
+  process.on('SIGINT', shutdown);
+  process.on('SIGTERM', shutdown);
   return app;
 }
 

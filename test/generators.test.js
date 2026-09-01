@@ -82,6 +82,64 @@ test('backend/package.json carrega o nome do projeto', () => {
   });
 });
 
+// ops.controller.ts gerado embute dados livres do SQLite (agent_name, current_task, status,
+// title de handoff) direto no HTML de /ops — precisam passar por esc() ou é XSS armazenado
+// em todo projeto scaffoldado pelo framework.
+test('ops.controller.ts gerado escapa os campos livres do dashboard (XSS)', () => {
+  withTempDir((dir) => {
+    generateNestStructure(dir, 'esc-project', { noGitkeep: true });
+    const content = fs.readFileSync(path.join(dir, 'backend/src/modules/ops/ops.controller.ts'), 'utf8');
+
+    assert.match(content, /function esc\(/, 'deve definir um helper de escaping no arquivo gerado');
+
+    const escaped = ['a.agent_name', 'a.status', 'a.current_task', 't.status', 't.count', 'h.from_agent', 'h.to_agent', 'h.title'];
+    for (const field of escaped) {
+      const needle = `esc(${field})`;
+      assert.ok(content.includes(needle), `${field} deve ser interpolado via ${needle}`);
+    }
+
+    // nenhuma interpolação direta e não-escapada desses campos deve sobrar no template
+    for (const field of ['a.agent_name', 'a.current_task', 't.status', 'h.from_agent', 'h.to_agent', 'h.title']) {
+      assert.doesNotMatch(content, new RegExp(`\\$\\{${field.replace('.', '\\.')}\\}`), `\${${field}} não deveria aparecer sem esc()`);
+    }
+  });
+});
+
+test('esc() gerado neutraliza <script> em campo livre (título de handoff malicioso)', () => {
+  withTempDir((dir) => {
+    generateNestStructure(dir, 'esc-project-2', { noGitkeep: true });
+    const content = fs.readFileSync(path.join(dir, 'backend/src/modules/ops/ops.controller.ts'), 'utf8');
+
+    const match = content.match(/function esc\([^)]*\)[^{]*\{[\s\S]*?\n\}/);
+    assert.ok(match, 'deve ser possível extrair a função esc() do arquivo gerado');
+
+    // strip anotações de tipo TS (parâmetro e retorno) — new Function só entende JS puro
+    const plainJs = match[0]
+      .replace('function esc(value: unknown): string {', 'function esc(value) {')
+      .replace(' as Record<string, string>', '');
+    const escFn = new Function(`${plainJs}\nreturn esc;`)();
+    const payload = '<script>alert(document.cookie)</script>';
+    const out = escFn(payload);
+
+    assert.doesNotMatch(out, /<script>/, 'saída não deve conter tag <script> literal');
+    assert.match(out, /&lt;script&gt;/, 'payload deve ter sido escapado');
+  });
+});
+
+// ops.service.ts gerado abre um handle better-sqlite3 no construtor sem nunca fechá-lo — mesma
+// classe de bug do apps/server/src/main.ts (audit: nenhum handler de SIGINT/SIGTERM fecha o DB).
+test('ops.service.ts gerado fecha o handle sqlite em onModuleDestroy, e main.ts habilita shutdown hooks', () => {
+  withTempDir((dir) => {
+    generateNestStructure(dir, 'shutdown-project', { noGitkeep: true });
+    const service = fs.readFileSync(path.join(dir, 'backend/src/modules/ops/ops.service.ts'), 'utf8');
+    assert.match(service, /implements OnModuleDestroy/);
+    assert.match(service, /onModuleDestroy\(\)\s*\{\s*this\.db\.close\(\);/);
+
+    const main = fs.readFileSync(path.join(dir, 'backend/src/main.ts'), 'utf8');
+    assert.match(main, /app\.enableShutdownHooks\(\)/, 'sem isso o Nest nunca invoca onModuleDestroy em SIGINT/SIGTERM');
+  });
+});
+
 // --- README Generator ---
 
 test('generateReadme cria o README.md', () => {

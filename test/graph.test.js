@@ -22,6 +22,17 @@ test('graph: exige endpoints e evidência em toda aresta', () => {
   assert.throws(() => value.upsertEdge({ from: 'a', to: 'missing', type: 'CALLS', status: 'verified', confidence: 1, evidenceIds: ['e'] }), GraphError);
 });
 
+test('graph: status verified só é aceito de fontes de evidência confiáveis', () => {
+  const value = new GraphLoop();
+  value.upsertNode(node('a')); value.upsertNode(node('b'));
+  value.addEvidence({ id: 'claim', source: 'agent-claim', locator: 'agent said so', capturedAt: now, status: 'verified' });
+  const untrusted = value.upsertEdge({ from: 'a', to: 'b', type: 'DEPENDS_ON', status: 'verified', confidence: 1, evidenceIds: ['claim'] });
+  assert.equal(untrusted.status, 'inferred');
+  value.addEvidence({ id: 'real', source: 'sandbox.npm.test', locator: 'npm test', capturedAt: now, status: 'verified' });
+  const trusted = value.upsertEdge({ from: 'a', to: 'b', type: 'CALLS', status: 'verified', confidence: 1, evidenceIds: ['real'] });
+  assert.equal(trusted.status, 'verified');
+});
+
 test('graph: path, impacto, contradições e agenda são consultáveis sem LLM', () => {
   const value = graph();
   assert.equal(value.path('a', 'c').edges.length, 2);

@@ -42,6 +42,36 @@ test('orchestration: impede conclusão sem validação aceita e permite retomada
   assert.equal((await store.getSprint(sprint.id)).status, 'active');
 });
 
+test('orchestration: detecta atualização concorrente de sprint entre a leitura e a escrita', async () => {
+  const sprints = new Map();
+  let getCalls = 0;
+  const store = {
+    async getSprint(id) {
+      getCalls += 1;
+      // The guard re-reads right before writing (2nd call per mutation); simulate another writer
+      // landing in that exact window, after the engine already captured its own `before` snapshot.
+      if (getCalls === 2) sprints.set(id, { ...sprints.get(id), updatedAt: '2099-01-01T00:00:00.000Z' });
+      return sprints.get(id);
+    },
+    async saveSprint(value) { sprints.set(value.id, value); },
+    async listSprints() { return [...sprints.values()]; },
+    async saveTask() {}, async getTask() { return undefined; }, async listTasks() { return []; },
+    async saveHandoff() {}, async getHandoff() { return undefined; }, async listHandoffs() { return []; },
+  };
+  const sprintEngine = new SprintEngine(store);
+  const created = await sprintEngine.create(input());
+  await assert.rejects(() => sprintEngine.start(created.id), /modified concurrently/);
+});
+
+test('orchestration: barra cadeia de handoff sem limite (loop sem gate humano)', async () => {
+  const store = new InMemoryOrchestrationStore();
+  const engine = new HandoffEngine(store, undefined, 20, 500, 2);
+  const make = (from, to) => engine.create({ from, to, intent: 'loop', objective: 'x', completedWork: [], decisions: [], constraints: [], pending: [], evidenceIds: ['e'], acceptance: ['done'], blockers: [], nextAgent: to, correlationId: 'run-loop' });
+  await make('a', 'b');
+  await make('b', 'a');
+  await assert.rejects(() => make('a', 'b'), /Handoff chain exceeded/);
+});
+
 test('orchestration: rejeita handoff incompleto e compacta conteúdo repetido', async () => {
   const store = new InMemoryOrchestrationStore();
   const graph = { calls: [], record(value) { this.calls.push(value); } };
