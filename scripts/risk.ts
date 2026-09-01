@@ -136,11 +136,12 @@ async function buildInput(paths: readonly string[]): Promise<RiskInput> {
 
     const allNodes = store.listNodes();
     // Todos os nós cujo label bate com o path — não só o primeiro: o extrator determinístico
-    // (packages/graph) cria um nó "alvo de import" por texto de import literal, sem resolver o
-    // caminho relativo contra o documento real que o mesmo arquivo também vira ao ser indexado
-    // diretamente — duas entradas de mesmo label, ids diferentes, é o comportamento conhecido
-    // (não uma regressão desta spec). Usar todas garante que a aresta de quem importa o arquivo
-    // seja encontrada independente de qual das duas o `git ls-files`/SQL ordering colocou primeiro.
+    // (packages/graph) cria um nó alvo de import a partir do texto literal do import, sem
+    // resolver o caminho relativo contra o documento real que o mesmo arquivo também vira ao ser
+    // indexado diretamente — duas entradas de mesmo label, ids diferentes, é o comportamento
+    // conhecido (não uma regressão desta spec). Usar todas garante que a aresta de quem importa o
+    // arquivo seja encontrada independente de qual das duas o git-ls-files/SQL ordering colocou
+    // primeiro.
     const originIds = new Set<EntityId>();
     for (const file of paths) {
       for (const candidate of allNodes) {
