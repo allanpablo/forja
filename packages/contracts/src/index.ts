@@ -74,7 +74,10 @@ export interface Checkpoint extends AuditFields { readonly id: EntityId; readonl
 export interface RuntimeMetrics { readonly attempts: number; readonly retries: number; readonly durationMs: number; readonly inputTokens: number; readonly outputTokens: number; }
 export interface RuntimeRun extends AuditFields { readonly runId: RunId; readonly objective: string; readonly agent: AgentIdentity; readonly sprintId?: EntityId; readonly taskId?: EntityId; readonly policy: PolicyDecision; readonly budget: TokenBudget; readonly state: ExecutionState; readonly steps: number; readonly evidence: readonly Evidence[]; readonly changedFiles: readonly string[]; readonly metrics: RuntimeMetrics; readonly error?: ExecutionError; readonly validation?: EvaluationResult; }
 export interface DomainEvent extends AuditFields { readonly id: EntityId; readonly type: string; readonly aggregateId: EntityId; readonly sequence: number; readonly payload: unknown; readonly idempotencyKey: string; }
-export interface GraphNode extends AuditFields { readonly id: EntityId; readonly type: string; readonly label: string; readonly status: KnowledgeStatus; readonly validFrom?: ISO8601; readonly validTo?: ISO8601; }
+/** `documentStatus` is the source document's own lifecycle (e.g. an ADR's accepted/superseded, a
+ *  spec's draft/approved) — deliberately not `status: KnowledgeStatus`, which grades the epistemic
+ *  confidence of a *relation*, not a document's lifecycle. Keep the two vocabularies separate. */
+export interface GraphNode extends AuditFields { readonly id: EntityId; readonly type: string; readonly label: string; readonly status: KnowledgeStatus; readonly validFrom?: ISO8601; readonly validTo?: ISO8601; readonly documentStatus?: string; }
 export interface GraphEdge extends AuditFields { readonly id: EntityId; readonly from: EntityId; readonly to: EntityId; readonly type: string; readonly status: KnowledgeStatus; readonly confidence: number; readonly evidenceIds: readonly EntityId[]; readonly validFrom?: ISO8601; readonly validTo?: ISO8601; }
 export interface GraphEvidence { readonly edgeId: EntityId; readonly evidence: readonly Evidence[]; }
 export interface Contradiction { readonly id: EntityId; readonly claimIds: readonly EntityId[]; readonly reason: string; readonly evidenceIds: readonly EntityId[]; }

@@ -1,7 +1,7 @@
 # Spec: Architecture Constitution — ADRs como regras executáveis
 
 - **ID**: SPEC-033
-- **Status**: draft
+- **Status**: approved
 - **Owner**: apk
 - **Criado em**: 2026-09-01
 - **Sprint alvo**: Sprint 1
