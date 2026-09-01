@@ -4,6 +4,70 @@ Histórico consolidado das mudanças estruturais do framework. Para decisões ar
 
 ---
 
+## [3.0.0] — 2026-09-01 — Engineering Control Plane
+
+Fundação inteira da visão ForjaJS 3.0 (ADR-0078): a Forja passa a responder, de forma estruturada
+e com evidência, *por que* um código existe, *se* uma mudança viola a arquitetura pretendida,
+*qual o risco* de uma mudança antes dela acontecer, e *quem/o quê* a produziu. Major version pelo
+critério já registrado no ADR-0078 — mudança de modelo mental, não quebra de compatibilidade:
+**nenhum comando/contrato existente muda de assinatura ou comportamento**; toda extensão é aditiva.
+
+### Adicionado
+
+**Fundação P0 — Engineering Graph, Architecture Constitution, Change Risk Engine, Evidence Ledger**
+- `adr:list`/`:show`/`:impact`/`:graph` — ADRs/SPECs como nós de primeira classe do Engineering
+  Graph, extração determinística (sem LLM).
+- `architecture:compile`/`:check`/`:status`/`:explain`/`:approve` — decisões de ADR (`##
+  Constraints`) viram regras executáveis, checadas contra o código real.
+- `risk:assess`/`:explain` — score de risco 0-100 explicável, 7 fatores nomeados com evidência.
+- `evidence:show`, `forja engineer "<objetivo>"` — view agregada por run e façade única que compõe
+  contexto + ADRs relevantes + arquitetura + risco + fluxo recomendado.
+
+**Fase 3 — Agent Identity, Reputation, Smart Routing**
+- `agent:register`/`:list`/`:show`/`:score`/`:history`/`:recommend` — identidade de agente
+  persistente com reputação derivada de comportamento real (nunca auto-declarada), e recomendação
+  de agente por adequação a papel/domínio.
+
+**Fase 4 — Predictive Change Simulation**
+- `forja simulate <ref>` — testa+arquitetura+risco de um ref num worktree git isolado, nunca
+  promove automaticamente.
+
+**Fase 5 — AI Code Provenance, Runtime Monitoring**
+- `forja blame <file>`, `forja sbom`, `provenance:record` — proveniência de código gerado por IA
+  (granularidade de arquivo).
+- `agent:monitor` — compara comportamento recente de um agente contra sua própria linha de base,
+  informação para `PolicyEngine` consultar (`riskScoreRange`/`anomalyScoreRange`), nunca decisão
+  automática.
+
+**Fase 6 — Learning Loop**
+- `incident:record`/`:list`/`:similar` — registro de incidentes e sugestão por palavra-chave,
+  nunca aplicação automática.
+
+**`forja engineer` estendida** — passa a compor também agentes recomendados e incidentes parecidos
+conforme essas capacidades passaram a existir.
+
+**Fase 7 — Autonomous Maintenance**: documentada em ADR-0079 como prontidão arquitetural
+("arquitetura preparatória, nunca habilitação automática", por desenho explícito da visão
+original) — os guardrails que qualquer manutenção autônoma real precisará respeitar.
+
+### Corrigido
+
+Achados reais descobertos e corrigidos ao longo da implementação, não deixados como dívida:
+- `SqliteGraphStore` gravava nó a nó sem transação — reindexação do Engineering Graph 2,8× mais
+  rápida (7,65s → 2,75s medido contra este repositório), tempo de sistema caindo ~36×.
+- `memory-db` (gate de saúde) reportava "corrompido" quando na verdade só faltava sincronizar uma
+  tabela — diagnóstico corrigido.
+- `sandboxEnvironment` (isolamento de sandbox) não passava `HOME`/`USERPROFILE`, travando `npm`
+  indefinidamente dentro de um worktree isolado.
+- `security_sensitivity` (fator de risco) não reconhecia auth/session/shutdown como sensíveis —
+  vocabulário expandido, limitação estrutural remanescente documentada.
+
+### Validação
+
+461 testes, `tsc --noEmit`, `check:all`, `spec:check` e `release:check` verdes. 15 PRs (#45-#59),
+cada sprint seguindo o próprio processo SDD da Forja (spec → plan → tasks → implementação → testes)
+e validado contra dado real ou sintético explicitamente documentado como tal.
+
 ## [2.0.4] — 2026-08-17 — Auditoria de release e handoffs confiáveis
 
 ### Alterado
