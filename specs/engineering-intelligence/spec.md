@@ -1,7 +1,7 @@
 # Spec: Engineering Intelligence / Engineering Twin (master)
 
 - **ID**: SPEC-031
-- **Status**: draft
+- **Status**: done
 - **Owner**: apk
 - **Criado em**: 2026-09-01
 - **Sprint alvo**: Sprints 1-3 (fundação); fases seguintes ficam em specs próprias
@@ -45,21 +45,33 @@ acontecer, e quem/o quê a produziu. **GitHub guarda o código. A Forja guarda a
 
 ## 4. Critérios de aceite (Definition of Done)
 
-- [ ] AC-1: Engineering Graph (SPEC-032) extrai `ADR`/`SPEC` como nós de primeira classe, com
-      `status` (accepted/proposed/deprecated/superseded) e arestas `governed_by`/`implements`,
-      **sem LLM** (mesmo padrão determinístico de `extractDeterministicRelations`).
-- [ ] AC-2: `forja architecture:compile`/`architecture:check`/`architecture:explain` (SPEC-033)
-      funcionam sobre pelo menos um ADR real deste repositório com `## Constraints`.
-- [ ] AC-3: `forja risk:assess "<mudança>"` (SPEC-034) produz um score 0-100 com fatores nomeados e
-      `evidenceIds` — nunca um número sem explicação.
-- [ ] AC-4: Risk assessment é **opcionalmente** consumível por `PolicyEngine` via uma interface
-      pequena, sem duplicar o motor de decisão de política existente.
-- [ ] AC-5: Evidence Ledger (SPEC-035) produz uma view agregada por run a partir de dados já
-      persistidos (`AuditRecord`/`Observation`), sem nova fonte de verdade primária.
-- [ ] AC-6: `forja engineer "<objetivo>"` compõe `ContextEngine` + `DeterministicPlanner` +
-      `GraphLoop` + `RiskEngine` (novo) + `PolicyEngine`, sem reimplementar nenhum deles.
-- [ ] AC-7: nenhum comando existente muda de assinatura ou comportamento; toda extensão de
-      contrato é aditiva.
+- [x] AC-1: Engineering Graph (SPEC-032) extrai `ADR`/`SPEC` como nós de primeira classe, com
+      `status`/`documentStatus` e arestas `DERIVED_FROM`, **sem LLM** (extensão de
+      `extractDeterministicRelations`, mesmo padrão determinístico já existente).
+- [x] AC-2: `forja architecture:compile`/`architecture:check`/`architecture:explain` (SPEC-033)
+      funcionam sobre pelo menos um ADR real deste repositório com `## Constraints` — validado
+      contra ADR-0078.
+- [x] AC-3: `forja risk:assess [ref]` (SPEC-034) produz um score 0-100 com fatores nomeados e
+      `evidenceIds` — nunca um número sem explicação. (`[ref]`, não `"<mudança>"` livre — D1 de
+      `specs/change-risk-engine/plan.md`: um git ref é verificável, prosa livre exigiria parsing.)
+- [x] AC-4: Risk assessment é **opcionalmente** consumível por `PolicyEngine` via
+      `PolicyScope.riskScoreRange`/`PolicyRequest.riskScore` (um `number`, não o assessment
+      inteiro) — `packages/policy` nunca importa `@forja/engineering-risk`.
+- [x] AC-5: Evidence Ledger (SPEC-035) produz uma view agregada por run a partir de dados já
+      persistidos (`AuditRecord`/`ApprovalRequest`/`RuntimeRun`), sem nova fonte de verdade
+      primária.
+- [x] AC-6 (revisado — ver nota): `forja engineer "<objetivo>"` compõe `ContextEngine` +
+      `GraphLoop` (ADRs/SPECs relevantes) + `architecture:check` + `RiskEngine` + fluxo
+      recomendado, sem reimplementar nenhum. **Não** compõe `DeterministicPlanner`/`PolicyEngine`
+      como o texto original desta AC previa — decisão registrada em
+      `specs/engineering-evidence-ledger/plan.md` D1: `forja engineer` roda **antes** de existir
+      um diff (orienta o início do trabalho), e tanto planejamento quanto decisão de política
+      exigem um plano/capability concretos que ainda não existem nesse momento. Compor os dois
+      "porque a AC pedia" teria sido invenção, não composição real — proibido por AC-3 de
+      SPEC-035.
+- [x] AC-7: nenhum comando existente mudou de assinatura ou comportamento; toda extensão de
+      contrato (`documentStatus`, `riskScoreRange`/`riskScore`) foi aditiva — confirmado por
+      `npx tsc --noEmit` limpo e pela suíte de testes pré-existente intacta em cada PR.
 
 ## 5. Escopo
 
@@ -100,7 +112,7 @@ acontecer, e quem/o quê a produziu. **GitHub guarda o código. A Forja guarda a
 | Risco | Probabilidade | Impacto | Mitigação |
 |---|---|---|---|
 | Escopo da visão original (33 features) vazar para dentro desta spec master | Alta se não vigiado | Alta (nunca termina) | Escopo §5 explicitamente limitado a Sprints 1-3; fases seguintes exigem spec própria, não emenda desta |
-| `packages/engineering` virar acoplamento cruzado entre architecture/risk/provenance/identity | Média | Média | Nenhum sub-domínio importa outro nesta spec; revisão de import cruzado faz parte do `project:check` |
+| `packages/engineering` virar acoplamento cruzado entre architecture/risk/provenance/identity | Média | Média | `architecture` e `risk` não importam um ao outro (peers, sem acoplamento horizontal). Exceção única e intencional: `evidence` importa tipos de ambos — é o ponto de agregação por design (SPEC-035 AC-1), não um vazamento; import `type`-only, sem runtime coupling |
 | Risk score sem uso real por falta de dado histórico (cold start) | Alta no início | Baixa | `confidence` do assessment reflete isso explicitamente — não é um bloqueador, é um dado honesto |
 
 ## 8. Métricas de sucesso
@@ -108,6 +120,13 @@ acontecer, e quem/o quê a produziu. **GitHub guarda o código. A Forja guarda a
 30 dias após Sprint 3: rodar `forja engineer "<mudança real deste repositório>"` produz uma saída
 com ADRs corretos, risco plausível e nenhuma alucinação de arquitetura que não existe — validado
 por revisão humana em pelo menos 3 mudanças reais consecutivas.
+
+**Status na entrega dos Sprints 1-3** (validação imediata, não os 30 dias de uso real — essa
+segunda parte só se acumula com o tempo): `forja engineer` já foi validado sobre um objetivo real
+deste repositório (`specs/engineering-evidence-ledger/spec.md` §8), e `risk:assess` sobre 5 commits
+reais com ordenação de risco aceita em revisão humana (`specs/change-risk-engine/spec.md` §8). Os
+"pelo menos 3 mudanças reais consecutivas" ao longo de 30 dias de uso continuado ficam para quem
+usar a ferramenta a partir daqui — não algo que esta entrega possa provar sozinha no dia do merge.
 
 ## Apêndice — plano de sprints (não é `plan.md` formal: esta spec ainda está em `draft`, e o
 próprio gate de `spec:check` do Forja recusa `plan.md` antes de `spec: approved` — o rascunho de
