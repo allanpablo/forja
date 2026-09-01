@@ -35,9 +35,17 @@ export function changedFiles(ref?: string): readonly string[] {
   }
 }
 
+// Achado real (specs/change-risk-engine/spec.md §8): a lista original não pegou f678d37 (fix de
+// segurança real que mexeu em auth/session/shutdown de conexão) porque nenhum termo batia com os
+// paths tocados — `guard`/`auth`/`session`/`token`/`shutdown` são adjacentes a "secrets"
+// (controle de acesso/ciclo de vida de credencial) no vocabulário de 3 categorias existente
+// (packages/engineering/risk SENSITIVE_CATEGORY_VOCAB). Continua sendo path-substring, continua
+// tendo recall limitado por natureza (a correção estrutural — casar contra PolicyCategory já
+// inferida do capabilityId/handler tocado — segue fora de escopo, ver a nota completa na spec) —
+// isto só reduz a superfície mais óbvia de falso-negativo, não resolve o problema de fundo.
 const SENSITIVE_PATTERNS: readonly { readonly category: string; readonly pattern: RegExp }[] = [
-  { category: 'secrets', pattern: /secret|credential|\.env\b/i },
-  { category: 'database', pattern: /adapter-sqlite|migration|database/i },
+  { category: 'secrets', pattern: /secret|credential|\.env\b|\bauth\b|guard|session|\btoken\b/i },
+  { category: 'database', pattern: /adapter-sqlite|migration|database|shutdown/i },
   { category: 'deployment', pattern: /deploy|\.github\/workflows|Dockerfile/i },
 ];
 
