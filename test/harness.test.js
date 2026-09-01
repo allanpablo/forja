@@ -35,6 +35,12 @@ test('code:impact sem simbolo retorna erro de uso', () => {
   assert.match(r.stderr + r.stdout, /Uso:/);
 });
 
+test('code:impact recusa simbolo que comeca com "-" (injecao de argumento no codegraph)', () => {
+  const r = run(['scripts/agent-harness.ts', 'code:impact', '--upload-pack=evil']);
+  assert.equal(r.status, 1);
+  assert.match(r.stderr + r.stdout, /[Ss]imbolo invalido/);
+});
+
 test('code:impact sem codegraph oferece fallback manual', () => {
   const r = run(['scripts/agent-harness.ts', 'code:impact', 'algumSimbolo'], NO_TOOLS_ENV);
   assert.equal(r.status, 0);
