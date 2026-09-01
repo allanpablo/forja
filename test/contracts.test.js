@@ -1,6 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { ContractValidationError, validateCapabilityDefinition, validateTokenBudget } from '../packages/contracts/src/index.ts';
+import path from 'node:path';
+import { ContractValidationError, isPathWithinRoot, validateCapabilityDefinition, validateTokenBudget } from '../packages/contracts/src/index.ts';
 
 const budget = { inputTokens: 100, outputTokens: 50, totalTokens: 150, usedTokens: 20 };
 
@@ -16,4 +17,17 @@ test('contracts: rejeita capability sem namespace e timeout válido', () => {
     supportsAutonomy: false, idempotent: true, timeoutMs: 1000, retry: { maxAttempts: 1, backoffMs: 0 }, aliases: [],
   };
   assert.throws(() => validateCapabilityDefinition(definition), /id: must be a namespaced capability id/);
+});
+
+test('isPathWithinRoot: rejeita diretório irmão que apenas compartilha o prefixo de string', () => {
+  const root = path.resolve('/workspace/myproj');
+  assert.equal(isPathWithinRoot(root, '/workspace/myproj-evil/secret.txt'), false, 'startsWith ingênuo aceitaria isso');
+  assert.equal(isPathWithinRoot(root, '/workspace/myproj'), true, 'a própria raiz deve contar como dentro');
+  assert.equal(isPathWithinRoot(root, '/workspace/myproj/nested/file.ts'), true);
+});
+
+test('isPathWithinRoot: rejeita travessia via ".." que escapa da raiz', () => {
+  const root = path.resolve('/workspace/myproj');
+  assert.equal(isPathWithinRoot(root, path.join(root, '../myproj-evil/secret.txt')), false);
+  assert.equal(isPathWithinRoot(root, path.join(root, '..', '..', 'etc', 'passwd')), false);
 });

@@ -13,6 +13,7 @@ import {
   getWorkspaceProjectsMemoryDir,
 } from '../lib/workspace.ts';
 import { resolveScript } from '../lib/core/registry.ts';
+import { isPathWithinRoot } from '../packages/contracts/src/index.ts';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 // `root` = recursos do FRAMEWORK (ex.: design:* lê design-md/) — resolvidos por __dirname.
@@ -92,7 +93,7 @@ function readText(file: any) {
   // O brief do `design:check` é do PROJETO do usuário (cwd), não do pacote — a âncora e o guardrail
   // de travessia são o projectRoot. Cravar `root` rejeitava o brief do consumidor ("fora do projeto").
   const full = path.resolve(projectRoot, file);
-  if (!full.startsWith(projectRoot)) fail(`Caminho fora do projeto: ${file}`);
+  if (!isPathWithinRoot(projectRoot, full)) fail(`Caminho fora do projeto: ${file}`);
   if (!fs.existsSync(full)) fail(`Arquivo nao encontrado: ${file}`);
   return fs.readFileSync(full, 'utf8');
 }
@@ -409,7 +410,7 @@ function cmdGsdCheck([slug, briefPath]: string[]) {
     const fullBrief = path.resolve(root, briefPath);
     let ok = false;
     let detail = briefPath;
-    if (fullBrief.startsWith(root) && fs.existsSync(fullBrief)) {
+    if (isPathWithinRoot(root, fullBrief) && fs.existsSync(fullBrief)) {
       const content = fs.readFileSync(fullBrief, 'utf8');
       const missing = DESIGN_REQUIRED.filter((needle) => !content.includes(needle));
       const placeholders = (content.match(/<[^>\n]+>/g) || []).length;
