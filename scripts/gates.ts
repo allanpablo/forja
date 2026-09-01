@@ -2,8 +2,10 @@
 /**
  * check:all — a bateria inteira de gates do framework, um veredito (SPEC-020).
  *
- *   forja check:all           coerência (doctor) + projeto gerado (smoke barato)
- *   forja check:all --full    + tarball (release:check) + build do gerado (smoke --full)
+ *   forja check:all               coerência (doctor) + projeto gerado (smoke barato)
+ *   forja check:all --full        + tarball (release:check) + build do gerado (smoke --full)
+ *   forja check:all --with-drift  + drift:check (SPEC-030) — opt-in, não roda por padrão (custo de
+ *                                  reindexar o workspace inteiro não foi medido em repos grandes)
  *
  * Não substitui os gates focados — os agrega. "A casa está coerente?" num comando só.
  */
@@ -14,11 +16,13 @@ const TAG = { ok: 'OK   ', warn: 'AVISO', fail: 'FALHA', skipped: '—    ' };
 
 async function main() {
   const full = process.argv.includes('--full');
+  const withDrift = process.argv.includes('--with-drift');
 
-  console.log(`\nForja check:all${full ? ' (--full)' : ''} — a bateria inteira, um veredito\n`);
+  console.log(`\nForja check:all${full ? ' (--full)' : ''}${withDrift ? ' (--with-drift)' : ''} — a bateria inteira, um veredito\n`);
   if (full) console.log('Inclui os gates caros (empacota o tarball, builda o backend gerado) — leva minutos.\n');
+  if (withDrift) console.log('Inclui drift:check (SPEC-030) — reindexa o workspace inteiro por extração determinística.\n');
 
-  const groups = await runGates({ full });
+  const groups = await runGates({ full, withDrift });
 
   for (const g of groups) {
     console.log(`▚ ${g.name}`);

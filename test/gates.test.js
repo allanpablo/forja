@@ -65,3 +65,29 @@ test('o full é passado adiante para o smoke', async () => {
   });
   assert.equal(recebido, true, 'smoke recebe { full: true }');
 });
+
+test('runGates não roda drift:check por padrão (SPEC-030 AC-5 é opt-in)', async () => {
+  let driftChamado = false;
+  const groups = await runGates({
+    deps: {
+      health: async () => [r('a', 'ok')],
+      smoke: async () => [r('b', 'ok')],
+      drift: async () => { driftChamado = true; return [r('drift-check', 'warn', 'warn')]; },
+    },
+  });
+  assert.equal(driftChamado, false);
+  assert.ok(!groups.some((g) => g.name.includes('drift')));
+});
+
+test('runGates --with-drift adiciona o grupo do drift sentinel sem escalar o veredito para fail', async () => {
+  const groups = await runGates({
+    withDrift: true,
+    deps: {
+      health: async () => [r('a', 'ok')],
+      smoke: async () => [r('b', 'ok')],
+      drift: async () => [r('drift-check', 'warn', 'warn')],
+    },
+  });
+  assert.ok(groups.some((g) => g.name.includes('drift')));
+  assert.equal(overallStatus(groups), 'warn', 'drift é severity warn — nunca reprova check:all sozinho');
+});

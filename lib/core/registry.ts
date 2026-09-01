@@ -210,6 +210,12 @@ export const COMMANDS = {
     capability: 'graph.sync',
     gates: ['workspace-warn'],
   },
+  'drift:check': {
+    domain: 'code',
+    desc: 'Reindexa e sinaliza relações verified que a extração atual não reproduz mais (SPEC-030). --domain <d> restringe',
+    node: 'scripts/drift-check.ts',
+    gates: ['workspace-warn'],
+  },
   'code:context': {
     domain: 'code',
     desc: 'Pacote de contexto mínimo de um domínio: o mapa (context.md), + código com --code (ADR-0009)',

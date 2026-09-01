@@ -1,10 +1,20 @@
 # Spec: Drift Sentinel — verificação contínua de que o verificado continua verdade
 
 - **ID**: SPEC-030
-- **Status**: draft
+- **Status**: implementing
 - **Owner**: apk
 - **Criado em**: 2026-08-31
 - **Sprint alvo**: <a definir>
+- **Implementação**: `lib/drift-sentinel.ts` (motor), `scripts/drift-check.ts` (CLI, `forja drift:check
+  [--domain <d>]`), `lib/core/drift-gate.ts` + `lib/core/gates.ts`/`scripts/gates.ts`
+  (`check:all --with-drift`, AC-5). AC-1 a AC-4 completos, com testes em
+  `test/drift-sentinel.test.js`. AC-5 implementado com escopo reduzido: em vez de restruturar
+  `runGates`/`CHECKS` para rodar `drift:check` in-process, o gate opt-in chama o comando real via
+  subprocess (mesmo padrão de `lib/core/release.ts`/`project-smoke.ts`) e traduz o resultado —
+  mantém `check:all` desacoplado do wiring do grafo (SQLite/git) sem tocar o contrato do runner de
+  checks. Não marcado `done` porque a métrica de sucesso do §8 (drift genuíno encontrado em projeto
+  real, confirmado por humano, 30 dias após o release) ainda não foi observada — só dogfooding
+  local contra o próprio monorepo, que não achou drift real algum ainda.
 - **ADRs relacionadas**: nenhuma ainda — nasce da auditoria de segurança de 2026-08-31, que corrigiu
   `packages/graph` para que `status: 'verified'` só venha de fontes de evidência confiáveis
   (`deterministic-extractor`, `sandbox.*`). Este spec é a continuação natural: **verified é um
@@ -43,20 +53,26 @@ que já foi verdade e hoje não é mais, sem que nada tenha formalmente revogado
 
 ## 4. Critérios de aceite (Definition of Done)
 
-- [ ] AC-1: `forja drift:check [--domain <d>]` roda `GraphIndexer.sync` e, para cada `GraphMutation`
+- [x] AC-1: `forja drift:check [--domain <d>]` roda `GraphIndexer.sync` e, para cada `GraphMutation`
       cujo `sourceChecksum` mudou desde a última indexação, compara as arestas que o documento
-      produzia **antes** com as que produz **agora**.
-- [ ] AC-2: uma aresta que existia com `status: 'verified'` e não é mais produzida pela extração atual
+      produzia **antes** com as que produz **agora**. *(`checkDrift` em `lib/drift-sentinel.ts`
+      reimplementa o laço de `GraphIndexer.sync` — mesma extração + `GraphLoop.apply` — em vez de
+      chamá-lo por dentro, porque `sync()` não expõe o "antes" por documento; nenhum dos dois ganhou
+      contrato novo, como o §5 já antecipava.)*
+- [x] AC-2: uma aresta que existia com `status: 'verified'` e não é mais produzida pela extração atual
       do mesmo `sourceKey` é marcada `stale` (reaproveitando `validTo` — GraphLoop já suporta validade
       temporal — em vez de inventar um estado novo em `KnowledgeStatus`, que é um contrato versionado
-      e não deve crescer sem necessidade real).
-- [ ] AC-3: o comando imprime um relatório: N documentos verificados, M sem mudança, K com drift
+      e não deve crescer sem necessidade real). *(A proveniência "quais arestas este sourceKey
+      produziu" também não ganhou campo novo em `GraphEdge` — é derivada do `locator` da evidência,
+      `${sourceKey}:${line}`, que `extractDeterministicRelations` já grava.)*
+- [x] AC-3: o comando imprime um relatório: N documentos verificados, M sem mudança, K com drift
       detectado (lista de `sourceKey` + quais relações ficaram `stale`).
-- [ ] AC-4: `drift:check` é determinístico e não usa LLM — é extração + diff, igual ao
+- [x] AC-4: `drift:check` é determinístico e não usa LLM — é extração + diff, igual ao
       `extractDeterministicRelations` que já existe. Nenhuma dependência nova de rede ou modelo.
-- [ ] AC-5: `gsd:check`/`check:all` ganham um modo opcional (`--with-drift`, não obrigatório por
+- [x] AC-5: `gsd:check`/`check:all` ganham um modo opcional (`--with-drift`, não obrigatório por
       padrão) que inclui `drift:check` na bateria — opcional porque rodar em todo commit seria caro
-      demais para repos grandes; ver NFRs.
+      demais para repos grandes; ver NFRs. *(Escopo reduzido — ver `Implementação` no cabeçalho: gate
+      via subprocess, não integração in-process em `runGates`.)*
 
 ## 5. Escopo
 
