@@ -132,3 +132,32 @@ test('graph: indexador aplica documentos e pula checksum repetido', async () => 
   assert.equal(second.skipped, 1);
   assert.equal(graph.query({ type: 'File' }).length >= 2, true);
 });
+
+// Achado real de performance: GraphIndexer.sync contra ~1000 documentos fazia um INSERT
+// individualmente commitado por saveNode/saveEdge/saveEvidence — dezenas de milhares de fsyncs.
+// GraphLoop.transaction agrupa; sem suporte do store (InMemoryGraphStore, sem custo de I/O), cai
+// pra só rodar fn() — os dois casos são testados aqui e em test/adapter-sqlite.test.js.
+test('graph: transaction sem suporte do store (InMemoryGraphStore) só roda fn() normalmente', () => {
+  const value = graph();
+  const result = value.transaction(() => {
+    value.upsertNode(node('transacted'));
+    return 'ok';
+  });
+  assert.equal(result, 'ok');
+  assert.ok(value.query({ type: 'File' }).some((item) => item.id === 'transacted'));
+});
+
+test('graph: indexador aplica vários documentos dentro de uma única transação, resultado idêntico a antes', async () => {
+  const graph = new GraphLoop();
+  const indexer = new GraphIndexer(graph);
+  const source = {
+    listDocuments: () => [
+      { nodeId: 'document-a', locator: 'src/a.ts', capturedAt: now, content: "import { b } from './b.ts';\nexport function a() { return b(); }" },
+      { nodeId: 'document-b', locator: 'src/b.ts', capturedAt: now, content: 'export function b() { return 1; }' },
+    ],
+  };
+  const result = await indexer.sync(source);
+  assert.equal(result.documents, 2);
+  assert.equal(result.indexed, 2);
+  assert.equal(graph.query({ type: 'File' }).filter((item) => item.label === 'src/a.ts' || item.label === 'src/b.ts').length, 2);
+});

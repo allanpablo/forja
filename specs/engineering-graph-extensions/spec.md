@@ -62,6 +62,15 @@ que vale uma spec própria de performance (`GraphLoop.apply()` já processa uma 
 inteira por documento; agrupar os saves de uma mutation numa única transação SQLite é o candidato
 óbvio, não implementado aqui por estar fora do escopo declarado em §5).
 
+**Corrigido posteriormente**: `GraphStore` ganhou um método opcional `transaction<T>(fn: () => T):
+T`; `GraphLoop.transaction()` delega pra ele (cai pra só `fn()` quando o store não suporta, ex.
+`InMemoryGraphStore`); `SqliteGraphStore.transaction` implementa com `BEGIN`/`COMMIT`/`ROLLBACK`
+reais (testado, incluindo reversão de fato em erro — `test/adapter-sqlite.test.js`).
+`GraphIndexer.sync()` agora envolve o loop inteiro de `apply()` numa única transação. Medido contra
+este próprio repositório (`adr:list`, mesma máquina, antes/depois via `git stash`): 7,65s → 2,75s,
+tempo de sistema (I/O) caindo de ~3s pra ~0,08s — confirma a causa (fsync por `INSERT`), não só a
+teoria.
+
 ## 5. Escopo
 
 **Dentro**: extração determinística de status de ADR/SPEC; `adr:list`/`adr:show`/`adr:impact`/

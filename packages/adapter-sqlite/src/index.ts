@@ -172,6 +172,31 @@ export class SqliteGraphStore implements GraphStore {
   }
   saveSourceChecksum(sourceKey: string, checksum: string): void { this.db.prepare('INSERT INTO graph_sources (source_key, checksum, updated_at) VALUES (?, ?, ?) ON CONFLICT(source_key) DO UPDATE SET checksum = excluded.checksum, updated_at = excluded.updated_at').run(sourceKey, checksum, new Date().toISOString()); }
 
+  /**
+   * Achado real de performance (`GraphIndexer.sync` contra ~1000 documentos): sem isto, cada
+   * `saveNode`/`saveEdge`/`saveEvidence` era um `INSERT` num commit implícito próprio — dezenas de
+   * milhares de fsyncs. Um `BEGIN`/`COMMIT` por chamada externa (não por `INSERT`), com
+   * `ROLLBACK` em erro. Contador de profundidade evita `BEGIN` aninhado (SQLite não suporta —
+   * chamadas aninhadas de `transaction()`, se algum código futuro fizer isso, só participam da
+   * transação já aberta pelo nível mais externo).
+   */
+  private transactionDepth = 0;
+  transaction<T>(fn: () => T): T {
+    if (this.transactionDepth > 0) { this.transactionDepth += 1; try { return fn(); } finally { this.transactionDepth -= 1; } }
+    this.transactionDepth = 1;
+    this.db.exec('BEGIN');
+    try {
+      const result = fn();
+      this.db.exec('COMMIT');
+      return result;
+    } catch (error) {
+      this.db.exec('ROLLBACK');
+      throw error;
+    } finally {
+      this.transactionDepth = 0;
+    }
+  }
+
   private payload<T>(sql: string, id: string): T | undefined {
     const row = this.db.prepare(sql).get(id);
     return isRecord(row) && typeof row.payload === 'string' ? JSON.parse(row.payload) as T : undefined;

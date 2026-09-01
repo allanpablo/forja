@@ -45,6 +45,44 @@ test('adapter-sqlite: GraphLoop persiste nós, evidências, arestas e checksum',
   database.close();
 });
 
+// Achado real de performance: cada saveNode/saveEdge/saveEvidence era um INSERT commitado
+// individualmente — dezenas de milhares de fsyncs contra um repositório real de ~1000 documentos.
+test('adapter-sqlite: SqliteGraphStore.transaction agrupa múltiplos saves num único commit', () => {
+  const database = db();
+  const store = new SqliteGraphStore(database);
+  const graph = new GraphLoop(store);
+  const result = store.transaction(() => {
+    graph.addEvidence({ id: 'tx-evidence', source: 'test', locator: 'fixture.ts:1', capturedAt: '2026-08-01T00:00:00.000Z', status: 'verified' });
+    graph.upsertNode({ id: 'tx-a', type: 'File', label: 'a.ts', status: 'verified' });
+    graph.upsertNode({ id: 'tx-b', type: 'File', label: 'b.ts', status: 'verified' });
+    graph.upsertEdge({ from: 'tx-a', to: 'tx-b', type: 'DEPENDS_ON', status: 'verified', confidence: 1, evidenceIds: ['tx-evidence'] });
+    return 'committed';
+  });
+  assert.equal(result, 'committed');
+  assert.equal(graph.query({ type: 'File' }).length, 2);
+  assert.equal(graph.path('tx-a', 'tx-b').edges.length, 1);
+  database.close();
+});
+
+test('adapter-sqlite: SqliteGraphStore.transaction reverte tudo se fn() lançar, e propaga o erro', () => {
+  const database = db();
+  const store = new SqliteGraphStore(database);
+  const graph = new GraphLoop(store);
+  graph.upsertNode({ id: 'pre-existing', type: 'File', label: 'pre.ts', status: 'verified' });
+
+  assert.throws(() => {
+    store.transaction(() => {
+      graph.upsertNode({ id: 'tx-rollback', type: 'File', label: 'rollback.ts', status: 'verified' });
+      throw new Error('falha proposital dentro da transação');
+    });
+  }, /falha proposital/);
+
+  // O nó gravado antes da transação sobrevive; o gravado dentro dela nunca deveria ter sido commitado.
+  assert.ok(store.getNode('pre-existing'));
+  assert.equal(store.getNode('tx-rollback'), undefined, 'ROLLBACK deve desfazer o que foi gravado dentro da transação com erro');
+  database.close();
+});
+
 test('adapter-sqlite: cache de contexto sobrevive no mesmo banco', () => {
   const database = db();
   const cache = new SqliteContextCache(database);
