@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import type { AuditRecord, Checkpoint, DomainEvent, EntityId, ExecutionResult, Handoff, ISO8601, Observation, RuntimeRun, SandboxSession, Sprint, Task, RunId } from '../../contracts/src/index.ts';
+import type { AgentProfile2, AuditRecord, Checkpoint, DomainEvent, EntityId, ExecutionResult, Handoff, ISO8601, Observation, RuntimeRun, SandboxSession, Sprint, Task, RunId } from '../../contracts/src/index.ts';
 import type { EventStore } from '../../events/src/index.ts';
 import type { ApprovalStore } from '../../policy/src/index.ts';
 import type { CheckpointStore, RuntimePersistence, RuntimePlanStep } from '../../runtime/src/index.ts';
@@ -199,6 +199,15 @@ export class SqliteRuntimeRunStore {
   constructor(db: SqliteConnection) { this.repository = new SqliteJsonRepository(db); }
   save(value: RuntimeRun): void { this.repository.put('runtime_run', value.runId, value, value.updatedAt); }
   get(runId: RunId): RuntimeRun | undefined { return this.repository.get<RuntimeRun>('runtime_run', runId); }
+}
+
+/** SPEC-036 — reaproveita `SqliteJsonRepository` (tabela genérica `forja_records`), sem migration própria (D3 do plan). */
+export class SqliteAgentProfileStore {
+  private readonly repository: SqliteJsonRepository;
+  constructor(db: SqliteConnection) { this.repository = new SqliteJsonRepository(db); }
+  save(value: AgentProfile2): void { this.repository.put('agent_profile', value.id, value, value.updatedAt); }
+  get(id: EntityId): AgentProfile2 | undefined { return this.repository.get<AgentProfile2>('agent_profile', id); }
+  list(): readonly AgentProfile2[] { return this.repository.list<AgentProfile2>('agent_profile'); }
 }
 
 export class SqliteRuntimePersistence implements RuntimePersistence {

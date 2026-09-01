@@ -63,6 +63,24 @@ export interface ExecutionResult extends AuditFields { readonly runId: RunId; re
 
 export interface AgentIdentity { readonly id: EntityId; readonly name: string; readonly role: string; readonly autonomy: 'consultive' | 'assisted' | 'supervised' | 'controlled_autonomous'; }
 export interface AgentProfile extends AgentIdentity { readonly capabilities: readonly CapabilityId[]; readonly permissions: readonly string[]; }
+/**
+ * Registro persistente de agente (SPEC-036) — `AgentIdentity` continua sendo o tipo efêmero por
+ * run (`PolicyRequest`/`RuntimeRun`); este é o registro entre runs, com reputação derivada de
+ * comportamento real. `trustLevel`/`autonomyLevel`/`lastScoredAt` só são escritos por
+ * `computeReputationScore` (via `agent:score`) — nunca aceitos em `agent:register`.
+ */
+export interface AgentProfile2 extends AuditFields {
+  readonly id: EntityId;
+  readonly role: string;
+  readonly provider?: string;
+  readonly model?: string;
+  readonly capabilities: readonly string[];
+  readonly architectureDomains: readonly string[];
+  readonly limits?: { readonly maxFiles?: number; readonly maxCostUsd?: number; readonly maxDurationMs?: number };
+  readonly trustLevel?: number;
+  readonly autonomyLevel?: 'autonomous' | 'autonomous_with_review' | 'supervised' | 'human_in_the_loop';
+  readonly lastScoredAt?: ISO8601;
+}
 export interface PolicyDecision { readonly effect: PolicyEffect; readonly reason: string; readonly policyId: string; readonly limits?: Readonly<Record<string, number>>; readonly approvalRequestId?: EntityId; }
 export interface ApprovalRequest extends AuditFields { readonly id: EntityId; readonly action: string; readonly justification: string; readonly impact: string; readonly expectedDiff?: string; readonly expiresAt: ISO8601; readonly decision?: 'approved' | 'rejected' | 'expired'; readonly approverId?: EntityId; }
 
