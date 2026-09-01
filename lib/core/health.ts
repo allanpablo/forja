@@ -181,6 +181,22 @@ const memoryDb: Check = {
         };
       }
 
+      // "no such table: memory_nodes" (achado real, SPEC-032/033): `getWorkspaceDbPath()` é
+      // compartilhado por dois mecanismos de schema independentes — `sync:universal` cria
+      // `memory_nodes` por conta própria, enquanto `drift:check`/`adr:*`/`architecture:*`/
+      // `agent:*`/`incident:*` usam `SqliteMigrationRunner` (schema do Engineering Graph), que
+      // nunca cria essa tabela. Um workspace onde só os comandos de grafo já rodaram tem um banco
+      // são, só sem essa tabela específica ainda — SQLITE_ERROR genérico, não corrupção. Mesmo
+      // `code` (`SQLITE_ERROR`) cobre outros erros de SQL também, então o texto da mensagem é o
+      // único sinal confiável aqui — `PRAGMA integrity_check` confirmaria são se alguém checasse.
+      if (asErrno(err).message?.includes('no such table: memory_nodes')) {
+        return {
+          status: 'warn',
+          detail: `banco existe mas ainda não foi sincronizado (tabela memory_nodes ausente) — comum se só drift:check/adr:*/architecture:*/agent:*/incident:* já rodaram neste workspace`,
+          fix: 'npm run sync:universal',
+        };
+      }
+
       // Só o que sobra — SQLITE_CORRUPT, SQLITE_NOTADB, o resto — é integridade. Aí sim reindexar.
       return {
         status: 'fail',

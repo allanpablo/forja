@@ -333,6 +333,29 @@ test('memory-db: SQLITE_BUSY → lock, warn e não trava o gate', async () => {
   assert.doesNotMatch(r.fix, /npm run sync:universal/);
 });
 
+test('memory-db: "no such table: memory_nodes" → warn, não corrupção (achado real SPEC-032/033)', async () => {
+  // getWorkspaceDbPath() é compartilhado por sync:universal (cria memory_nodes) e
+  // SqliteMigrationRunner (schema do Engineering Graph, usado por drift:check/adr:*/
+  // architecture:*/agent:*/incident:*) — um workspace onde só os comandos de grafo já rodaram tem
+  // um banco são, só sem essa tabela específica ainda. SQLITE_ERROR genérico cobre outros erros de
+  // SQL também, então é a mensagem, não o code, que distingue este caso.
+  const [r] = await openFails('SQLITE_ERROR', 'no such table: memory_nodes');
+
+  assert.equal(r.status, 'warn', 'tabela ausente não é corrupção — mesma severidade do banco nunca indexado');
+  assert.equal(worstStatus([r]), 'warn', 'não pode reprovar o núcleo por isso');
+  assert.doesNotMatch(r.detail, /provavelmente corrompido/i);
+  assert.equal(r.fix, 'npm run sync:universal', 'ao contrário de CANTOPEN, sync:universal de fato cura este caso — cria a tabela');
+});
+
+test('memory-db: SQLITE_ERROR genérico (não "no such table") continua caindo no ramo de corrupção', async () => {
+  // Garante que o novo ramo não engoliu outros SQLITE_ERROR — só a mensagem específica de tabela
+  // ausente de memory_nodes deveria escapar do diagnóstico de corrupção.
+  const [r] = await openFails('SQLITE_ERROR', 'near "SELECT": syntax error');
+
+  assert.equal(r.status, 'fail');
+  assert.match(r.detail, /corrompido/i);
+});
+
 test('memory-db: banco saudável → ok com contagem', async () => {
   const [r] = await runChecks({
     checks: [db()],

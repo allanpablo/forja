@@ -71,6 +71,12 @@ sync:universal`". Nenhum dado foi perdido (o arquivo de teste era novo, criado s
 desta sprint, removido com segurança). Vale uma correção pontual em `health.ts` para diferenciar
 "tabela ausente" de corrupção de fato — não implementada aqui por estar fora do escopo desta spec.
 
+**Corrigido posteriormente**: `lib/core/health.ts`'s `memory-db` agora reconhece
+`"no such table: memory_nodes"` como um caso à parte (`warn`, mesma severidade de "banco nunca
+indexado", com `fix: npm run sync:universal` — que de fato resolve, ao contrário do caso
+CANTOPEN/EACCES) em vez de cair no branch genérico de "provavelmente corrompido". Ver
+`test/health.test.js` e o commit que fecha esta nota.
+
 ## 5. Escopo
 
 **Dentro**: compile/check/status/explain/approve; parser determinístico de `forbid_import`/
