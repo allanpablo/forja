@@ -100,6 +100,27 @@ test('risk:assess — mudança não commitada em foo (importado por bar, sem tes
   }
 });
 
+test('risk:assess — arquivo de auth/guard/session/shutdown é detectado como sensível (achado real corrigido, ver specs/change-risk-engine/spec.md §8)', () => {
+  const graphRoot = createFixture();
+  const workspace = fs.mkdtempSync(path.join(os.tmpdir(), 'forja-risk-workspace-'));
+  try {
+    // Nomes inspirados no commit real (f678d37) que originou o achado: nenhum termo do
+    // vocabulário original (secret/credential/.env/database/deploy) batia com guard.ts/main.ts —
+    // auth/guard/session/shutdown foram adicionados justamente pra pegar este tipo de caso.
+    fs.mkdirSync(path.join(graphRoot, 'packages', 'foo', 'src', 'auth'), { recursive: true });
+    fs.writeFileSync(path.join(graphRoot, 'packages', 'foo', 'src', 'auth', 'guard.ts'), 'export function guard() { return true; }\n');
+    git(['add', '.'], graphRoot);
+    git(['commit', '-qm', 'add auth guard'], graphRoot);
+
+    const result = run(['assess', 'HEAD'], graphRoot, workspace);
+    assert.equal(result.status, 0, result.stderr);
+    assert.match(result.stdout, /categorias tocadas:.*secrets/, 'auth/guard no path deve disparar a categoria secrets');
+    assert.doesNotMatch(result.stdout, /nenhuma categoria sensível tocada/);
+  } finally {
+    cleanup(graphRoot, workspace);
+  }
+});
+
 test('risk:explain — recusa id inexistente', () => {
   const graphRoot = createFixture();
   const workspace = fs.mkdtempSync(path.join(os.tmpdir(), 'forja-risk-workspace-'));

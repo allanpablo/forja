@@ -106,3 +106,14 @@ o fator não disparou. É determinístico (cumpre a NFR de "nenhum fator depende
 recall baixo para segurança que não está em path óbvio. Não corrigido aqui: exigiria uma heurística
 mais rica (ex.: casar contra `PolicyCategory` já inferida do `capabilityId`/handler tocado, não só
 o path do arquivo) — candidato a uma spec própria de refinamento, fora do escopo desta fundação.
+
+**Melhoria posterior (não a correção estrutural completa, uma redução da superfície mais óbvia de
+falso-negativo)**: `SENSITIVE_PATTERNS` (`lib/core/risk-collect.ts`, movida de `scripts/risk.ts` no
+Sprint 6) ganhou `auth|guard|session|token` na categoria `secrets` e `shutdown` na categoria
+`database` — termos adjacentes a controle de acesso/ciclo de vida de credencial e conexão que a
+lista original não cobria. Revalidado contra o mesmo `f678d37`: `security_sensitivity` agora
+detecta `secrets, database` (antes: nenhuma), score final `19/100 → 29/100`, banda de autonomia
+`autonomous → autonomous_with_review` — mais correto pro que o commit de fato fez. **A limitação
+estrutural continua real**: qualquer lista fixa de palavras-chave tem recall limitado por natureza;
+a correção estrutural sugerida na nota original (casar contra `PolicyCategory` inferida do
+handler/capability tocado) segue não implementada e fora do escopo desta fundação.
