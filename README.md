@@ -259,6 +259,7 @@ forja simulate <ref> [--command "npm test"] [--json]  # test+architecture+risk a
 forja provenance:record <run-id>           # extracts file<->agent provenance from a persisted RuntimeRun (SPEC-039)
 forja blame <file>                         # provenance history for a file — file granularity, not line
 forja sbom [--json]                        # AI-SBOM: provenance report aggregated by agent
+forja agent:monitor <id> [--window-hours <n>]  # compares recent behavior against historical baseline — information, never blocks (SPEC-040)
 
 # Memory & context (workspace)
 forja sync:universal                       # reindex the workspace SQLite FTS5

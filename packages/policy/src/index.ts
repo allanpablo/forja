@@ -30,6 +30,13 @@ export interface PolicyScope {
    * antes de montar o `PolicyRequest`.
    */
   readonly riskScoreRange?: readonly [number, number];
+  /**
+   * Faixa opcional de `AnomalyAssessment.score` (0-100, SPEC-040) que a regra se aplica a. Mesmo
+   * padrão exato de `riskScoreRange`: `PolicyRequest.anomalyScore` é um `number` puro, não o
+   * assessment inteiro — este pacote nunca importa `@forja/engineering-monitoring`; quem calcula o
+   * score chama `detectAnomaly()` antes de montar o `PolicyRequest`.
+   */
+  readonly anomalyScoreRange?: readonly [number, number];
 }
 
 export interface PolicyLimits {
@@ -82,6 +89,8 @@ export interface PolicyRequest {
   readonly approval?: ApprovalDetails;
   /** Score 0-100 de um `ChangeRiskAssessment` já calculado (SPEC-034) — ver `PolicyScope.riskScoreRange`. */
   readonly riskScore?: number;
+  /** Score 0-100 de um `AnomalyAssessment` já calculado (SPEC-040) — ver `PolicyScope.anomalyScoreRange`. */
+  readonly anomalyScore?: number;
 }
 
 export interface ApprovalDecision {
@@ -251,6 +260,7 @@ export class PolicyEngine {
     if (scope.categories !== undefined && !scope.categories.some((category) => request.categories.includes(category))) return false;
     if (scope.pathPrefixes !== undefined && !request.files.every((file) => scope.pathPrefixes?.some((prefix) => isPathWithinRoot(prefix, file)))) return false;
     if (scope.riskScoreRange !== undefined && (request.riskScore === undefined || request.riskScore < scope.riskScoreRange[0] || request.riskScore > scope.riskScoreRange[1])) return false;
+    if (scope.anomalyScoreRange !== undefined && (request.anomalyScore === undefined || request.anomalyScore < scope.anomalyScoreRange[0] || request.anomalyScore > scope.anomalyScoreRange[1])) return false;
     return true;
   }
 

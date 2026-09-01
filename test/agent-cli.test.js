@@ -153,3 +153,68 @@ test('agent:recommend — exige --role', () => {
     cleanup(workspace);
   }
 });
+
+/**
+ * Semeia Observations com createdAt EXPLÍCITO — sintético documentado como tal (§8 de SPEC-040) —
+ * pra controlar em qual lado do corte da janela cada uma cai: `beforeCutoff` (linha de base, boa)
+ * vs. `afterCutoff` (recente, degradada — successRate caindo de ~90% pra ~30%).
+ */
+async function seedMonitoringObservations(workspace, agentId) {
+  const dbPath = path.join(workspace, 'universal.db');
+  fs.mkdirSync(workspace, { recursive: true });
+  const { default: Database } = await import('better-sqlite3');
+  const { SqliteMigrationRunner, SqliteObservationStore } = await import('../packages/adapter-sqlite/src/index.ts');
+  const database = new Database(dbPath);
+  new SqliteMigrationRunner(database).apply();
+  const store = new SqliteObservationStore(database);
+  const twoDaysAgo = new Date(Date.now() - 48 * 60 * 60 * 1000).toISOString();
+  const now = new Date().toISOString();
+  const base = { schemaVersion: '2.0', updatedAt: now, correlationId: 'test', agentId, contextRefs: [], inputTokens: 10, outputTokens: 10, durationMs: 100, tools: [], files: [], commands: [] };
+  // linha de base (fora da janela de 24h): 9 sucessos, 1 falha — ~90% de sucesso.
+  for (let i = 0; i < 9; i += 1) store.append({ ...base, id: `baseline-ok-${i}`, traceId: `bt-${i}`, createdAt: twoDaysAgo, outcome: 'succeeded' });
+  store.append({ ...base, id: 'baseline-fail-0', traceId: 'bt-fail', createdAt: twoDaysAgo, outcome: 'failed' });
+  // recente (dentro da janela de 24h): 3 sucessos, 7 falhas — ~30% de sucesso.
+  for (let i = 0; i < 3; i += 1) store.append({ ...base, id: `recent-ok-${i}`, traceId: `rt-${i}`, createdAt: now, outcome: 'succeeded' });
+  for (let i = 0; i < 7; i += 1) store.append({ ...base, id: `recent-fail-${i}`, traceId: `rtf-${i}`, createdAt: now, outcome: 'failed' });
+  database.close();
+}
+
+test('agent:monitor — degradação clara sintética (successRate 90% → 30%) sinaliza corretamente, nunca bloqueia', async () => {
+  const workspace = newWorkspace();
+  try {
+    run(['register', 'agent-1', '--role', 'developer'], workspace);
+    await seedMonitoringObservations(workspace, 'agent-1');
+
+    const result = run(['monitor', 'agent-1', '--window-hours', '24'], workspace);
+    assert.equal(result.status, 0, result.stderr);
+    assert.match(result.stdout, /score de anomalia \d+\/100/);
+    assert.match(result.stdout, /linha de base: 10 observation\(s\)/);
+    assert.match(result.stdout, /recente: 10 observation\(s\)/);
+    assert.match(result.stdout, /successRate: 0\.90 → 0\.30/);
+    assert.match(result.stdout, /informação, não decisão automática/);
+  } finally {
+    cleanup(workspace);
+  }
+});
+
+test('agent:monitor — agente sem nenhuma Observation não sinaliza anomalia (não há degradação sem dado)', () => {
+  const workspace = newWorkspace();
+  try {
+    run(['register', 'agent-1', '--role', 'developer'], workspace);
+    const result = run(['monitor', 'agent-1'], workspace);
+    assert.equal(result.status, 0, result.stderr);
+    assert.match(result.stdout, /score de anomalia 0\/100/);
+  } finally {
+    cleanup(workspace);
+  }
+});
+
+test('agent:monitor — exige um id', () => {
+  const workspace = newWorkspace();
+  try {
+    const result = run(['monitor'], workspace);
+    assert.notEqual(result.status, 0);
+  } finally {
+    cleanup(workspace);
+  }
+});

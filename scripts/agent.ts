@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 /**
- * agent:register / :list / :show / :score / :history / :recommend (SPEC-036, SPEC-037)
+ * agent:register / :list / :show / :score / :history / :recommend / :monitor
+ * (SPEC-036, SPEC-037, SPEC-040)
  *
  *   forja agent:register <id> --role <role> [--provider <p>] [--model <m>]
  *                              [--capabilities <c1,c2>] [--domains <d1,d2>]
@@ -11,19 +12,23 @@
  *   forja agent:history <id>              Observations do agente, mais recentes primeiro
  *   forja agent:recommend --role <role> [--domain <d>]  ranking de agentes registrados por
  *                                        adequação — informação, não atribuição (SPEC-037 AC-4)
+ *   forja agent:monitor <id> [--window-hours <n>]  compara comportamento recente (últimas <n>h,
+ *                                        default 24) contra a linha de base histórica —
+ *                                        informação, nunca bloqueia nada sozinho (SPEC-040 AC-5)
  *
  * `packages/engineering/identity` faz o cálculo puro (computeReputationScore, recommendAgent);
- * este script busca `Observation`s reais (`SqliteObservationStore`, já existente), monta o
- * `EvaluationReport` via `EvaluationEngine` (`packages/evals`, já existente — nenhuma métrica
- * reimplementada aqui) e persiste `AgentProfile2` (`SqliteAgentProfileStore`, sem migration nova —
- * D3 do plan de SPEC-036). `agent:register` deliberadamente não tem flag de
- * trust-level/autonomy-level — só `agent:score` escreve esses campos (D2 do plan, AC-1/AC-3 de
- * SPEC-036).
+ * `packages/engineering/monitoring` faz a comparação pura (detectAnomaly). Este script busca
+ * `Observation`s reais (`SqliteObservationStore`, já existente), monta o `EvaluationReport` via
+ * `EvaluationEngine` (`packages/evals`, já existente — nenhuma métrica reimplementada aqui) e
+ * persiste `AgentProfile2` (`SqliteAgentProfileStore`, sem migration nova — D3 do plan de
+ * SPEC-036). `agent:register` deliberadamente não tem flag de trust-level/autonomy-level — só
+ * `agent:score` escreve esses campos (D2 do plan, AC-1/AC-3 de SPEC-036).
  */
 
 import fs from 'node:fs';
 import Database from 'better-sqlite3';
 import { computeReputationScore, recommendAgent } from '../packages/engineering/identity/src/index.ts';
+import { detectAnomaly } from '../packages/engineering/monitoring/src/index.ts';
 import { EvaluationEngine } from '../packages/evals/src/index.ts';
 import { SqliteAgentProfileStore, SqliteMigrationRunner, SqliteObservationStore } from '../packages/adapter-sqlite/src/index.ts';
 import { getWorkspaceDbDir, getWorkspaceDbPath } from '../lib/workspace.ts';
@@ -161,6 +166,33 @@ function cmdRecommend(args: string[]): void {
   }
 }
 
+async function cmdMonitor(args: string[]): Promise<void> {
+  const [id] = args;
+  const windowHours = Number(flag(args, '--window-hours') ?? '24');
+  if (!id) { console.error('Uso: forja agent:monitor <id> [--window-hours <n>]'); process.exitCode = 1; return; }
+  if (!Number.isFinite(windowHours) || windowHours <= 0) { console.error('--window-hours deve ser um número positivo'); process.exitCode = 1; return; }
+
+  const database = openDatabase();
+  try {
+    const cutoff = new Date(Date.now() - windowHours * 60 * 60 * 1000).toISOString();
+    const allObservations = new SqliteObservationStore(database).list().filter((observation) => observation.agentId === id);
+    const baselineObservations = allObservations.filter((observation) => observation.createdAt < cutoff);
+    const recentObservations = allObservations.filter((observation) => observation.createdAt >= cutoff);
+
+    const engine = new EvaluationEngine({ list: () => [] });
+    const baseline = await engine.evaluate({ scope: 'agent', scopeId: id, observations: baselineObservations });
+    const recent = await engine.evaluate({ scope: 'agent', scopeId: id, observations: recentObservations });
+    const assessment = detectAnomaly(id, baseline, recent);
+
+    console.log(`${id} — janela de ${windowHours}h: score de anomalia ${assessment.score}/100 (confidence ${(assessment.confidence * 100).toFixed(0)}%)`);
+    console.log(`linha de base: ${baselineObservations.length} observation(s)  |  recente: ${recentObservations.length} observation(s)`);
+    for (const signal of assessment.signals) console.log(`  ${signal.metric}: ${signal.baseline.toFixed(2)} → ${signal.recent.toFixed(2)} (Δ${signal.delta >= 0 ? '+' : ''}${signal.delta.toFixed(2)})`);
+    console.log('\n(informação, não decisão automática — nenhum bloqueio ou aprovação foi disparado, SPEC-040 AC-5)');
+  } finally {
+    database.close();
+  }
+}
+
 async function main(): Promise<void> {
   const [subcommand, ...rest] = process.argv.slice(2);
   switch (subcommand) {
@@ -170,8 +202,9 @@ async function main(): Promise<void> {
     case 'score': return cmdScore(rest);
     case 'history': return cmdHistory(rest);
     case 'recommend': return cmdRecommend(rest);
+    case 'monitor': return cmdMonitor(rest);
     default:
-      console.error('Uso: forja agent:<register|list|show|score|history|recommend> [args]');
+      console.error('Uso: forja agent:<register|list|show|score|history|recommend|monitor> [args]');
       process.exitCode = 1;
   }
 }

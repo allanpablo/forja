@@ -74,6 +74,7 @@ apps/dashboard/.next/
 !/specs/smart-agent-routing
 !/specs/predictive-change-simulation
 !/specs/ai-code-provenance
+!/specs/agent-runtime-monitoring
 
 # Runbooks GSD e context packs são gerados/efêmeros e podem carregar dados de
 # produto. São regeneráveis (gsd:plan, context:build), então ficam fora do git.
