@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * agent:register / :list / :show / :score / :history (SPEC-036)
+ * agent:register / :list / :show / :score / :history / :recommend (SPEC-036, SPEC-037)
  *
  *   forja agent:register <id> --role <role> [--provider <p>] [--model <m>]
  *                              [--capabilities <c1,c2>] [--domains <d1,d2>]
@@ -9,18 +9,21 @@
  *   forja agent:show <id>                 detalhe de um agente
  *   forja agent:score <id> [--domain <d>] computa e persiste trustLevel/autonomyLevel via Observation reais
  *   forja agent:history <id>              Observations do agente, mais recentes primeiro
+ *   forja agent:recommend --role <role> [--domain <d>]  ranking de agentes registrados por
+ *                                        adequação — informação, não atribuição (SPEC-037 AC-4)
  *
- * `packages/engineering/identity` faz o cálculo puro (computeReputationScore, D1 do plan); este
- * script busca `Observation`s reais (`SqliteObservationStore`, já existente), monta o
+ * `packages/engineering/identity` faz o cálculo puro (computeReputationScore, recommendAgent);
+ * este script busca `Observation`s reais (`SqliteObservationStore`, já existente), monta o
  * `EvaluationReport` via `EvaluationEngine` (`packages/evals`, já existente — nenhuma métrica
  * reimplementada aqui) e persiste `AgentProfile2` (`SqliteAgentProfileStore`, sem migration nova —
- * D3 do plan). `agent:register` deliberadamente não tem flag de trust-level/autonomy-level — só
- * `agent:score` escreve esses campos (D2 do plan, AC-1/AC-3 do spec).
+ * D3 do plan de SPEC-036). `agent:register` deliberadamente não tem flag de
+ * trust-level/autonomy-level — só `agent:score` escreve esses campos (D2 do plan, AC-1/AC-3 de
+ * SPEC-036).
  */
 
 import fs from 'node:fs';
 import Database from 'better-sqlite3';
-import { computeReputationScore } from '../packages/engineering/identity/src/index.ts';
+import { computeReputationScore, recommendAgent } from '../packages/engineering/identity/src/index.ts';
 import { EvaluationEngine } from '../packages/evals/src/index.ts';
 import { SqliteAgentProfileStore, SqliteMigrationRunner, SqliteObservationStore } from '../packages/adapter-sqlite/src/index.ts';
 import { getWorkspaceDbDir, getWorkspaceDbPath } from '../lib/workspace.ts';
@@ -141,6 +144,23 @@ function cmdHistory([id]: string[]): void {
   }
 }
 
+function cmdRecommend(args: string[]): void {
+  const role = flag(args, '--role');
+  const domain = flag(args, '--domain');
+  if (!role) { console.error('Uso: forja agent:recommend --role <role> [--domain <d>]'); process.exitCode = 1; return; }
+
+  const database = openDatabase();
+  try {
+    const profiles = new SqliteAgentProfileStore(database).list();
+    if (profiles.length === 0) { console.log('Nenhum agente registrado — rode `forja agent:register <id> --role <role>` primeiro.'); return; }
+    const ranking = recommendAgent(profiles, { role, domain });
+    for (const item of ranking) console.log(`${item.agentId}  score:${item.score}  ${item.reasons.join(', ')}`);
+    console.log('\n(informação, não atribuição — a escolha final continua manual/do orquestrador, SPEC-037 AC-4)');
+  } finally {
+    database.close();
+  }
+}
+
 async function main(): Promise<void> {
   const [subcommand, ...rest] = process.argv.slice(2);
   switch (subcommand) {
@@ -149,8 +169,9 @@ async function main(): Promise<void> {
     case 'show': return cmdShow(rest);
     case 'score': return cmdScore(rest);
     case 'history': return cmdHistory(rest);
+    case 'recommend': return cmdRecommend(rest);
     default:
-      console.error('Uso: forja agent:<register|list|show|score|history> [args]');
+      console.error('Uso: forja agent:<register|list|show|score|history|recommend> [args]');
       process.exitCode = 1;
   }
 }

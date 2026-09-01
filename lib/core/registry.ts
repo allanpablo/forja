@@ -336,6 +336,13 @@ export const COMMANDS = {
     args: ['history'],
     gates: ['workspace-warn'],
   },
+  'agent:recommend': {
+    domain: 'code',
+    desc: 'Ranking de agentes registrados por adequação a um papel/domínio — informação, não atribuição (SPEC-037)',
+    node: 'scripts/agent.ts',
+    args: ['recommend'],
+    gates: ['workspace-warn'],
+  },
   'code:context': {
     domain: 'code',
     desc: 'Pacote de contexto mínimo de um domínio: o mapa (context.md), + código com --code (ADR-0009)',

@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 
-import { computeReputationScore, DEFAULT_REPUTATION_THRESHOLDS } from '../packages/engineering/identity/src/index.ts';
+import { computeReputationScore, DEFAULT_REPUTATION_THRESHOLDS, recommendAgent } from '../packages/engineering/identity/src/index.ts';
 
 const now = '2026-09-01T00:00:00.000Z';
 
@@ -69,4 +69,36 @@ test('computeReputationScore: domain aparece no resultado só quando fornecido',
   const withoutDomain = computeReputationScore(report({ successRate: 1, reworkRate: 0, rollbackRate: 0, assertionsWithoutEvidenceRate: 0 }), { agentId: 'agent-1' });
   assert.equal(withDomain.domain, 'backend');
   assert.equal('domain' in withoutDomain, false);
+});
+
+function profile(overrides = {}) {
+  return { id: 'agent-1', schemaVersion: '2.0', createdAt: now, updatedAt: now, correlationId: 'c', role: 'developer', capabilities: [], architectureDomains: [], ...overrides };
+}
+
+test('recommendAgent: role e domain casados somam, trustLevel entra proporcionalmente', () => {
+  const profiles = [
+    profile({ id: 'a', role: 'developer', architectureDomains: ['backend'], trustLevel: 5, autonomyLevel: 'autonomous' }),
+    profile({ id: 'b', role: 'developer', architectureDomains: [] }),
+    profile({ id: 'c', role: 'reviewer', architectureDomains: ['backend'] }),
+  ];
+  const ranking = recommendAgent(profiles, { role: 'developer', domain: 'backend' });
+  assert.deepEqual(ranking.map((r) => r.agentId), ['a', 'b', 'c']);
+  assert.equal(ranking[0].score, 100 + 50 + 50); // role + domain + trustLevel(5)*10
+});
+
+test('recommendAgent: agente sem trustLevel ainda não é excluído, motivo declara isso', () => {
+  const ranking = recommendAgent([profile({ id: 'a', role: 'developer' })], { role: 'developer' });
+  assert.equal(ranking.length, 1);
+  assert.equal(ranking[0].score, 100);
+  assert.match(ranking[0].reasons.join(' '), /sem pontuação ainda/);
+});
+
+test('recommendAgent: sem domain no critério, domainMatch nunca conta', () => {
+  const ranking = recommendAgent([profile({ id: 'a', role: 'developer', architectureDomains: ['backend'] })], { role: 'developer' });
+  assert.equal(ranking[0].score, 100);
+});
+
+test('recommendAgent: empate por score desempata por agentId (ordem determinística)', () => {
+  const ranking = recommendAgent([profile({ id: 'z', role: 'developer' }), profile({ id: 'a', role: 'developer' })], { role: 'developer' });
+  assert.deepEqual(ranking.map((r) => r.agentId), ['a', 'z']);
 });

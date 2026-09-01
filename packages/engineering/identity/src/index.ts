@@ -1,13 +1,16 @@
 /**
- * @forja/engineering-identity — Agent Reputation (SPEC-036).
+ * @forja/engineering-identity — Agent Reputation (SPEC-036) + Smart Agent Routing (SPEC-037).
  *
  * Domínio puro: `computeReputationScore` recebe um `EvaluationReport` já produzido por
  * `packages/evals.EvaluationEngine` (reaproveitado, não reimplementado — nenhuma métrica nova
- * calculada aqui) e devolve um `AgentReputationScore`. Nenhum `fs`/rede/SQLite — a persistência
- * (`SqliteAgentProfileStore`) e a coleta de `Observation`s vivem em `scripts/agent.ts`.
+ * calculada aqui) e devolve um `AgentReputationScore`. `recommendAgent` classifica
+ * `AgentProfile2[]` (já registrados/pontuados) por adequação a um papel/domínio — não confundir
+ * com `packages/llm.recommendProfile` (routing de provider/model de LLM, problema adjacente, não
+ * o mesmo; ver nota no topo de `specs/smart-agent-routing/spec.md`). Nenhum `fs`/rede/SQLite — a
+ * persistência (`SqliteAgentProfileStore`) e a coleta de `Observation`s vivem em `scripts/agent.ts`.
  */
 
-import type { EvaluationReport } from '../../../contracts/src/index.ts';
+import type { AgentProfile2, EvaluationReport } from '../../../contracts/src/index.ts';
 
 export type AutonomyLevel = 'autonomous' | 'autonomous_with_review' | 'supervised' | 'human_in_the_loop';
 
@@ -87,4 +90,39 @@ export function computeReputationScore(
     metrics: report.metrics,
     evidenceIds: report.observationIds,
   };
+}
+
+export interface AgentRecommendation {
+  readonly agentId: string;
+  readonly score: number;
+  readonly reasons: readonly string[];
+}
+
+export interface AgentRecommendationCriteria {
+  readonly role: string;
+  readonly domain?: string;
+}
+
+/**
+ * `score` = (role casado ? 100 : 0) + (domain casado em `architectureDomains` ? 50 : 0) +
+ * (`trustLevel` ?? 0) · 10 (0-50) — mesma proporção de pesos de `packages/llm.recommendProfile`
+ * (D1 do plan), nunca "número mágico". Um agente sem `trustLevel` ainda **não é excluído** do
+ * ranking (AC-2) — o termo de reputação entra como 0 e o motivo declara isso explicitamente, nunca
+ * finge um trust level que não existe.
+ */
+export function recommendAgent(profiles: readonly AgentProfile2[], criteria: AgentRecommendationCriteria): readonly AgentRecommendation[] {
+  return profiles
+    .map((profile) => {
+      const roleMatch = profile.role === criteria.role;
+      const domainMatch = criteria.domain !== undefined && profile.architectureDomains.includes(criteria.domain);
+      const trustLevel = profile.trustLevel;
+      const score = (roleMatch ? 100 : 0) + (domainMatch ? 50 : 0) + (trustLevel ?? 0) * 10;
+      const reasons = [
+        ...(roleMatch ? [`role:${criteria.role}`] : []),
+        ...(domainMatch ? [`domain:${criteria.domain}`] : []),
+        ...(trustLevel === undefined ? ['sem pontuação ainda — rode agent:score'] : [`trustLevel ${trustLevel}/5 (${profile.autonomyLevel})`]),
+      ];
+      return { agentId: profile.id, score, reasons };
+    })
+    .sort((left, right) => right.score - left.score || left.agentId.localeCompare(right.agentId));
 }

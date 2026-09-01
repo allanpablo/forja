@@ -124,3 +124,32 @@ test('agent:show — recusa agente não registrado', () => {
     cleanup(workspace);
   }
 });
+
+test('agent:recommend — ranking real: role+domain casados > só role > só domain, ordem correta', async () => {
+  const workspace = newWorkspace();
+  try {
+    run(['register', 'agent-a', '--role', 'developer', '--domains', 'backend'], workspace);
+    run(['register', 'agent-b', '--role', 'developer'], workspace);
+    run(['register', 'agent-c', '--role', 'reviewer', '--domains', 'backend'], workspace);
+    await seedObservations(workspace, 'agent-a'); // 4 sucessos, 1 rollback — dá trustLevel real a agent-a
+    run(['score', 'agent-a'], workspace);
+
+    const result = run(['recommend', '--role', 'developer', '--domain', 'backend'], workspace);
+    assert.equal(result.status, 0, result.stderr);
+    const lines = result.stdout.trim().split('\n').filter((line) => line.startsWith('agent-'));
+    assert.deepEqual(lines.map((line) => line.split(/\s+/)[0]), ['agent-a', 'agent-b', 'agent-c'], 'agent-a (role+domain+trust) > agent-b (só role) > agent-c (só domain)');
+    assert.match(result.stdout, /informação, não atribuição/);
+  } finally {
+    cleanup(workspace);
+  }
+});
+
+test('agent:recommend — exige --role', () => {
+  const workspace = newWorkspace();
+  try {
+    const result = run(['recommend'], workspace);
+    assert.notEqual(result.status, 0);
+  } finally {
+    cleanup(workspace);
+  }
+});
