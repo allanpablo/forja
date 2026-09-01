@@ -53,9 +53,17 @@ function isIndexable(relative: string): boolean {
   return /\.(?:ts|tsx|js|jsx|mjs|cjs|json|md|yaml|yml)$/.test(relative);
 }
 
+/**
+ * `HOME`/`USERPROFILE` (SPEC-038 achado real): sem eles, `npm` não consegue resolver seu diretório
+ * de config/cache e trava indefinidamente em vez de falhar rápido — reproduzido rodando
+ * `forja simulate` com `--command "npm test"` contra este próprio repositório. Nenhum dos dois é
+ * segredo (são só um path de diretório), então passá-los adiante não viola o teste
+ * "runner não herda secrets do ambiente por padrão" (`test/adapter-git.test.js`) — esse teste
+ * cobre uma env var arbitrária do processo host, não este allowlist fixo.
+ */
 function sandboxEnvironment(overrides?: Readonly<Record<string, string>>): NodeJS.ProcessEnv {
   const inherited = {} as NodeJS.ProcessEnv;
-  for (const key of ['PATH', 'NODE_PATH', 'SystemRoot', 'TMPDIR', 'TMP', 'TEMP']) {
+  for (const key of ['PATH', 'NODE_PATH', 'SystemRoot', 'TMPDIR', 'TMP', 'TEMP', 'HOME', 'USERPROFILE']) {
     const value = process.env[key];
     if (value !== undefined) inherited[key] = value;
   }

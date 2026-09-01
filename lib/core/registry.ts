@@ -343,6 +343,12 @@ export const COMMANDS = {
     args: ['recommend'],
     gates: ['workspace-warn'],
   },
+  'simulate': {
+    domain: 'code',
+    desc: 'Testa+arquitetura+risco de um ref num worktree isolado, nunca promove (SPEC-038)',
+    node: 'scripts/simulate.ts',
+    gates: ['workspace-warn'],
+  },
   'code:context': {
     domain: 'code',
     desc: 'Pacote de contexto mínimo de um domínio: o mapa (context.md), + código com --code (ADR-0009)',
