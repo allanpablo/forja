@@ -83,6 +83,15 @@ export interface GraphStore {
   saveEvidence(item: Evidence): void;
   getSourceChecksum(sourceKey: string): string | undefined;
   saveSourceChecksum(sourceKey: string, checksum: string): void;
+  /**
+   * Opcional (achado real, GraphIndexer.sync contra ~1000 documentos): sem isto, cada
+   * `saveNode`/`saveEdge`/`saveEvidence` é um `INSERT` commitado individualmente — dezenas de
+   * milhares de fsyncs num repositório real. Um `GraphStore` que grava em algo transacional (ex.
+   * `SqliteGraphStore`) implementa isto pra agrupar; `InMemoryGraphStore` não precisa — sem custo
+   * de I/O, não há nada a agrupar, e `GraphLoop.transaction` cai pra "só chame `fn()`" quando
+   * ausente.
+   */
+  transaction?<T>(fn: () => T): T;
 }
 
 export class GraphError extends Error {
@@ -183,6 +192,16 @@ export class GraphLoop {
     for (const item of mutation.edges) this.upsertEdge(item);
     this.store.saveSourceChecksum(mutation.sourceKey, mutation.sourceChecksum);
     return { nodes: mutation.nodes.length, edges: mutation.edges.length, skipped: false };
+  }
+
+  /**
+   * Agrupa `fn` numa transação do `store`, se ele suportar uma (`GraphStore.transaction`,
+   * opcional). `GraphIndexer.sync` usa isto pra envolver o loop inteiro de `apply()` — uma
+   * transação pra todos os documentos, não uma implícita por `INSERT`. Sem suporte do store
+   * (ex. `InMemoryGraphStore`), só roda `fn()` normalmente.
+   */
+  transaction<T>(fn: () => T): T {
+    return this.store.transaction ? this.store.transaction(fn) : fn();
   }
 
   query(query: GraphQuery = {}): readonly GraphNode[] {
@@ -336,11 +355,16 @@ export class GraphIndexer {
     let skipped = 0;
     let nodes = 0;
     let edges = 0;
-    for (const document of documents) {
-      const result = this.graph.apply(extractDeterministicRelations(document));
-      if (result.skipped) skipped += 1;
-      else { indexed += 1; nodes += result.nodes; edges += result.edges; }
-    }
+    // `GraphLoop.transaction` (achado real de performance): sem isto, cada apply() de cada
+    // documento fazia seus INSERTs num commit implícito próprio — dezenas de milhares de fsyncs
+    // pra um repositório de ~1000 arquivos. Uma transação pro sync inteiro, não uma por linha.
+    this.graph.transaction(() => {
+      for (const document of documents) {
+        const result = this.graph.apply(extractDeterministicRelations(document));
+        if (result.skipped) skipped += 1;
+        else { indexed += 1; nodes += result.nodes; edges += result.edges; }
+      }
+    });
     return { documents: documents.length, indexed, skipped, nodes, edges, durationMs: Date.now() - started, files: documents.map((document) => document.locator) };
   }
 }
