@@ -129,7 +129,7 @@ export class SprintEngine {
     if (sprint.status === 'completed' || sprint.status === 'cancelled') throw new OrchestrationError('Cannot attach a task to a closed sprint');
     if (sprint.taskIds.includes(taskId)) return sprint;
     const updated = this.updated(sprint, { taskIds: [...sprint.taskIds, taskId] });
-    await this.store.saveSprint(updated);
+    await this.saveSprintGuarded(sprint, updated);
     await this.record('sprint', updated.id, [taskId], updated.evidenceIds);
     return updated;
   }
@@ -142,7 +142,7 @@ export class SprintEngine {
     const result = await validator.validateSprint(sprint, tasks);
     if (result.status !== 'accepted') throw new OrchestrationError(`Sprint validation did not accept completion: ${result.status}`);
     const updated = this.updated(sprint, { status: 'completed', evidenceIds: this.unique([...sprint.evidenceIds, ...this.evidenceFrom(result)]) });
-    await this.store.saveSprint(updated);
+    await this.saveSprintGuarded(sprint, updated);
     await this.record('sprint', updated.id, updated.taskIds, updated.evidenceIds);
     return updated;
   }
@@ -151,9 +151,21 @@ export class SprintEngine {
     const sprint = await this.requireSprint(id);
     if (!allowed.includes(sprint.status)) throw new OrchestrationError(`Invalid sprint transition from ${sprint.status} to ${status}`);
     const updated = this.updated(sprint, { status });
-    await this.store.saveSprint(updated);
+    await this.saveSprintGuarded(sprint, updated);
     await this.record('sprint', updated.id, updated.taskIds, updated.evidenceIds);
     return updated;
+  }
+
+  /**
+   * Read-modify-write without this is a lost-update race: two concurrent callers can both read
+   * the same `sprint`, compute different `updated` values, and the second `saveSprint` silently
+   * clobbers the first. Re-checking `updatedAt` immediately before writing narrows that window to
+   * the store's own read/write latency instead of this method's full async body.
+   */
+  private async saveSprintGuarded(before: Sprint, after: Sprint): Promise<void> {
+    const current = await this.store.getSprint(before.id);
+    if (current === undefined || current.updatedAt !== before.updatedAt) throw new OrchestrationError(`Sprint was modified concurrently: ${before.id}`);
+    await this.store.saveSprint(after);
   }
 
   private async requireSprint(id: EntityId): Promise<Sprint> { const value = await this.store.getSprint(id); if (!value) throw new OrchestrationError(`Sprint not found: ${id}`); return value; }
@@ -200,10 +212,10 @@ export class TaskEngine {
     const sprint = await this.store.getSprint(task.sprintId);
     if (!sprint || sprint.status !== 'active') throw new OrchestrationError('Task requires an active sprint');
     if (task.status !== 'todo' && task.status !== 'blocked') throw new OrchestrationError(`Invalid task start from ${task.status}`);
-    const updated = this.updated(task, { status: 'in_progress' }); await this.store.saveTask(updated); return updated;
+    const updated = this.updated(task, { status: 'in_progress' }); await this.saveTaskGuarded(task, updated); return updated;
   }
 
-  async block(id: EntityId): Promise<Task> { const task = await this.require(id); if (task.status !== 'in_progress') throw new OrchestrationError('Only an in-progress task can be blocked'); const updated = this.updated(task, { status: 'blocked' }); await this.store.saveTask(updated); return updated; }
+  async block(id: EntityId): Promise<Task> { const task = await this.require(id); if (task.status !== 'in_progress') throw new OrchestrationError('Only an in-progress task can be blocked'); const updated = this.updated(task, { status: 'blocked' }); await this.saveTaskGuarded(task, updated); return updated; }
 
   async complete(id: EntityId, validator: CompletionValidator): Promise<Task> {
     const task = await this.require(id);
@@ -211,8 +223,15 @@ export class TaskEngine {
     const result = await validator.validateTask(task);
     if (result.status !== 'accepted') throw new OrchestrationError(`Task validation did not accept completion: ${result.status}`);
     const evidenceIds = this.unique([...task.evidenceIds, ...result.checks.flatMap((check) => check.evidenceIds)]);
-    const updated = this.updated(task, { status: 'done', evidenceIds }); await this.store.saveTask(updated);
+    const updated = this.updated(task, { status: 'done', evidenceIds }); await this.saveTaskGuarded(task, updated);
     if (this.graph) await this.graph.record({ kind: 'task', id: updated.id, relatedIds: [updated.sprintId, ...updated.dependencyIds], evidenceIds }); return updated;
+  }
+
+  /** See SprintEngine.saveSprintGuarded — same lost-update race, same narrowing mitigation. */
+  private async saveTaskGuarded(before: Task, after: Task): Promise<void> {
+    const current = await this.store.getTask(before.id);
+    if (current === undefined || current.updatedAt !== before.updatedAt) throw new OrchestrationError(`Task was modified concurrently: ${before.id}`);
+    await this.store.saveTask(after);
   }
 
   private async require(id: EntityId): Promise<Task> { const value = await this.store.getTask(id); if (!value) throw new OrchestrationError(`Task not found: ${id}`); return value; }
@@ -226,13 +245,20 @@ export class HandoffEngine {
   private readonly graph?: GraphRecorder;
   private readonly maxItems: number;
   private readonly maxItemLength: number;
-  constructor(store: OrchestrationStore, graph?: GraphRecorder, maxItems = 20, maxItemLength = 500) { this.store = store; this.graph = graph; this.maxItems = maxItems; this.maxItemLength = maxItemLength; }
+  private readonly maxHandoffsPerCorrelation: number;
+  constructor(store: OrchestrationStore, graph?: GraphRecorder, maxItems = 20, maxItemLength = 500, maxHandoffsPerCorrelation = 200) { this.store = store; this.graph = graph; this.maxItems = maxItems; this.maxItemLength = maxItemLength; this.maxHandoffsPerCorrelation = maxHandoffsPerCorrelation; }
 
   async create(input: CreateHandoffInput): Promise<Handoff> {
     for (const [name, value] of Object.entries({ from: input.from, to: input.to, intent: input.intent, objective: input.objective, nextAgent: input.nextAgent })) if (value.trim().length === 0) throw new OrchestrationError(`Handoff ${name} is required`);
     if (input.acceptance.length === 0) throw new OrchestrationError('Handoff acceptance is required');
     if (input.evidenceIds.length === 0) throw new OrchestrationError('Handoff requires evidence references');
     const fields: AuditShape = { schemaVersion: CONTRACT_VERSION, createdAt: new Date().toISOString() as ISO8601, updatedAt: new Date().toISOString() as ISO8601, correlationId: input.correlationId ?? `handoff:${input.intent}` };
+    // Nothing else bounds how many handoffs a single run can chain through (A→B→A→B→… has no
+    // structural cycle marker to detect), so this is the circuit breaker: past this count for one
+    // correlationId, something is looping without a human/gate in the loop, and it should fail
+    // loudly rather than accumulate audit records forever.
+    const priorForRun = (await this.store.listHandoffs()).filter((handoff) => handoff.correlationId === fields.correlationId).length;
+    if (priorForRun >= this.maxHandoffsPerCorrelation) throw new OrchestrationError(`Handoff chain exceeded ${this.maxHandoffsPerCorrelation} handoffs for correlationId ${fields.correlationId} — likely an unbounded loop`);
     const value: Handoff = { ...fields, id: randomUUID() as EntityId, from: input.from.trim(), to: input.to.trim(), intent: input.intent.trim(), objective: input.objective.trim(), completedWork: this.compact(input.completedWork), decisions: this.compact(input.decisions), constraints: this.compact(input.constraints), pending: this.compact(input.pending), evidenceIds: [...new Set(input.evidenceIds)], acceptance: this.compact(input.acceptance), blockers: this.compact(input.blockers), nextAgent: input.nextAgent.trim() };
     await this.store.saveHandoff(value);
     if (this.graph) await this.graph.record({ kind: 'handoff', id: value.id, relatedIds: value.evidenceIds, evidenceIds: value.evidenceIds });

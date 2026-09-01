@@ -215,6 +215,9 @@ export class RuntimeEngine {
           input: { capabilityId: step.capabilityId as CapabilityExecutionRequest['input']['capabilityId'], payload: step.payload },
           agent: run.agent,
           policy: this.policies.get(runId) ?? (() => { throw new RuntimeError('Runtime policy is missing'); })(),
+          // Stable across retries/resume of the same run — without it every attempt looks like a
+          // brand-new approval request and a human's decision can never be recognized on retry.
+          correlationId: runId,
           projectId: step.projectId,
           environment: step.environment,
           categories: step.categories,

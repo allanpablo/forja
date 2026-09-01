@@ -33,6 +33,37 @@ test('policy: risco crítico exige aprovação mesmo com allow', () => {
   assert.equal(result.approvalRequestId, undefined);
 });
 
+test('policy: risco crítico com ALLOW_WITH_LIMITS também exige aprovação', () => {
+  const critical = { ...definition, id: 'deployment.release', risk: 'critical' };
+  const result = new PolicyEngine({ rules: [{ id: 'release', priority: 10, effect: 'ALLOW_WITH_LIMITS', reason: 'release window', scope: {}, limits: { maxFiles: 1 } }] }).authorize(request({ definition: critical, categories: ['deployment'] }));
+  assert.equal(result.effect, 'REQUIRE_APPROVAL');
+});
+
+test('policy: authorize resolve para ALLOW no retry após aprovação, usando o mesmo correlationId', () => {
+  const ledger = new ApprovalLedger();
+  const engine = new PolicyEngine({ approvalLedger: ledger, rules: [{ id: 'write-approval', priority: 1, effect: 'REQUIRE_APPROVAL', reason: 'review', scope: {} }] });
+  const approval = { action: 'write', justification: 'task', impact: 'source change', expectedDiff: 'src/a.ts', expiresAt: '2099-01-01T00:00:00.000Z' };
+  const first = engine.authorize(request({ correlationId: 'run-1', approval }));
+  assert.equal(first.effect, 'REQUIRE_APPROVAL');
+  // Retrying before a decision exists must not mint a second pending request for the same run.
+  const retryBeforeDecision = engine.authorize(request({ correlationId: 'run-1', approval }));
+  assert.equal(retryBeforeDecision.approvalRequestId, first.approvalRequestId);
+  assert.equal(ledger.list().length, 1);
+  ledger.decide(first.approvalRequestId, { decision: 'approved', approverId: 'reviewer-1', decidedAt: '2026-07-31T01:00:00.000Z' });
+  const resumed = engine.authorize(request({ correlationId: 'run-1', approval }));
+  assert.equal(resumed.effect, 'ALLOW');
+});
+
+test('policy: authorize resolve para DENY após rejeição, usando o mesmo correlationId', () => {
+  const ledger = new ApprovalLedger();
+  const engine = new PolicyEngine({ approvalLedger: ledger, rules: [{ id: 'write-approval', priority: 1, effect: 'REQUIRE_APPROVAL', reason: 'review', scope: {} }] });
+  const approval = { action: 'write', justification: 'task', impact: 'source change', expiresAt: '2099-01-01T00:00:00.000Z' };
+  const first = engine.authorize(request({ correlationId: 'run-2', approval }));
+  ledger.decide(first.approvalRequestId, { decision: 'rejected', approverId: 'reviewer-1', decidedAt: '2026-07-31T01:00:00.000Z' });
+  const resumed = engine.authorize(request({ correlationId: 'run-2', approval }));
+  assert.equal(resumed.effect, 'DENY');
+});
+
 test('policy: aprovação cria request auditável e ledger decide', () => {
   const ledger = new ApprovalLedger();
   const engine = new PolicyEngine({ approvalLedger: ledger, rules: [{ id: 'write-approval', priority: 1, effect: 'REQUIRE_APPROVAL', reason: 'review', scope: {} }] });

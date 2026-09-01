@@ -1,5 +1,7 @@
 /** Versioned, framework-independent contracts for ForjaJS 2.0. */
 
+import path from 'node:path';
+
 export const CONTRACT_VERSION = '2.0';
 
 export type Brand<T, B extends string> = T & { readonly __brand: B };
@@ -114,6 +116,19 @@ export function validateTokenBudget(value: TokenBudget): TokenBudget {
   assertContract(value.totalTokens === value.inputTokens + value.outputTokens, 'budget.totalTokens', 'must equal inputTokens + outputTokens');
   assertContract(Number.isInteger(value.usedTokens) && value.usedTokens >= 0 && value.usedTokens <= value.totalTokens, 'budget.usedTokens', 'must be within totalTokens');
   return value;
+}
+
+/**
+ * True only when `candidate` resolves inside `root` (or equals it). Uses `path.relative` +
+ * separator-boundary check rather than `String.startsWith(root)`, which a sibling path
+ * (`/root-evil`) or an unresolved `..` segment can satisfy without ever being inside `root`.
+ * Both arguments should already be absolute; relative inputs are resolved against `process.cwd()`.
+ */
+export function isPathWithinRoot(root: string, candidate: string): boolean {
+  const resolvedRoot = path.resolve(root);
+  const resolvedCandidate = path.resolve(candidate);
+  const relative = path.relative(resolvedRoot, resolvedCandidate);
+  return relative.length === 0 || (!relative.startsWith(`..${path.sep}`) && relative !== '..' && !path.isAbsolute(relative));
 }
 
 export function validateCapabilityDefinition(value: CapabilityDefinition): CapabilityDefinition {

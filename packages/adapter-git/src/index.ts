@@ -3,7 +3,7 @@ import path from 'node:path';
 import { spawnSync } from 'node:child_process';
 import type { DeterministicDocument, GraphDocumentSource } from '../../graph/src/index.ts';
 import { graphDocumentId } from '../../graph/src/index.ts';
-import type { ISO8601 } from '../../contracts/src/index.ts';
+import { isPathWithinRoot, type ISO8601 } from '../../contracts/src/index.ts';
 import type { SandboxBackend, SandboxCommandResult, SandboxDiffData, SandboxValidation } from '../../sandbox/src/index.ts';
 import type { SandboxCommand, SandboxSession } from '../../contracts/src/index.ts';
 
@@ -37,7 +37,7 @@ export class GitGraphDocumentSource implements GraphDocumentSource {
     for (const relative of result.stdout.split('\0').map((item) => item.trim()).filter(Boolean)) {
       if (!isIndexable(relative)) continue;
       const absolute = path.join(this.root, relative);
-      if (!isWithinRoot(this.root, absolute)) continue;
+      if (!isPathWithinRoot(this.root, absolute)) continue;
       try {
         const content = fs.readFileSync(absolute, 'utf8');
         if (content.includes('\0') || Buffer.byteLength(content, 'utf8') > 1_000_000) continue;
@@ -51,11 +51,6 @@ export class GitGraphDocumentSource implements GraphDocumentSource {
 function isIndexable(relative: string): boolean {
   if (relative.split('/').some((part) => part === 'node_modules' || part === '.git' || part === 'dist' || part === 'coverage')) return false;
   return /\.(?:ts|tsx|js|jsx|mjs|cjs|json|md|yaml|yml)$/.test(relative);
-}
-
-function isWithinRoot(root: string, candidate: string): boolean {
-  const relative = path.relative(root, candidate);
-  return relative.length === 0 || (!relative.startsWith(`..${path.sep}`) && relative !== '..' && !path.isAbsolute(relative));
 }
 
 function sandboxEnvironment(overrides?: Readonly<Record<string, string>>): NodeJS.ProcessEnv {

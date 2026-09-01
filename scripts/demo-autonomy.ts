@@ -121,7 +121,6 @@ export async function runAutonomyDemo(): Promise<DemoResult> {
     cache: new SqliteContextCache(database),
   }).build({ objective: 'corrigir teste falhando math.test.js', budget, includeContent: true, requireEvidence: false, correlationId });
   const approvals = new ApprovalLedger(new SqliteApprovalStore(database));
-  let approved = false;
   const policy = new PolicyEngine({
     rules: [{ id: 'demo-code-write', priority: 100, effect: 'REQUIRE_APPROVAL', reason: 'Alteração de código exige aprovação humana', scope: { agentIds: [agent.id], capabilityIds: ['fixture.code.write'], environments: ['local'], categories: ['write'] } }],
     approvalLedger: approvals,
@@ -158,21 +157,29 @@ export async function runAutonomyDemo(): Promise<DemoResult> {
     persistence: new SqliteRuntimePersistence(database),
     memory: new GraphExecutionMemory(graph),
     validator: { validate: (run: RuntimeRun, results) => {
-      const plan = createPlan(run.runId, testFile, [...new Set([...context.references.map((item) => item.id), ...results.flatMap((result) => result.evidence.map((item) => item.id))])]);
+      const allEvidenceIds = results.flatMap((result) => result.evidence.map((item) => item.id));
+      const plan = createPlan(run.runId, testFile, [...new Set([...context.references.map((item) => item.id), ...allEvidenceIds])]);
       const successfulResults = results.filter((result) => result.status === 'succeeded');
       const testEvidenceIds = successfulResults.flatMap((result) => result.evidence.map((item) => item.id));
       const testPassed = successfulResults.length > 0;
-      return new DeterministicValidator().validate({ plan, changedFiles: run.changedFiles, checks: [{ name: 'build', passed: true, evidenceIds: [] }, { name: 'tests', passed: testPassed, evidenceIds: testEvidenceIds }, { name: 'diff', passed: true, evidenceIds: testEvidenceIds }, { name: 'typecheck', passed: true, evidenceIds: [] }, { name: 'lint', passed: true, evidenceIds: [] }], acceptance: [{ criterion: 'npm test passa na fixture', passed: testPassed, evidenceIds: testEvidenceIds }, { criterion: 'diff contém somente o teste falho', passed: run.changedFiles.length === 1 && run.changedFiles[0] === testFile, evidenceIds: [] }], correlationId: run.correlationId });
+      const scopeRespected = run.changedFiles.length === 1 && run.changedFiles[0] === testFile;
+      // This fixture has no build/lint/typecheck step, so it only claims what it actually ran
+      // (the sandboxed `npm test`) — DeterministicValidator now requires evidence behind every
+      // "passed" claim, so fabricating the other checks would just get them rejected.
+      return new DeterministicValidator().validate({ plan, changedFiles: run.changedFiles, requiredChecks: ['tests'], checks: [{ name: 'tests', passed: testPassed, evidenceIds: testEvidenceIds }], acceptance: [{ criterion: 'npm test passa na fixture', passed: testPassed, evidenceIds: testEvidenceIds }, { criterion: 'diff contém somente o teste falho', passed: scopeRespected, evidenceIds: scopeRespected ? allEvidenceIds : [] }], correlationId: run.correlationId });
     } },
   });
-  const started = await runtime.start({ objective: 'Corrigir teste falhando na fixture externa', agent, budget, policy: { authorize: (request) => approved ? { effect: 'ALLOW', reason: 'Aprovação humana registrada', policyId: 'demo-approved' } : policy.authorize(request) }, correlationId });
+  // `policy` is passed through unwrapped: the runtime tags every step of this run with the same
+  // stable correlationId (its own runId), so PolicyEngine.authorize() can recognize, on resume,
+  // that a human already decided the pending approval for this exact run — rather than needing a
+  // hand-rolled bypass that (incorrectly) would have granted ALLOW to every future request too.
+  const started = await runtime.start({ objective: 'Corrigir teste falhando na fixture externa', agent, budget, policy, correlationId });
   const awaiting = await runtime.execute(started.runId);
   if (awaiting.state !== 'awaiting_approval') throw new Error(`Expected approval gate, got ${awaiting.state}`);
   const approval = approvals.list().find((item) => item.action === 'code.write');
   if (approval === undefined) throw new Error('Approval was not persisted');
   approvals.decide(approval.id, { decision: 'approved', approverId: 'human.demo' as EntityId, decidedAt: now() });
-  approved = true;
-  const completed = await runtime.resume(started.runId);
+  const completed = await runtime.resume(started.runId, policy);
   if (completed.state !== 'completed' || completed.validation?.status !== 'accepted') throw new Error(`Runtime did not complete with accepted validation: ${completed.state}/${completed.validation?.status}`);
   const diff = await sandbox.diff(session.id);
   const promoted = await sandbox.promote(session.id, diff);

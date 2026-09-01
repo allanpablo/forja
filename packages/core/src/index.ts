@@ -33,6 +33,7 @@ export interface CapabilityAuthorizationRequest {
   readonly definition: CapabilityDefinition;
   readonly input: CapabilityInput;
   readonly agent: AgentIdentity;
+  readonly correlationId?: string;
   readonly projectId?: string;
   readonly environment: string;
   readonly categories: readonly string[];
@@ -144,6 +145,7 @@ export class CapabilityRegistry {
         definition: registration.definition,
         input: request.input,
         agent: request.agent,
+        correlationId: request.correlationId ?? runId,
         projectId: request.projectId,
         environment: request.environment ?? 'local',
         categories: request.categories ?? [],
@@ -169,6 +171,13 @@ export class CapabilityRegistry {
       };
     }
 
+    // `ALLOW_WITH_LIMITS` is only meaningful if the limits it carries actually bound the call —
+    // otherwise it behaves exactly like ALLOW, silently. maxFiles and maxTokens are checked here
+    // because both are already known before the handler runs; maxDurationMs/maxRetries govern
+    // the runtime engine's own retry/step loop (RuntimeEngine.limits) rather than a single call.
+    const limitError = this.checkLimits(decision, request);
+    if (limitError !== undefined) return this.failure(runId, timestamps, limitError);
+
     try {
       const output = await registration.handler(input, { runId, agent: request.agent, definition: registration.definition });
       registration.validateOutput(output.payload);
@@ -177,6 +186,20 @@ export class CapabilityRegistry {
     } catch (error: unknown) {
       return this.failure(runId, timestamps, this.toExecutionError('HANDLER_FAILED', error, true));
     }
+  }
+
+  private checkLimits(decision: PolicyDecision, request: CapabilityExecutionRequest): ExecutionError | undefined {
+    const limits = decision.limits;
+    if (limits === undefined) return undefined;
+    const fileCount = request.files?.length ?? 0;
+    if (limits.maxFiles !== undefined && fileCount > limits.maxFiles) {
+      return { code: 'POLICY_LIMIT_EXCEEDED', message: `Policy limit exceeded: ${fileCount} files touched, maxFiles is ${limits.maxFiles}`, retryable: false };
+    }
+    const requestedTokens = request.budget?.totalTokens ?? 0;
+    if (limits.maxTokens !== undefined && requestedTokens > limits.maxTokens) {
+      return { code: 'POLICY_LIMIT_EXCEEDED', message: `Policy limit exceeded: budget of ${requestedTokens} tokens exceeds maxTokens ${limits.maxTokens}`, retryable: false };
+    }
+    return undefined;
   }
 
   private resolve(idOrAlias: string): CapabilityRegistration<unknown, unknown> {

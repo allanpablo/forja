@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import {
   CONTRACT_VERSION,
+  isPathWithinRoot,
   type AgentIdentity,
   type ApprovalRequest,
   type CapabilityDefinition,
@@ -51,6 +52,14 @@ export interface ApprovalDetails {
 export interface PolicyRequest {
   readonly definition: CapabilityDefinition;
   readonly agent: AgentIdentity;
+  /**
+   * Identifies the run/action this decision belongs to. Required for approvals to actually
+   * resolve: without a stable key, every retry of the same step looks like a brand-new request
+   * and `authorize()` can never see that a human already approved it. Callers that omit this
+   * fall back to `agent.id`, which only works correctly for an agent with a single in-flight
+   * approval at a time.
+   */
+  readonly correlationId?: string;
   readonly projectId?: string;
   readonly environment: string;
   readonly categories: readonly string[];
@@ -138,6 +147,12 @@ export class ApprovalLedger {
     return expired;
   }
 
+  /** Most recent approval request recorded for this correlationId, if any. */
+  findByCorrelationId(correlationId: string): ApprovalRequest | undefined {
+    const matches = this.list().filter((request) => request.correlationId === correlationId);
+    return matches.at(-1);
+  }
+
   get(id: EntityId): ApprovalRequest {
     const request = this.requests.get(id);
     if (request === undefined && this.store !== undefined) {
@@ -170,7 +185,10 @@ export class PolicyEngine {
       ? { effect: 'DENY' as const, reason: 'No matching policy rule', policyId: 'default-deny' }
       : { effect: match.effect, reason: match.reason, policyId: match.id, ...(match.limits === undefined ? {} : { limits: this.asNumericLimits(match.limits) }) };
 
-    if (this.approvalRequiredRisks.includes(request.definition.risk) && decision.effect === 'ALLOW') {
+    // ALLOW_WITH_LIMITS still grants execution — a critical-risk capability must not skip
+    // approval just because a rule chose to bound it with limits instead of an unconditional ALLOW.
+    const isGranting = decision.effect === 'ALLOW' || decision.effect === 'ALLOW_WITH_LIMITS';
+    if (this.approvalRequiredRisks.includes(request.definition.risk) && isGranting) {
       return this.withApproval(request, decision, 'Risk requires explicit approval');
     }
     if (decision.effect === 'REQUIRE_APPROVAL') return this.withApproval(request, decision, decision.reason);
@@ -181,9 +199,30 @@ export class PolicyEngine {
     return this.approvalLedger;
   }
 
+  /**
+   * Resolves approval state for `request` instead of unconditionally demanding a fresh one.
+   * Keyed by `request.correlationId` (falling back to the agent id) so that resuming/retrying
+   * the same run recognizes a decision a human already made, rather than re-issuing an
+   * unresolvable `REQUIRE_APPROVAL` on every attempt — see ADR/finding on approval resume.
+   */
   private withApproval(request: PolicyRequest, decision: PolicyDecision, reason: string): PolicyDecision {
+    const correlationId = request.correlationId ?? request.agent.id;
+    const existing = this.approvalLedger.findByCorrelationId(correlationId);
+    if (existing !== undefined) {
+      if (existing.decision === 'approved') {
+        // `decision.effect` may already be ALLOW/ALLOW_WITH_LIMITS (gated only by the risk-level
+        // approval requirement) — keep it as-is. But when the *rule itself* is REQUIRE_APPROVAL,
+        // that's a gate, not a final verdict: once approved, it must resolve to a grant, or every
+        // retry would see the same rule match and stay stuck at REQUIRE_APPROVAL forever.
+        const effect = decision.effect === 'ALLOW' || decision.effect === 'ALLOW_WITH_LIMITS' ? decision.effect : decision.limits === undefined ? 'ALLOW' : 'ALLOW_WITH_LIMITS';
+        return { ...decision, effect, reason: 'Approval granted', approvalRequestId: existing.id };
+      }
+      if (existing.decision === 'rejected') return { ...decision, effect: 'DENY', reason: `Approval rejected: ${existing.id}`, approvalRequestId: existing.id };
+      if (existing.decision === undefined) return { ...decision, effect: 'REQUIRE_APPROVAL', reason, approvalRequestId: existing.id };
+      // existing.decision === 'expired': falls through to issue a fresh request below.
+    }
     if (request.approval === undefined) return { ...decision, effect: 'REQUIRE_APPROVAL', reason };
-    const approval = this.approvalLedger.create({ ...request.approval, correlationId: request.agent.id }, request.now);
+    const approval = this.approvalLedger.create({ ...request.approval, correlationId }, request.now);
     return { ...decision, effect: 'REQUIRE_APPROVAL', reason, approvalRequestId: approval.id };
   }
 
@@ -195,7 +234,7 @@ export class PolicyEngine {
     if (scope.environments !== undefined && !scope.environments.includes(request.environment)) return false;
     if (scope.risks !== undefined && !scope.risks.includes(request.definition.risk)) return false;
     if (scope.categories !== undefined && !scope.categories.some((category) => request.categories.includes(category))) return false;
-    if (scope.pathPrefixes !== undefined && !request.files.every((file) => scope.pathPrefixes?.some((prefix) => file.startsWith(prefix)))) return false;
+    if (scope.pathPrefixes !== undefined && !request.files.every((file) => scope.pathPrefixes?.some((prefix) => isPathWithinRoot(prefix, file)))) return false;
     return true;
   }
 

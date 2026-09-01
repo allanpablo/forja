@@ -23,3 +23,21 @@ test('registry + policy: contexto de execução chega ao Policy Engine', async (
   const result = await registry.execute({ input: { capabilityId: definition.id, payload: 'src/a.ts' }, agent, policy, environment: 'local', categories: ['read'], files: ['src/a.ts'] });
   assert.equal(result.status, 'succeeded');
 });
+
+test('registry + policy: ALLOW_WITH_LIMITS.maxFiles é aplicado, não só devolvido na decisão', async () => {
+  const registry = new CapabilityRegistry();
+  let handlerCalls = 0;
+  registry.register({
+    definition,
+    validateInput: (input) => input,
+    validateOutput: (output) => output,
+    handler: (input) => { handlerCalls += 1; return { capabilityId: definition.id, payload: input, evidence: [] }; },
+  });
+  const policy = new PolicyEngine({ rules: [{ id: 'bounded-read', priority: 10, effect: 'ALLOW_WITH_LIMITS', reason: 'bounded read', scope: { roles: ['developer'] }, limits: { maxFiles: 1 } }] });
+  const withinLimit = await registry.execute({ input: { capabilityId: definition.id, payload: 'x' }, agent, policy, environment: 'local', categories: ['read'], files: ['src/a.ts'] });
+  assert.equal(withinLimit.status, 'succeeded');
+  const overLimit = await registry.execute({ input: { capabilityId: definition.id, payload: 'x' }, agent, policy, environment: 'local', categories: ['read'], files: ['src/a.ts', 'src/b.ts'] });
+  assert.equal(overLimit.status, 'failed');
+  assert.equal(overLimit.error?.code, 'POLICY_LIMIT_EXCEEDED');
+  assert.equal(handlerCalls, 1);
+});
