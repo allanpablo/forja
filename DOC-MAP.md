@@ -22,6 +22,10 @@ Ponto de entrada por papel. Para histórico de fases ver `CHANGELOG.md`; para de
 - `docs/personas/architect/README.md`
 - `docs/token-optimization.md` — economia de tokens e cache
 - `docs/structure.md` — hierarquia de diretórios gerados
+- `docs/architecture/FORJA-2.0-ARCHITECTURE.md` — arquitetura de referência 2.0
+- `docs/architecture/FORJA-3-ENGINEERING-INTELLIGENCE-ARCHITECTURE.md` — auditoria, gap analysis e
+  arquitetura proposta para a evolução 3.0 (Engineering Twin/Control Plane — ver ADR-0078,
+  SPEC-031)
 - `memory/90-decisions/` — ADRs
 
 ### Developer

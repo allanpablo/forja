@@ -235,6 +235,7 @@ forja orchestrate:advance <slug>           # run the stage gate; green → next;
 forja code:check                           # trustworthy index (worktree + freshness)
 forja code:impact <symbol>                 # callers + blast radius before you edit
 forja code:query "<term>"                  # also: code:index · code:sync · code:status
+forja drift:check [--domain <d>]           # reindex + flag 'verified' relations that stopped being true
 
 # Memory & context (workspace)
 forja sync:universal                       # reindex the workspace SQLite FTS5
@@ -249,6 +250,7 @@ forja llm:doctor                           # verify configured CLIs without invo
 forja llm:recommend --role worker --task implementation
 forja llm:run --profile codex --task specs/my-feature/spec.md
 forja llm:eval --scope model --id codex:default
+forja cost:economy                         # real $ cost per model, from the observation store
 
 # Quality & release
 forja project:check                        # framework standards (pre-commit)

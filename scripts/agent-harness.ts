@@ -194,6 +194,12 @@ function cmdCodeCheck() {
 
 function cmdCodeImpact([symbol, depthArg]: string[]) {
   if (!symbol) fail('Uso: agent-harness code:impact <simbolo> [profundidade]');
+  // `symbol` vira um elemento de argv passado direto para o binário `codegraph` — não há shell
+  // envolvido no caminho normal, então não é injeção de comando, mas um valor começando com `-`
+  // ainda pode ser lido como flag pelo `codegraph` em vez de símbolo posicional (injeção de
+  // argumento). O comando roda a partir de texto que pode ter vindo de um agente de IA, então
+  // vale recusar cedo em vez de confiar no parser do binário externo.
+  if (symbol.startsWith('-')) fail(`Simbolo invalido (nao pode comecar com '-'): ${symbol}`);
   const res0 = runCodegraph(['status', '--json']);
   if (res0.missing) {
     console.log('Codegraph nao instalado. Sem mapa de impacto automatico.');

@@ -1,11 +1,11 @@
 # Spec: orçamento de autonomia por custo real (cost-aware autonomy budget)
 
 - **ID**: SPEC-029
-- **Status**: draft
+- **Status**: done — AC-1 a AC-6 implementados. Nota de escopo: AC-5 ("por domínio/projeto") foi entregue como custo agregado por MODELO dentro do workspace/DB do projeto (cada projeto já opera seu próprio workspace via `FORJA_WORKSPACE`), não como um campo `projectId` explícito em `Observation` — ver ADR-0077, seção "Alternativas consideradas", para o porquê.
 - **Owner**: apk
 - **Criado em**: 2026-08-31
 - **Sprint alvo**: <a definir>
-- **ADRs relacionadas**: ADR-0074 (LLM Fit Loop / adapters de CLI) — este spec estende `PolicyLimits`, que acabou de ganhar enforcement real em `CapabilityRegistry.execute` (auditoria de segurança 2026-08-31)
+- **ADRs relacionadas**: ADR-0074 (LLM Fit Loop / adapters de CLI), ADR-0077 (esta spec — orçamento de autonomia por custo real) — este spec estende `PolicyLimits`, que acabou de ganhar enforcement real em `CapabilityRegistry.execute` (auditoria de segurança 2026-08-31)
 
 ## 1. Problema
 
@@ -38,22 +38,28 @@ repo, sem chamada de rede. **"Economia de tokens" vira "economia de custo"**, me
 
 ## 4. Critérios de aceite (Definition of Done)
 
-- [ ] AC-1: `PolicyLimits` ganha `maxCostUsd?: number`; uma regra `ALLOW_WITH_LIMITS` pode declará-lo.
-- [ ] AC-2: `CapabilityRegistry.execute` (função `checkLimits`, já existente) recusa a chamada com
+- [x] AC-1: `PolicyLimits` ganha `maxCostUsd?: number`; uma regra `ALLOW_WITH_LIMITS` pode declará-lo.
+      `packages/policy/src/index.ts`.
+- [x] AC-2: `CapabilityRegistry.execute` (função `checkLimits`, já existente) recusa a chamada com
       `POLICY_LIMIT_EXCEEDED` quando o custo projetado da execução ultrapassa `maxCostUsd` — mesmo
-      padrão hoje usado para `maxFiles`/`maxTokens`.
-- [ ] AC-3: existe uma tabela de preço por provider/modelo (`$/1K tokens` input e output, separados),
-      versionada em arquivo próprio (ex.: `lib/core/model-pricing.json`), carregada localmente — sem
-      rede.
-- [ ] AC-4: quando o provider/modelo de uma execução não está na tabela de preço, a execução **não é
+      padrão hoje usado para `maxFiles`/`maxTokens`. `packages/core/src/index.ts` (`CapabilityExecutionRequest.estimatedCostUsd`,
+      calculado pelo chamador — ver ADR-0077).
+- [x] AC-3: existe uma tabela de preço por provider/modelo (`$/1K tokens` input e output, separados),
+      versionada em arquivo próprio (`lib/core/model-pricing.json`), carregada localmente — sem
+      rede. Loader/validador em `lib/core/model-pricing.ts`.
+- [x] AC-4: quando o provider/modelo de uma execução não está na tabela de preço, a execução **não é
       bloqueada** (fail-open para o enforcement de custo especificamente — divergente do resto do
       framework, e por isso citado explicitamente aqui): ela prossegue e um aviso é registrado
-      (`llm:doctor` ou log estruturado) pedindo para a tabela ser atualizada. Preço desconhecido não
-      pode virar bloqueio de trabalho legítimo.
-- [ ] AC-5: `forja token:economy` passa a reportar também custo real acumulado por domínio/projeto
-      (`cost:economy` como comando novo, ou uma seção nova em `token:economy` — decisão de UX no plan).
-- [ ] AC-6: `RuntimeMetrics` (ou `Observation`, que já tem um campo `cost?: number`) passa a ser
-      populado com o custo real calculado, não deixado `undefined`.
+      (`llm:doctor` e o próprio `llm:run` avisam em stderr) pedindo para a tabela ser atualizada. Preço
+      desconhecido não vira bloqueio de trabalho legítimo. `llm:doctor` também sinaliza preço `stale`
+      (> 90 dias sem revisão).
+- [x] AC-5: `cost:economy` — comando novo (não seção em `token:economy`; ver ADR-0077 para o porquê) —
+      reporta custo real acumulado por modelo a partir das observações reais do workspace/projeto
+      atual. Narrowing: agregação é por modelo dentro do workspace do projeto, não por um campo
+      `projectId` explícito em `Observation` (o workspace já é o limite de projeto — ver ADR-0077).
+- [x] AC-6: `Observation.cost` passa a ser populado com o custo real calculado por `forja llm:run`
+      quando o preço é conhecido (permanece `0`, como antes desta spec, quando o preço é desconhecido —
+      o aviso descrito no AC-4 cobre esse caso).
 
 ## 5. Escopo
 

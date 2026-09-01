@@ -210,6 +210,12 @@ export const COMMANDS = {
     capability: 'graph.sync',
     gates: ['workspace-warn'],
   },
+  'drift:check': {
+    domain: 'code',
+    desc: 'Reindexa e sinaliza relações verified que a extração atual não reproduz mais (SPEC-030). --domain <d> restringe',
+    node: 'scripts/drift-check.ts',
+    gates: ['workspace-warn'],
+  },
   'code:context': {
     domain: 'code',
     desc: 'Pacote de contexto mínimo de um domínio: o mapa (context.md), + código com --code (ADR-0009)',
@@ -379,6 +385,12 @@ export const COMMANDS = {
     desc: 'Avalia execuções LLM com métricas determinísticas',
     node: 'scripts/llm-fit.ts',
     args: ['eval'],
+    gates: ['workspace'],
+  },
+  'cost:economy': {
+    domain: 'llm',
+    desc: 'Custo real acumulado (USD) das execuções LLM registradas, por modelo — tabela de preço local (SPEC-029)',
+    node: 'scripts/cost-economy.ts',
     gates: ['workspace'],
   },
 
