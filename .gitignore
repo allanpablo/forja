@@ -63,6 +63,8 @@ apps/dashboard/.next/
 !/specs/gates
 !/specs/orchestrate
 !/specs/release-auditor-health
+!/specs/cost-aware-autonomy-budget
+!/specs/drift-sentinel
 
 # Runbooks GSD e context packs são gerados/efêmeros e podem carregar dados de
 # produto. São regeneráveis (gsd:plan, context:build), então ficam fora do git.
