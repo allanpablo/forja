@@ -256,6 +256,9 @@ forja agent:score <id> [--domain <d>]      # computes and persists trustLevel/au
 forja agent:history <id>                   # an agent's Observations, most recent first
 forja agent:recommend --role <role> [--domain <d>]  # ranks registered agents by fit — information, not assignment (SPEC-037)
 forja simulate <ref> [--command "npm test"] [--json]  # test+architecture+risk against an isolated worktree, never promotes (SPEC-038)
+forja provenance:record <run-id>           # extracts file<->agent provenance from a persisted RuntimeRun (SPEC-039)
+forja blame <file>                         # provenance history for a file — file granularity, not line
+forja sbom [--json]                        # AI-SBOM: provenance report aggregated by agent
 
 # Memory & context (workspace)
 forja sync:universal                       # reindex the workspace SQLite FTS5

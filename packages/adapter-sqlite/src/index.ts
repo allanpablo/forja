@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import type { AgentProfile2, AuditRecord, Checkpoint, DomainEvent, EntityId, ExecutionResult, Handoff, ISO8601, Observation, RuntimeRun, SandboxSession, Sprint, Task, RunId } from '../../contracts/src/index.ts';
 import type { EventStore } from '../../events/src/index.ts';
+import type { ProvenanceRecord } from '../../engineering/provenance/src/index.ts';
 import type { ApprovalStore } from '../../policy/src/index.ts';
 import type { CheckpointStore, RuntimePersistence, RuntimePlanStep } from '../../runtime/src/index.ts';
 import type { McpAuditEvent, McpAuditSink } from '../../mcp/src/index.ts';
@@ -208,6 +209,14 @@ export class SqliteAgentProfileStore {
   save(value: AgentProfile2): void { this.repository.put('agent_profile', value.id, value, value.updatedAt); }
   get(id: EntityId): AgentProfile2 | undefined { return this.repository.get<AgentProfile2>('agent_profile', id); }
   list(): readonly AgentProfile2[] { return this.repository.list<AgentProfile2>('agent_profile'); }
+}
+
+/** SPEC-039 — reaproveita `SqliteJsonRepository`, sem migration própria (mesmo padrão de `SqliteAgentProfileStore`). Chave `${runId}:${file}` — regravar o mesmo run é idempotente, não duplica. */
+export class SqliteProvenanceStore {
+  private readonly repository: SqliteJsonRepository;
+  constructor(db: SqliteConnection) { this.repository = new SqliteJsonRepository(db); }
+  save(value: ProvenanceRecord): void { this.repository.put('provenance_record', `${value.runId}:${value.file}`, value, value.recordedAt); }
+  list(): readonly ProvenanceRecord[] { return this.repository.list<ProvenanceRecord>('provenance_record'); }
 }
 
 export class SqliteRuntimePersistence implements RuntimePersistence {

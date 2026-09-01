@@ -349,6 +349,27 @@ export const COMMANDS = {
     node: 'scripts/simulate.ts',
     gates: ['workspace-warn'],
   },
+  'provenance:record': {
+    domain: 'code',
+    desc: 'Extrai proveniência (arquivo↔agente) de um RuntimeRun já persistido (SPEC-039)',
+    node: 'scripts/provenance.ts',
+    args: ['record'],
+    gates: ['workspace-warn'],
+  },
+  'blame': {
+    domain: 'code',
+    desc: 'Histórico de proveniência de um arquivo — granularidade de arquivo, não linha (SPEC-039)',
+    node: 'scripts/provenance.ts',
+    args: ['blame'],
+    gates: ['workspace-warn'],
+  },
+  'sbom': {
+    domain: 'code',
+    desc: 'AI-SBOM: relatório de proveniência agregado por agente (SPEC-039)',
+    node: 'scripts/provenance.ts',
+    args: ['sbom'],
+    gates: ['workspace-warn'],
+  },
   'code:context': {
     domain: 'code',
     desc: 'Pacote de contexto mínimo de um domínio: o mapa (context.md), + código com --code (ADR-0009)',
