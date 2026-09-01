@@ -100,3 +100,36 @@ test('policy: ledger recupera approval persistido após recriação', () => {
   assert.equal(second.list().length, 1);
   assert.equal(second.decide(created.id, { decision: 'approved', approverId: 'reviewer-1', decidedAt: '2026-08-01T00:00:00.000Z' }).decision, 'approved');
 });
+
+// SPEC-034 AC-5: riskScoreRange é um número puro em PolicyScope/PolicyRequest — policy nunca
+// importa @forja/engineering-risk, só casa a faixa contra o número que o caller já calculou.
+test('policy: riskScoreRange casa regra por faixa de score de risco', () => {
+  const rules = [{ id: 'high-risk-review', priority: 10, effect: 'REQUIRE_APPROVAL', reason: 'score alto', scope: { riskScoreRange: [51, 100] } }];
+  const engine = new PolicyEngine({ rules });
+  const highRisk = engine.authorize(request({ riskScore: 80 }));
+  assert.equal(highRisk.effect, 'REQUIRE_APPROVAL');
+  assert.equal(highRisk.policyId, 'high-risk-review');
+});
+
+test('policy: riskScoreRange não casa fora da faixa (cai para default-deny)', () => {
+  const rules = [{ id: 'high-risk-review', priority: 10, effect: 'REQUIRE_APPROVAL', reason: 'score alto', scope: { riskScoreRange: [51, 100] } }];
+  const engine = new PolicyEngine({ rules });
+  const lowRisk = engine.authorize(request({ riskScore: 20 }));
+  assert.equal(lowRisk.effect, 'DENY');
+  assert.equal(lowRisk.policyId, 'default-deny');
+});
+
+test('policy: riskScoreRange não casa quando riskScore está ausente da request', () => {
+  const rules = [{ id: 'high-risk-review', priority: 10, effect: 'REQUIRE_APPROVAL', reason: 'score alto', scope: { riskScoreRange: [51, 100] } }];
+  const engine = new PolicyEngine({ rules });
+  const noScore = engine.authorize(request());
+  assert.equal(noScore.effect, 'DENY');
+  assert.equal(noScore.policyId, 'default-deny');
+});
+
+test('policy: regra sem riskScoreRange continua casando normalmente, riskScore presente ou não', () => {
+  const rules = [{ id: 'developer-write', priority: 10, effect: 'ALLOW', reason: 'sem restrição de score', scope: { roles: ['developer'] } }];
+  const engine = new PolicyEngine({ rules });
+  assert.equal(engine.authorize(request()).effect, 'ALLOW');
+  assert.equal(engine.authorize(request({ riskScore: 99 })).effect, 'ALLOW');
+});

@@ -275,6 +275,19 @@ export const COMMANDS = {
     node: 'scripts/architecture.ts',
     args: ['approve'],
   },
+  'risk:assess': {
+    domain: 'code',
+    desc: 'Score de risco 0-100 (7 fatores) sobre o diff de um ref (default: working tree) (SPEC-034)',
+    node: 'scripts/risk.ts',
+    args: ['assess'],
+    gates: ['workspace-warn'],
+  },
+  'risk:explain': {
+    domain: 'code',
+    desc: 'Reexibe um assessment de risco já calculado, com todos os fatores (SPEC-034)',
+    node: 'scripts/risk.ts',
+    args: ['explain'],
+  },
   'code:context': {
     domain: 'code',
     desc: 'Pacote de contexto mínimo de um domínio: o mapa (context.md), + código com --code (ADR-0009)',

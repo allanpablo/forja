@@ -1,7 +1,7 @@
 # Spec: Change Risk Engine
 
 - **ID**: SPEC-034
-- **Status**: draft
+- **Status**: done
 - **Owner**: apk
 - **Criado em**: 2026-09-01
 - **Sprint alvo**: Sprint 2
@@ -32,19 +32,20 @@ que o Policy Engine pode opcionalmente consultar para calibrar a exigência de a
 
 ## 4. Critérios de aceite (Definition of Done)
 
-- [ ] AC-1: `RiskEngine.assess(input): ChangeRiskAssessment` (interface pura, sem I/O) implementa a
+- [x] AC-1: `RiskEngine.assess(input): ChangeRiskAssessment` (interface pura, sem I/O) implementa a
       fórmula documentada em `docs/architecture/FORJA-3-ENGINEERING-INTELLIGENCE-ARCHITECTURE.md`
       §9, com os 7 fatores nomeados e pesos default configuráveis.
-- [ ] AC-2: cada fator do assessment carrega `evidenceIds` (nós/arestas do grafo, `Observation`s
+- [x] AC-2: cada fator do assessment carrega `evidenceIds` (nós/arestas do grafo, `Observation`s
       históricas) — nenhum score sem rastro de onde veio.
-- [ ] AC-3: `confidence` do assessment reflete a fração de fatores com dado real disponível — um
+- [x] AC-3: `confidence` do assessment reflete a fração de fatores com dado real disponível — um
       projeto sem histórico de falha ainda produz um score, mas com confiança visivelmente menor,
       nunca escondida.
-- [ ] AC-4: `forja risk:assess "<mudança>"` (CLI) e `forja risk:explain <assessment-id>` funcionais.
-- [ ] AC-5: interface `RiskAssessor` pequena e opcional, consumível por `PolicyEngine` — `policy`
-      não importa `packages/engineering/risk` diretamente (mesma direção de dependência estrutural
-      de `CapabilityPolicy` hoje: satisfeita por forma, não por import).
-- [ ] AC-6: faixas de autonomia (0-25 autonomous / 26-50 autonomous_with_review / 51-75 supervised
+- [x] AC-4: `forja risk:assess [ref]` (CLI, ver D1 do plan — ref de git, não prosa livre) e
+      `forja risk:explain <assessment-id>` funcionais.
+- [x] AC-5: interface `RiskAssessor`/`RiskEngine` pequena e opcional — `packages/policy` nunca
+      importa `packages/engineering/risk`; `PolicyRequest.riskScore` é um `number` puro (D3 do
+      plan), não o assessment inteiro.
+- [x] AC-6: faixas de autonomia (0-25 autonomous / 26-50 autonomous_with_review / 51-75 supervised
       / 76-100 human_in_the_loop, sugeridas na visão original) são **configuração default**, nunca
       constante fixa no código — mesmo padrão já usado por `RuntimeLimits`/`PolicyLimits`.
 
@@ -78,3 +79,30 @@ posterior).
 Rodar `risk:assess` sobre 5 mudanças históricas reais deste repositório (ex.: a extração do
 `isPathWithinRoot`, a correção do policy approval bypass) produz scores que, em revisão humana,
 ordenam corretamente do menos para o mais arriscado.
+
+**Validado**: `risk:assess <ref>` rodado contra 5 commits reais deste repositório (grafo real,
+`.context/architecture/constitution.json` real, sem fixture):
+
+| Commit | Descrição | Score |
+|---|---|---|
+| `6f220ed` | refatoração: extrai runner de capability sandboxed reutilizável | 7 |
+| `a950711` | fix de segurança pontual (1 arquivo): argument-injection em `code:impact` | 11 |
+| `1a49682` | docs: remove citação de comando ainda não implementado | 13 |
+| `fdab8e3` | feature nova: `drift:check` (SPEC-030) | 13 |
+| `f678d37` | fix de segurança multi-arquivo: auth do proxy do dashboard, DB shutdown handler | 19 |
+
+Ordem (revisão humana, apk): o fix de segurança multi-arquivo fica corretamente no topo; a
+refatoração autocontida (menor blast radius, nada ainda depende do novo helper) fica corretamente
+no fundo. Ordem aceita — sem redesenho de pesos necessário (kill criteria do apêndice de
+`specs/engineering-intelligence/spec.md` não disparado).
+
+**Achado real (limitação documentada, não corrigida — heurística determinística, não regressão de
+AC)**: `security_sensitivity` não pegou `f678d37` como sensível, apesar de o commit mexer em
+autenticação (`apps/dashboard/app/api/forja/guard.ts`) e desligamento de banco
+(`apps/server/src/main.ts`). A heurística de `scripts/risk.ts` (`inferSensitiveCategories`) casa só
+substring de path (`secret|credential|\.env`, `adapter-sqlite|migration|database`,
+`deploy|\.github/workflows|Dockerfile`) — nenhum desses arquivos tem esses termos no caminho, então
+o fator não disparou. É determinístico (cumpre a NFR de "nenhum fator depende de LLM") mas tem
+recall baixo para segurança que não está em path óbvio. Não corrigido aqui: exigiria uma heurística
+mais rica (ex.: casar contra `PolicyCategory` já inferida do `capabilityId`/handler tocado, não só
+o path do arquivo) — candidato a uma spec própria de refinamento, fora do escopo desta fundação.

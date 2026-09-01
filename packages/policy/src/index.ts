@@ -23,6 +23,13 @@ export interface PolicyScope {
   readonly risks?: readonly RiskLevel[];
   readonly categories?: readonly PolicyCategory[];
   readonly pathPrefixes?: readonly string[];
+  /**
+   * Faixa opcional de `ChangeRiskAssessment.score` (0-100, SPEC-034) que a regra se aplica a.
+   * `PolicyRequest.riskScore` é um `number` puro, não o assessment inteiro — este pacote nunca
+   * importa `@forja/engineering-risk` (AC-5); quem calcula o score chama `RiskEngine.assess()`
+   * antes de montar o `PolicyRequest`.
+   */
+  readonly riskScoreRange?: readonly [number, number];
 }
 
 export interface PolicyLimits {
@@ -73,6 +80,8 @@ export interface PolicyRequest {
   readonly budget?: TokenBudget;
   readonly now: ISO8601;
   readonly approval?: ApprovalDetails;
+  /** Score 0-100 de um `ChangeRiskAssessment` já calculado (SPEC-034) — ver `PolicyScope.riskScoreRange`. */
+  readonly riskScore?: number;
 }
 
 export interface ApprovalDecision {
@@ -241,6 +250,7 @@ export class PolicyEngine {
     if (scope.risks !== undefined && !scope.risks.includes(request.definition.risk)) return false;
     if (scope.categories !== undefined && !scope.categories.some((category) => request.categories.includes(category))) return false;
     if (scope.pathPrefixes !== undefined && !request.files.every((file) => scope.pathPrefixes?.some((prefix) => isPathWithinRoot(prefix, file)))) return false;
+    if (scope.riskScoreRange !== undefined && (request.riskScore === undefined || request.riskScore < scope.riskScoreRange[0] || request.riskScore > scope.riskScoreRange[1])) return false;
     return true;
   }
 
