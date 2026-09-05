@@ -40,13 +40,18 @@ test('CLI initializes workspace-local profiles and recommends a compatible profi
     const configured = JSON.parse(fs.readFileSync(profilePath, 'utf8'));
     configured.profiles.fixture = {
       provider: 'fixture', model: 'v1', command: process.execPath,
-      commandArgs: ['-e', 'process.stdout.write("fixture output")'], roles: ['worker'],
+      commandArgs: ['-e', 'process.stdout.write(process.argv.at(-1))'], roles: ['worker'],
       taskTypes: ['test'], privacy: 'local', enabled: true,
     };
     fs.writeFileSync(profilePath, JSON.stringify(configured));
-    const executed = run(['llm:run', '--profile', 'fixture', '--prompt', 'do not persist this prompt']);
+    const contextFile = path.join(workspace, 'context.md');
+    fs.writeFileSync(contextFile, 'context sent to legacy provider');
+    const executed = run(['llm:run', '--profile', 'fixture', '--prompt', 'do not persist this prompt', '--context', contextFile]);
     assert.equal(executed.status, 0);
     assert.equal(JSON.parse(executed.stdout).exitCode, 0);
+    assert.match(JSON.parse(executed.stdout).stdout, /context sent to legacy provider/);
+    assert.equal(JSON.parse(executed.stdout).usage.source, 'estimated');
+    assert.equal(JSON.parse(executed.stdout).usage.inputTokens, Math.ceil(Buffer.byteLength(JSON.parse(executed.stdout).stdout) / 4));
     const audit = fs.readFileSync(path.join(workspace, '.context', 'forja-runs.jsonl'), 'utf8');
     assert.ok(!audit.includes('do not persist this prompt'));
     assert.ok(audit.includes('<redacted>'));

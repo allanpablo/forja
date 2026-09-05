@@ -41,6 +41,8 @@ export class EvaluationEngine {
   private metrics(values: readonly Observation[]): Readonly<Record<string, number>> {
     const total = values.length;
     const succeeded = values.filter((value) => value.outcome === 'succeeded').length;
+    const accepted = values.filter((value) => value.validationStatus === 'accepted').length;
+    const rejected = values.filter((value) => value.validationStatus === 'rejected').length;
     const repeatedInputs = this.repeatedInputCount(values);
     const taskIds = new Set(values.map((value) => value.taskId).filter((value): value is NonNullable<typeof value> => value !== undefined));
     const evidenceFree = values.filter((value) => value.contextRefs.length === 0 && value.inputHash === undefined).length;
@@ -50,6 +52,10 @@ export class EvaluationEngine {
     return {
       observationCount: total,
       successRate: this.rate(succeeded, total),
+      validationAcceptedCount: accepted,
+      validationRejectedCount: rejected,
+      validationCoverageRate: this.rate(accepted + rejected, total),
+      validationSuccessRate: this.rate(accepted, accepted + rejected),
       reworkRate: this.rate(repeatedInputs, total),
       tokensPerTask: taskIds.size === 0 ? 0 : values.reduce((sum, value) => sum + value.inputTokens + value.outputTokens, 0) / taskIds.size,
       uselessStepRate: this.rate(useless, total),

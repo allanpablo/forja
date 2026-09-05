@@ -59,6 +59,8 @@ Ponto de entrada por papel. Para histórico de fases ver `CHANGELOG.md`; para de
 | Decisões arquiteturais | `memory/90-decisions/` |
 | Glossário | `docs/glossary.md` |
 | Otimização de tokens | `docs/token-optimization.md` |
+| Integrações LLM e perfil GPT-6 | `docs/llm-fit-loop.md` |
+| Visão e roadmap de evolução LLM | `docs/llm-evolution.md` |
 | Capacidades externas (codegraph/harness/ai-engineering) | `docs/capacidades-externas.md` |
 | Workflow de dev | `docs/dev-workflow.md` |
 | Publicação npm | `docs/publishing.md` |

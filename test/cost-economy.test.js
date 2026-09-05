@@ -75,7 +75,8 @@ test('cost:economy segue funcionando (fail-open) quando a observação usa um mo
     assert.equal(executed.status, 0, executed.stderr);
     assert.match(executed.stderr, /preço desconhecido/i);
     const executedOutput = JSON.parse(executed.stdout);
-    assert.equal(executedOutput.costUsd, 0);
+    assert.equal(executedOutput.costUsd, null);
+    assert.equal(executedOutput.costSource, 'unknown');
 
     const reported = run(['cost:economy', '--json']);
     assert.equal(reported.status, 0);

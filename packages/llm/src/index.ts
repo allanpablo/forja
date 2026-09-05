@@ -11,6 +11,8 @@ export interface LlmProfile {
   readonly taskTypes: readonly string[];
   readonly privacy: 'local' | 'external';
   readonly enabled: boolean;
+  readonly timeoutMs?: number;
+  readonly reasoningEffort?: 'low' | 'medium' | 'high' | 'xhigh' | 'max';
 }
 
 export interface LlmProfiles {
@@ -21,6 +23,7 @@ export interface LlmProfiles {
 export interface LlmExecution {
   readonly executable: string;
   readonly args: readonly string[];
+  readonly stdin?: string;
 }
 
 export interface LlmExecutionResult {
@@ -52,11 +55,29 @@ export function validateProfiles(value: unknown): LlmProfiles {
   return { version: LLM_PROFILE_VERSION, profiles };
 }
 
-export function buildLlmExecution(profile: LlmProfile, prompt: string): LlmExecution {
+export interface LlmExecutionOptions {
+  readonly resume?: string;
+  readonly outputSchema?: string;
+}
+
+export function buildLlmExecution(profile: LlmProfile, prompt: string, options: LlmExecutionOptions = {}): LlmExecution {
+  validateProfile('execution', profile);
   if (!profile.enabled) throw new LlmProfileError('profile is disabled');
   if (prompt.trim().length === 0) throw new LlmProfileError('prompt is required');
+  if (options.resume !== undefined && (profile.provider !== 'codex' || !/^[a-zA-Z0-9][a-zA-Z0-9_-]{0,127}$/.test(options.resume))) {
+    throw new LlmProfileError('resume requires codex and an explicit session ID');
+  }
   const base = [...(profile.commandArgs ?? [])];
-  if (profile.provider === 'codex') return { executable: profile.command, args: ['exec', ...base, ...(profile.model === 'default' ? [] : ['--model', profile.model]), '--sandbox', 'read-only', '--ask-for-approval', 'never', prompt] };
+  if (profile.provider === 'codex') return {
+    executable: profile.command,
+    args: ['exec', ...base, '--sandbox', 'read-only', '-c', 'approval_policy="never"',
+      ...(options.resume ? ['resume', '-c', 'sandbox_mode="read-only"', '-c', 'approval_policy="never"'] : []),
+      ...(profile.model === 'default' ? [] : ['--model', profile.model]),
+      ...(profile.reasoningEffort ? ['-c', `model_reasoning_effort="${profile.reasoningEffort}"`] : []),
+      ...(options.outputSchema ? ['--output-schema', options.outputSchema] : []),
+      '--json', ...(options.resume ? [options.resume] : []), '-'],
+    stdin: prompt,
+  };
   if (profile.provider === 'claude') return { executable: profile.command, args: [...base, ...(profile.model === 'default' ? [] : ['--model', profile.model]), '-p', prompt] };
   if (profile.provider === 'gemini-cli') return { executable: profile.command, args: [...base, ...(profile.model === 'default' ? [] : ['-m', profile.model]), '-p', prompt] };
   if (profile.provider === 'ollama') return { executable: profile.command, args: [...base, 'run', profile.model, prompt] };
@@ -68,6 +89,7 @@ export function buildLlmExecution(profile: LlmProfile, prompt: string): LlmExecu
 const SIGTERM_GRACE_MS = 3_000;
 
 export async function runLlm(execution: LlmExecution, cwd: string, timeoutMs = 120_000): Promise<LlmExecutionResult> {
+  validateTimeout(timeoutMs);
   const started = Date.now();
   return new Promise((resolve) => {
     let stdout = '';
@@ -80,7 +102,10 @@ export async function runLlm(execution: LlmExecution, cwd: string, timeoutMs = 1
     };
     // detached so the child leads its own process group: a negative pid targets the whole group,
     // reaching grandchildren the CLI tool itself spawned (not just the immediate child).
-    const child = spawn(execution.executable, execution.args, { cwd, shell: false, stdio: ['ignore', 'pipe', 'pipe'], detached: true });
+    const child = spawn(execution.executable, execution.args, { cwd, shell: false, stdio: ['pipe', 'pipe', 'pipe'], detached: true });
+    // A provider can close stdin early (e.g. invalid configuration). Its exit status is authoritative.
+    child.stdin.on('error', () => {});
+    child.stdin.end(execution.stdin);
     child.stdout.setEncoding('utf8');
     child.stderr.setEncoding('utf8');
     child.stdout.on('data', (chunk: string) => { stdout += chunk; });
@@ -135,7 +160,24 @@ function validateProfile(name: string, value: unknown): LlmProfile {
   const privacy = value.privacy;
   if (privacy !== 'local' && privacy !== 'external') throw new LlmProfileError(`profile ${name}: privacy must be local or external`);
   if (typeof value.enabled !== 'boolean') throw new LlmProfileError(`profile ${name}: enabled must be boolean`);
-  return { provider, model, command, commandArgs: strings(value.commandArgs, 'commandArgs'), roles: strings(value.roles, 'roles'), taskTypes: strings(value.taskTypes, 'taskTypes'), privacy, enabled: value.enabled };
+  if (value.timeoutMs !== undefined) validateTimeout(value.timeoutMs);
+  if (value.reasoningEffort !== undefined && (provider !== 'codex' || !['low', 'medium', 'high', 'xhigh', 'max'].includes(value.reasoningEffort as string))) {
+    throw new LlmProfileError(`profile ${name}: reasoningEffort requires codex and low|medium|high|xhigh|max`);
+  }
+  if (value.commandArgs !== undefined && (!Array.isArray(value.commandArgs) || !value.commandArgs.every((arg) => typeof arg === 'string' && arg.length > 0))) {
+    throw new LlmProfileError(`profile ${name}: commandArgs must be an array of non-empty strings`);
+  }
+  // argv is positional: duplicate flags and intentional whitespace must survive validation.
+  return { provider, model, command, commandArgs: value.commandArgs as string[] | undefined, roles: strings(value.roles, 'roles'), taskTypes: strings(value.taskTypes, 'taskTypes'), privacy, enabled: value.enabled,
+    ...(value.timeoutMs !== undefined ? { timeoutMs: value.timeoutMs as number } : {}),
+    ...(value.reasoningEffort !== undefined ? { reasoningEffort: value.reasoningEffort as LlmProfile['reasoningEffort'] } : {}),
+  };
+}
+
+function validateTimeout(value: unknown): void {
+  if (typeof value !== 'number' || !Number.isSafeInteger(value) || value <= 0 || value > 2_147_483_647) {
+    throw new LlmProfileError('timeoutMs must be a positive integer <= 2147483647');
+  }
 }
 
 function strings(value: unknown, field: string): readonly string[] {

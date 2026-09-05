@@ -4,6 +4,41 @@ Histórico consolidado das mudanças estruturais do framework. Para decisões ar
 
 ---
 
+## [4.0.0] — 2026-09-05 — Integrações LLM, sessões e validação
+
+### Mudança de contrato
+
+`llm:run` retorna `costUsd: null` e `costSource: "unknown"` quando não existe preço local para o
+modelo; antes retornava zero. Consumidores do JSON precisam tratar null. Major version por essa
+mudança de contrato. Sem schema ou checks explícitos, uma execução concluída continua retornando
+exit zero e validação inconclusiva.
+
+### Adicionado
+
+- Perfil configurável para GPT-6 Astra via Codex, com esforço de raciocínio e timeout opcionais.
+- Eventos JSONL do Codex normalizados em resposta, sessão, tokens e uso de cache informado.
+- Retomada por ID registrado no Forja, vinculada ao projeto e à identidade declarada do perfil.
+- JSON Schema validado localmente com Ajv antes e depois da chamada; geração estruturada no Codex.
+- Checks independentes escolhidos em manifest local, executados sem shell e com timeout.
+- Evidências por hashes e métricas que distinguem conclusão do modelo de resultado aprovado.
+- Visão de produto, specs e ADRs para as duas etapas entregues.
+
+### Corrigido
+
+- Arquivos de contexto selecionados são enviados ao modelo e cobertos pelo hash do prompt.
+- Argumentos posicionais preservam ordem, flags repetidas e espaços.
+- Aprovação do Codex usa configuração compatível com exec; prompt enviado por stdin.
+- Falhas de protocolo ou provedor não são tratadas como sucesso por terem exit zero.
+
+### Validação e limites
+
+472 testes locais aprovados, tipos e build aprovados. Integrações testadas por executáveis fixture,
+sem chamadas reais a LLM. Acesso ao GPT-6 depende da conta autenticada no provedor. Retomada não
+oferece garantia de exactly-once no agente. Validação aprova somente os checks configurados.
+Veja [guia de integração](docs/llm-fit-loop.md) para comandos e migração.
+
+---
+
 ## [3.0.0] — 2026-09-01 — Engineering Control Plane
 
 Fundação inteira da visão ForjaJS 3.0 (ADR-0078): a Forja passa a responder, de forma estruturada

@@ -1,6 +1,6 @@
 {
   "name": "forjajs",
-  "version": "3.0.0",
+  "version": "4.0.0",
   "description": "ForjaJS é uma plataforma local-first para memória, contexto, governança e execução supervisionada de agentes de desenvolvimento",
   "type": "module",
   "main": "index.js",
@@ -125,6 +125,7 @@
   "author": "Allan Pablo",
   "license": "MIT",
   "dependencies": {
+    "ajv": "^8.20.0",
     "better-sqlite3": "^12.11.1"
   },
   "allowScripts": {
