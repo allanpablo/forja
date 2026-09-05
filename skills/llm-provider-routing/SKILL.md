@@ -1,43 +1,18 @@
-# Skill: Roteamento de LLM Providers
+---
+name: llm-provider-routing
+description: Selecionar, configurar e verificar perfis de LLM no Forja quando uma tarefa exige trocar de provedor ou modelo, executar contexto por CLI, retomar sessão Codex ou validar respostas com evidências.
+---
 
-## Objetivo
-Selecionar e configurar uma LLM por papel sem amarrar o projeto a um unico fornecedor, usando o ciclo verificável do Forja.
+# Roteamento de LLMs
 
-## Quando usar
-- O usuario pedir DeepSeek, MiniMax, Mistral, Qwen, Ollama, OpenRouter, Together, Groq, xAI, Cohere, Perplexity ou outro provider.
-- Um papel precisar trocar de modelo por custo, cota, latencia, contexto, privacidade ou qualidade.
-- Uma CLI/API externa precisar entrar no fluxo de handoffs sem alterar o SDD.
+Leia [o contrato comum](../../docs/agent-operating-contract.md). Consulte [o fluxo de LLMs](../../docs/llm-fit-loop.md) para sintaxe e limites; não carregue catálogos de provedores sem necessidade.
 
-## Regras
-- Preferir providers locais para tarefas sensiveis quando o modelo disponivel for suficiente.
-- Usar `manual` quando o provider nao tiver CLI local confiavel.
-- Registrar perfis no workspace em `.context/llm-profiles.json` com `provider`, `model`, `command`, `commandArgs`, `roles`, `taskTypes`, `privacy` e `enabled`.
-- Nao assumir que uma CLI existe: validar o binario ou documentar o comando esperado.
-- Nao colocar API keys em memoria, specs, handoffs ou logs.
+1. Identifique papel, tarefa, privacidade e restrições de custo/latência. Respeite a escolha autorizada pelo usuário; não troque modelo silenciosamente.
+2. Use `forja llm:profiles:init` e revise `.context/llm-profiles.json` no workspace. Configure um executável em `command`, argumentos em `commandArgs` e o identificador real do modelo. Não inclua credenciais nem comandos de shell.
+3. Execute `forja llm:probe <perfil>`. Registre versão e recursos detectados. Probe bem-sucedido não comprova autenticação nem acesso ao modelo.
+4. Consulte `forja llm:recommend --role <papel> --task <tipo>` como evidência auxiliar, sem tratar ranking como garantia de qualidade.
+5. Execute `forja llm:run --profile <perfil> --task <arquivo>`. Se necessário, use `--context <arquivo>` repetido. Confira o conteúdo antes de enviá-lo ao provedor.
+6. Para Codex compatível, use `--resume <session-id>` apenas com sessão conhecida no mesmo projeto/perfil. Use `--output-schema <arquivo>` e `--validation <manifest>` para formato e checks independentes. Revise os executáveis do manifest: eles rodam com permissões do Forja.
+7. Informe execução, validação, origem do uso de tokens e custo separadamente. Schema sozinho não comprova qualidade. Não afirme custo zero quando ele é desconhecido.
 
-## Providers padrao
-| Provider | Uso recomendado | Observacao |
-| --- | --- | --- |
-| `codex` | Mudancas em repositorio e execucao CLI-first | Local/autenticado pela CLI |
-| `claude` | Analise longa, arquitetura e escrita | Local/autenticado pela CLI |
-| `gemini-cli` | Contexto amplo e alternativas rapidas | Local/autenticado pela CLI |
-| `deepseek` | Raciocinio/codigo com custo controlado | Exige CLI ou wrapper configurado |
-| `minimax` | Texto, agentes e tarefas multimodais quando disponivel | Exige CLI ou wrapper configurado |
-| `mistral` | Codigo e agentes via stack europeia | Exige CLI ou wrapper configurado |
-| `qwen` | Codigo e modelos abertos/chineses | Exige CLI ou wrapper configurado |
-| `ollama` | Execucao local/offline | Usa `ollama run <model> <prompt>` |
-| `openrouter` | Agregador multi-modelo | Exige wrapper/CLI configurado |
-| `together` | Modelos abertos hospedados | Exige wrapper/CLI configurado |
-| `groq` | Baixa latencia | Exige wrapper/CLI configurado |
-| `xai` | Grok e modelos xAI | Exige wrapper/CLI configurado |
-| `cohere` | RAG, classificacao e Command R | Exige wrapper/CLI configurado |
-| `perplexity` | Pesquisa/resposta com busca | Exige wrapper/CLI configurado |
-
-## Checklist
-1. Identificar papel e tipo de tarefa.
-2. Inicializar ou revisar os perfis com `forja llm:profiles:init`.
-3. Preencher `command` com um único executável e `commandArgs` para argumentos fixos; nunca use shell ou grave credenciais.
-4. Rodar `forja llm:probe <perfil>` antes de delegar uma sprint inteira.
-5. Consultar `forja llm:recommend --role <papel> --task <tipo>` e aprovar explicitamente a escolha.
-6. Executar `forja llm:run --profile <perfil> --task <arquivo>` e avaliar com `forja llm:eval --scope model --id <provider:model>`.
-7. Registrar handoff Hermes quando a troca impactar entrega.
+Se não houver adapter ou CLI compatível, explique a lacuna e configure um wrapper revisável somente dentro do escopo autorizado. Não invente suporte a API, MCP ou recursos de sessão. Não recomende um provedor por reputação sem evidência atual da tarefa.

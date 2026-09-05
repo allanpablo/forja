@@ -815,3 +815,16 @@ test('coerência: os 3 checks são skipped-como-ok fora do repo do framework', a
   assert.ok(results.every((r) => r.status === 'ok'), 'não se aplicam a uma instalação forjajs');
   assert.ok(results.every((r) => /não se aplica/.test(r.detail)));
 });
+
+test('docs-commands: script npm do checkout é reconhecido sem liberar nomes inexistentes', async () => {
+  const files = {
+    '/repo/package.json': PKG({ scripts: { 'types:check': 'tsc --noEmit' } }),
+    '/repo/docs/check.md': 'Execute `npm run types:check`.',
+  };
+  const [ok] = await runChecks({ checks: [docsCommands()], env: docEnv(files) });
+  assert.equal(ok.status, 'ok');
+  files['/repo/docs/check.md'] += ' `npm run unknown:check`';
+  const [fail] = await runChecks({ checks: [docsCommands()], env: docEnv(files) });
+  assert.equal(fail.status, 'fail');
+  assert.match(fail.detail, /unknown:check/);
+});

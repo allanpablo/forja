@@ -1,10 +1,10 @@
 {
-  "version": "1.1.0",
+  "version": "1.2.0",
   "skills": [
     {
       "id": "llm-provider-routing",
       "path": "skills/llm-provider-routing/SKILL.md",
-      "description": "Selecionar e configurar LLMs como DeepSeek, MiniMax, Mistral, Qwen, Ollama e outros providers conhecidos por papel."
+      "description": "Configurar e verificar perfis de LLM, contexto, sessões Codex e validação independente no Forja."
     }
   ]
 }

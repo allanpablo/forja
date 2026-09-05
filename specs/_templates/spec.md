@@ -41,3 +41,10 @@
 
 ## 8. Métricas de sucesso
 <Como saberemos se foi um sucesso 30 dias após o release?>
+
+## Evidências e estado real
+- Relacione cada critério AC à task responsável e ao comando ou observação que o verifica.
+- Registre resultado, data e limitações; marque concluído somente após verificar.
+- Diferencie hipótese, estimativa e medição. Remova exemplos que não se aplicam.
+- Documente falhas esperadas, compatibilidade e recuperação quando houver mudança de contrato.
+- Para LLMs, separe sucesso de execução, formato válido e aceite por checks independentes.

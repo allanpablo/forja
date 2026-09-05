@@ -41,3 +41,10 @@ Se alguma D é estrutural ou irreversível, abra ADR em `memory/90-decisions/` e
 
 ## 8. Sinais de fracasso (kill criteria)
 <O que faria abandonar essa abordagem mid-flight?>
+
+## Evidências e estado real
+- Relacione cada critério AC à task responsável e ao comando ou observação que o verifica.
+- Registre resultado, data e limitações; marque concluído somente após verificar.
+- Diferencie hipótese, estimativa e medição. Remova exemplos que não se aplicam.
+- Documente falhas esperadas, compatibilidade e recuperação quando houver mudança de contrato.
+- Para LLMs, separe sucesso de execução, formato válido e aceite por checks independentes.

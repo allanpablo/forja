@@ -29,4 +29,11 @@ Convenção de IDs: `T1`, `T2`, ... Sequência reflete ordem de execução padr�
 ---
 
 ## Handoffs entre agentes
-Se este conjunto de tasks atravessa papéis (Product → SDD Architect → Worker → Governance), registre handoff via `scripts/append-handoff.mjs` ou tabela `handoffs` do `universal.db` (ADR-0005).
+Se este conjunto de tasks atravessa papéis (Product → SDD Architect → Worker → Governance), registre handoff via `npm run hermes:handoff` pelo core (ADR-0005).
+
+## Evidências e estado real
+- Relacione cada critério AC à task responsável e ao comando ou observação que o verifica.
+- Registre resultado, data e limitações; marque concluído somente após verificar.
+- Diferencie hipótese, estimativa e medição. Remova exemplos que não se aplicam.
+- Documente falhas esperadas, compatibilidade e recuperação quando houver mudança de contrato.
+- Para LLMs, separe sucesso de execução, formato válido e aceite por checks independentes.

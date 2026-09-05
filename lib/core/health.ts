@@ -506,7 +506,8 @@ const docsCommands: Check = {
       return { status: 'ok', detail: 'fora do repo do framework — não se aplica', fix: null };
     }
 
-    const known = new Set([...Object.keys(COMMANDS), ...CLI_INTERFACE_COMMANDS, ...projectCommands(env)]);
+    const pkg = JSON.parse(env.fs.readFileSync(path.join(env.root, 'package.json'), 'utf8'));
+    const known = new Set([...Object.keys(COMMANDS), ...CLI_INTERFACE_COMMANDS, ...projectCommands(env), ...Object.keys(pkg.scripts || {})]);
     const ghosts = scanCommands(env).filter((c) => !known.has(c.command));
 
     if (ghosts.length) {

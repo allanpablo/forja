@@ -74,3 +74,5 @@ Ponto de entrada por papel. Para histórico de fases ver `CHANGELOG.md`; para de
 ## Histórico
 
 Relatórios de fases anteriores estão em `docs/archive/`. Não edite — referenciar via `CHANGELOG.md` ou ADRs apropriadas.
+
+- [Contrato dos agentes](docs/agent-operating-contract.md): contexto mínimo, autorização, execução e evidências para prompts e skills.

@@ -6,6 +6,8 @@ Histórico consolidado das mudanças estruturais do framework. Para decisões ar
 
 ## [4.0.0] — 2026-09-05 — Integrações LLM, sessões e validação
 
+- Prompts, skill de roteamento, instruções nativas e templates SDD alinhados ao contrato comum de execução e evidências.
+
 ### Mudança de contrato
 
 `llm:run` retorna `costUsd: null` e `costSource: "unknown"` quando não existe preço local para o

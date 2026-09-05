@@ -1,5 +1,8 @@
 # CLAUDE.md
 
+Contrato de execução e evidência: [instruções comuns](docs/agent-operating-contract.md). Consulte-o antes dos procedimentos abaixo; em divergências operacionais, use esse contrato atualizado.
+
+
 Guia para Claude Code (claude.ai/code) trabalhando neste repositório.
 
 ## O que é este repositório
@@ -20,7 +23,7 @@ Monolito antigo (1486 LOC) preservado em `docs/archive/legacy-bin/` para referê
 ```
 bin/                    # CLIs (init-project, create-memory-nest-kit)
 lib/                    # Módulos reutilizáveis (generators, validators, utils, context-builder)
-scripts/                # Automação (sprint-manager, sync-universal-memory, dev.mjs, …)
+scripts/                # Automação (sprint-manager, sync-universal-memory, dev.ts, …)
 specs/                  # Pipeline SDD (spec → plan → tasks) — em construção
 docs/                   # Documentação por persona + guias temáticos
   docs/personas/        # executive | architect | developer | qa
@@ -36,15 +39,15 @@ exemplo-v3/             # Exemplo canônico do output gerado
 
 ## Comandos essenciais
 
-Todo comando de processo passa pelo **core** `bin/forja.mjs` (ADR-0020): registry em
-`lib/core/registry.mjs`, gates transversais e auditoria em `.context/forja-runs.jsonl`
+Todo comando de processo passa pelo **core** `bin/forja.ts` (ADR-0020): registry em
+`lib/core/registry.ts`, gates transversais e auditoria em `.context/forja-runs.jsonl`
 do workspace. Os scripts npm são aliases finos do core. Comando novo = entrada nova no
 registry (o teste `test/forja-core.test.js` valida a integridade).
 
 ```bash
 # Core
-node bin/forja.mjs               # help agrupado por domínio
-node bin/forja.mjs <comando>     # qualquer comando do registry
+node bin/forja.ts               # help agrupado por domínio
+node bin/forja.ts <comando>     # qualquer comando do registry
 
 # Gerar novo projeto (no workspace, com ficha automática)
 npm run project:new meu-projeto -- --ai copilot,claude

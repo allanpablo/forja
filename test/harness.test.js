@@ -25,7 +25,7 @@ test('code:check degrada sem travar quando codegraph ausente', () => {
 
 test('code-intel.mjs (template emitido) tambem degrada sem codegraph', () => {
   const r = run(['lib/templates/harness/code-intel.mjs', 'check'], NO_TOOLS_ENV);
-  assert.equal(r.status, 0);
+  assert.equal(r.status, 0, `${r.stdout}\n${r.stderr}`);
   assert.match(r.stdout, /nao instalado/i);
 });
 
@@ -43,7 +43,7 @@ test('code:impact recusa simbolo que comeca com "-" (injecao de argumento no cod
 
 test('code:impact sem codegraph oferece fallback manual', () => {
   const r = run(['scripts/agent-harness.ts', 'code:impact', 'algumSimbolo'], NO_TOOLS_ENV);
-  assert.equal(r.status, 0);
+  assert.equal(r.status, 0, `${r.stdout}\n${r.stderr}`);
   assert.match(r.stdout, /Fallback manual/i);
 });
 
@@ -51,7 +51,7 @@ test('tools:doctor lista as 5 ferramentas e nao trava sem nenhuma', () => {
   const workspace = fs.mkdtempSync(path.join(os.tmpdir(), 'forja-doctor-'));
   try {
     const r = run(['scripts/tools-doctor.ts'], { ...NO_TOOLS_ENV, FORJA_WORKSPACE: workspace });
-    assert.equal(r.status, 0);
+    assert.equal(r.status, 0, `${r.stdout}\n${r.stderr}`);
     for (const name of ['codegraph', 'gitleaks', 'ast-grep', 'lefthook', 'markdownlint']) {
       assert.ok(r.stdout.includes(name), `esperava ${name} no relatorio`);
     }

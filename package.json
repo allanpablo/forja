@@ -12,6 +12,7 @@
   "files": [
     "dist/",
     "prompts/",
+    "skills/",
     "boilerplates/",
     "design-md/",
     "memory/",

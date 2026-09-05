@@ -1,12 +1,15 @@
 # AGENTS — Topologia do framework
 
+Contrato de execução e evidência: [instruções comuns](docs/agent-operating-contract.md). Consulte-o antes dos procedimentos abaixo; em divergências operacionais, use esse contrato atualizado.
+
+
 ## Modo operacional
 
 Este projeto e **CLI-first**. Use comandos para operar sprints, SDD, GSD, contexto e handoffs. Dashboard/web e recursos visuais sao opcionais e nao devem bloquear operacao, governanca ou entrega quando a tarefa nao tiver impacto visual.
 
-Todo comando de processo passa pelo **core** `bin/forja.mjs` (ADR-0020): registry declarativo em `lib/core/registry.mjs`, gates transversais (workspace) e auditoria de cada execucao em `<workspace>/.context/forja-runs.jsonl` — e essa trilha que Governance usa no review. Os scripts npm abaixo sao aliases finos do core; `node bin/forja.mjs` lista tudo por dominio.
+Todo comando de processo passa pelo **core** `bin/forja.ts` (ADR-0020): registry declarativo em `lib/core/registry.ts`, gates transversais (workspace) e auditoria de cada execucao em `<workspace>/.context/forja-runs.jsonl` — e essa trilha que Governance usa no review. Os scripts npm abaixo sao aliases finos do core; `node bin/forja.ts` lista tudo por dominio.
 
-Os **produtos gerados** vivem no **workspace Forja** (`~/forja-workspace` por padrao, configuravel via `FORJA_WORKSPACE` ou `~/.forjarc.json`). O repositorio atual e apenas o motor/framework. Veja ADR-0019. Toda IA que abre este repo ou um projeto gerado deve entender essa estrutura pelas instrucoes nativas (`CLAUDE.md`, `.github/copilot-instructions.md`, `.gemini-instructions.md`, `.openai-instructions.md` — conteudo canonico identico).
+Os **produtos gerados** vivem no **workspace Forja** (`~/forja-workspace` por padrao, configuravel via `FORJA_WORKSPACE` ou `~/.forjarc.json`). O repositorio atual e apenas o motor/framework. Veja ADR-0019. Toda IA que abre este repo ou um projeto gerado deve entender essa estrutura pelas instrucoes nativas (`CLAUDE.md`, `.github/copilot-instructions.md`, `.gemini-instructions.md`, `.openai-instructions.md`).
 
 Comandos de rotina:
 
@@ -32,7 +35,7 @@ npm run project:check
 - **Prompt portátil** em `prompts/<name>-agent.md` (para Copilot/Gemini/Codex)
 - **Descrição neste arquivo** (referência canônica de responsabilidades)
 
-Handoffs entre eles passam pela tabela `handoffs` em `~/forja-workspace/memory/sqlite/universal.db` (configurável via `FORJA_WORKSPACE`/`~/.forjarc.json`), registrados via Hermes (`npm run hermes:handoff` ou `npm run gsd:handoff`) sobre `scripts/agent-router.mjs` (ADR-0008). Campos obrigatórios em todo handoff: `from, to, intent, context, acceptance, constraints, return` (ADR-0005).
+Handoffs entre eles passam pela tabela `handoffs` em `~/forja-workspace/memory/sqlite/universal.db` (configurável via `FORJA_WORKSPACE`/`~/.forjarc.json`), registrados via Hermes (`npm run hermes:handoff` ou `npm run gsd:handoff`) sobre `scripts/agent-router.ts` (ADR-0008). Campos obrigatórios em todo handoff: `from, to, intent, context, acceptance, constraints, return` (ADR-0005).
 
 ---
 
@@ -69,7 +72,7 @@ Handoffs entre eles passam pela tabela `handoffs` em `~/forja-workspace/memory/s
 ## 7. Release Auditor
 **Quando**: antes de publicar no npm — o especialista de release da governança.
 **Faz**: roda `tools:doctor` e depois `release:check --publish`, interpreta os dois pareceres e autoriza (ou barra) a publicação. Valida o núcleo pela fonte canônica e pega quebras que só apareceriam na máquina de quem instala (SPEC-022, ADR-0023, ADR-0024).
-**Não faz**: publicar — `npm publish` é ato humano. Ele diagnostica e autoriza.
+**Não faz**: publicar — a publicação exige autorização do usuário, que pode autorizar sua execução pelo agente.
 
 ---
 
@@ -132,6 +135,6 @@ npm run dev -- design:check design-md/examples/agent-console-brief.md
 - `prompts/` — prompts portáveis para outras IAs
 - `memory/50-orchestration/` — protocolos detalhados (não-executáveis)
 - `memory/90-decisions/0005-handoff-7-campos.md` e `0008-sub-agents-claude-handoff-sqlite.md`
-- `scripts/agent-harness.mjs` — Hermes/GSD/design harness
-- `scripts/agent-router.mjs` — CLI base de handoff
+- `scripts/agent-harness.ts` — Hermes/GSD/design harness
+- `scripts/agent-router.ts` — CLI base de handoff
 - `specs/` — pipeline SDD
