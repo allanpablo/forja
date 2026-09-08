@@ -14,6 +14,12 @@ Histórico consolidado das mudanças estruturais do framework. Para decisões ar
   "ENGINEER_FAILED"` antes de chamar o provedor. (SPEC-048)
 - `forja llm:sessions list|show` — leitura das sessões LLM registradas (`llm_session`) para
   recuperar o `SESSION_ID` que `llm:run --resume` exige. Somente leitura. (SPEC-048)
+- `forja llm:eval` reporta `durationMsP50`/`durationMsP95` e `costPerAcceptedTask`
+  (`totalCost / tarefas aceitas`; 0 quando nenhuma). As métricas anteriores não mudam. (SPEC-049)
+- `forja llm:recommend` pondera **latência e custo** além do fit declarado e do sucesso local
+  (bônus limitado — nunca inverte um fit) e devolve `evidence` por candidato
+  (`samples`, `medianDurationMs`, `meanCostUsd`, `successRate`) + `reasons` com `latency:p50=…` /
+  `cost:$…/run`. Nenhum percentual de ganho é afirmado antes de um baseline de 30 dias. (SPEC-049)
 
 ## [4.0.0] — 2026-09-05 — Integrações LLM, sessões e validação
 

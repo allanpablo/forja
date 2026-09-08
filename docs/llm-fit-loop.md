@@ -126,6 +126,24 @@ Somente leitura sobre `llm_session` — não abre o provedor nem a rede. É como
 `--resume` quando a saída da execução anterior se perdeu. `list --json` emite um array; `show`
 emite um objeto; `id` desconhecido sai com código 1.
 
+## Métricas e recomendação por custo/latência (SPEC-049)
+
+`llm:eval` acrescenta às métricas do relatório:
+
+- `durationMsP50` / `durationMsP95` — percentis da latência das observações do escopo.
+- `costPerAcceptedTask` — `totalCost` dividido pelas observações com `validationStatus: "accepted"`
+  (`0` quando nenhuma foi aceita, não `null` nem infinito).
+
+`llm:recommend` passa a ponderar **latência** e **custo** além do fit declarado (`role`/`taskType`)
+e da taxa de sucesso local. O bônus de latência/custo é limitado (soma no máximo 8 pontos): ele
+desempata e refina entre pares próximos, **nunca inverte um fit declarado** (que vale 100+50).
+Cada candidato ganha `evidence: { samples, medianDurationMs, meanCostUsd, successRate }` e o
+`reasons` mostra `latency:p50=<ms>` e `cost:$<x>/run` — a recomendação deixa de ser um número opaco.
+
+Sem amostras para um perfil, o score é o de fit puro (comportamento anterior). **Nenhum
+percentual de melhoria é afirmado**: os eixos precisam de um baseline de observações reais de 30
+dias antes de qualquer comparação numérica (ver [llm-evolution.md](llm-evolution.md)).
+
 ## Formato e validação independente
 
 O operador escolhe o schema da resposta e os checks antes de executar o modelo:

@@ -1,7 +1,7 @@
 # Spec: llm-benchmark-recomendacao — `llm:eval` com latência/custo e `llm:recommend` multi-eixo
 
 - **ID**: SPEC-049
-- **Status**: implementing
+- **Status**: done
 - **Owner**: apk
 - **Criado em**: 2026-09-08
 - **Sprint alvo**: <a definir>
@@ -119,10 +119,23 @@ deixa de ser opaca. Nenhum percentual de ganho é prometido antes de um baseline
 
 ## Evidências e estado real
 
-- AC-1 a AC-8 → tasks em `spec:tasks`.
-- **Mudança de score, não de contrato**: `recommendProfile` muda o `score` de candidatos com
-  amostras (por desenho); as chaves de saída só crescem.
-- **Hipótese, não medição**: os ganhos de §8 dependem de observações reais acumuladas; nada é
-  afirmado antes do baseline.
-- **Dependência**: de `main` (que já tem W10). Usa `Observation.cost`/`durationMs` (SPEC-028) e
-  `cost:economy`/`model-pricing` só como referência conceitual.
+**Implementado em 2026-09-08** na branch `feat/llm-benchmark-recomendacao` (de `main`, já com W10).
+`tsc --noEmit` limpo; `node --test test/*.test.js` **483/483** (+4: 2 em `test/evals.test.js`, 2 em
+`test/llm-fit.test.js`); `forja spec:check` e `forja project:check` (100%) verdes.
+
+| AC | Onde | Verificado |
+|---|---|---|
+| AC-1 | `packages/evals/src/index.ts` `metrics()` + `percentile()` | `[100,200,300,400]` → p50 250, p95 ≈385; 0 aceita → `costPerAcceptedTask` 0 |
+| AC-2 | `packages/llm/src/index.ts` `recommendProfile` (`latencyBonus`/`costBonus` ∈ [0,4]) | teste: fit+sucesso idênticos, amostras mais rápidas/baratas → score maior; bônus máx. 8 < fit (150) |
+| AC-3 | idem — `evidence: { samples, medianDurationMs, meanCostUsd, successRate }` + `reasons` | teste: `latency:p50=…` e `cost:$…/run` presentes; `meanCostUsd` `null` sem custo |
+| AC-4 | idem — `sort(score desc, name asc)` | ordem determinística; empate de latência → menor custo |
+| AC-5 | `scripts/llm-fit.ts` (já serializa o retorno inteiro — sem alteração) | `llm:eval`/`llm:recommend` carregam os campos novos |
+| AC-6 | `docs/llm-fit-loop.md`, `docs/llm-evolution.md`, CHANGELOG | métricas + ponderação + **ressalva do baseline de 30d** |
+| AC-7/AC-8 | `test/evals.test.js`, `test/llm-fit.test.js` | 4 testes novos; `recommendation uses declared role/task fit…` **inalterado** (sem regressão) |
+
+- **Sem desvio do plan.** `scripts/llm-fit.ts` não precisou de mudança — os scripts já serializam
+  o retorno completo.
+- **Mudança de score, não de contrato**: `score` de candidatos com amostras muda por desenho; as
+  chaves de saída só crescem. Nenhum teste de `recommendProfile` existente quebrou.
+- **Nada de percentual prometido** antes do baseline de 30 dias.
+- **Pendências**: revisão de Governança; handoff `review` registrado.

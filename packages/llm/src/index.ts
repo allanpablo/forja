@@ -132,21 +132,79 @@ export async function runLlm(execution: LlmExecution, cwd: string, timeoutMs = 1
   });
 }
 
-export function recommendProfile(profiles: LlmProfiles, observations: readonly { readonly model?: string; readonly outcome: string; readonly durationMs: number; readonly cost?: number }[], role: string, taskType: string, privacy?: LlmProfile['privacy']): readonly { readonly name: string; readonly score: number; readonly reasons: readonly string[] }[] {
+interface RecommendObservation { readonly model?: string; readonly outcome: string; readonly durationMs: number; readonly cost?: number }
+
+export interface ProfileRecommendation {
+  readonly name: string;
+  readonly score: number;
+  readonly reasons: readonly string[];
+  /** SPEC-049 — a base numérica da recomendação, para o operador ponderar/contestar. */
+  readonly evidence: {
+    readonly samples: number;
+    readonly medianDurationMs: number;
+    readonly meanCostUsd: number | null;
+    readonly successRate: number;
+  };
+}
+
+function median(values: readonly number[]): number {
+  if (values.length === 0) return 0;
+  const sorted = [...values].sort((a, b) => a - b);
+  const mid = Math.floor(sorted.length / 2);
+  return sorted.length % 2 === 0 ? (sorted[mid - 1] + sorted[mid]) / 2 : sorted[mid];
+}
+
+/**
+ * SPEC-049 — recomendação por fit declarado + evidência local, agora ponderando **latência** e
+ * **custo**. Os bônus de latência/custo somam no máximo 8 pontos: refinam entre pares próximos,
+ * nunca invertem um fit declarado (que vale 100+50). Nenhum percentual de ganho é afirmado —
+ * `evidence` expõe a base para o operador julgar.
+ */
+export function recommendProfile(profiles: LlmProfiles, observations: readonly RecommendObservation[], role: string, taskType: string, privacy?: LlmProfile['privacy']): readonly ProfileRecommendation[] {
+  const allDurations = observations.filter((value) => value.model !== undefined).map((value) => value.durationMs);
+  const definedCosts = observations.map((value) => value.cost).filter((value): value is number => typeof value === 'number');
+  const cohortMedianLatency = median(allDurations);
+  const cohortMeanCost = definedCosts.length === 0 ? null : definedCosts.reduce((sum, value) => sum + value, 0) / definedCosts.length;
+
   return Object.entries(profiles.profiles)
     .filter(([, profile]) => profile.enabled && (privacy === undefined || profile.privacy === privacy))
-    .map(([name, profile]) => {
+    .map(([name, profile]): ProfileRecommendation => {
       const model = `${profile.provider}:${profile.model}`;
       const samples = observations.filter((value) => value.model === model);
       const succeeded = samples.filter((value) => value.outcome === 'succeeded').length;
       const successRate = samples.length === 0 ? 0 : succeeded / samples.length;
-      const score = (profile.roles.includes(role) ? 100 : 0) + (profile.taskTypes.includes(taskType) ? 50 : 0) + Math.round(successRate * 25) + Math.min(samples.length, 10);
+
+      const medianDurationMs = median(samples.map((value) => value.durationMs));
+      const sampleCosts = samples.map((value) => value.cost).filter((value): value is number => typeof value === 'number');
+      const meanCostUsd = sampleCosts.length === 0 ? null : sampleCosts.reduce((sum, value) => sum + value, 0) / sampleCosts.length;
+
+      let latencyBonus = 0;
+      let costBonus = 0;
+      if (samples.length > 0) {
+        if (cohortMedianLatency > 0 && medianDurationMs < cohortMedianLatency) {
+          latencyBonus = Math.min(4, Math.round(4 * (1 - medianDurationMs / cohortMedianLatency)));
+        }
+        if (cohortMeanCost !== null && cohortMeanCost > 0 && meanCostUsd !== null && meanCostUsd < cohortMeanCost) {
+          costBonus = Math.min(4, Math.round(4 * (1 - meanCostUsd / cohortMeanCost)));
+        }
+      }
+
+      const score = (profile.roles.includes(role) ? 100 : 0)
+        + (profile.taskTypes.includes(taskType) ? 50 : 0)
+        + Math.round(successRate * 25)
+        + Math.min(samples.length, 10)
+        + latencyBonus
+        + costBonus;
+
       const reasons = [
         ...(profile.roles.includes(role) ? [`role:${role}`] : []),
         ...(profile.taskTypes.includes(taskType) ? [`task:${taskType}`] : []),
         ...(samples.length > 0 ? [`${succeeded}/${samples.length} successful runs`] : ['no local evidence yet']),
+        ...(samples.length > 0 ? [`latency:p50=${Math.round(medianDurationMs)}ms`] : []),
+        ...(meanCostUsd !== null ? [`cost:$${meanCostUsd.toFixed(4)}/run`] : []),
       ];
-      return { name, score, reasons };
+
+      return { name, score, reasons, evidence: { samples: samples.length, medianDurationMs, meanCostUsd, successRate } };
     })
     .sort((a, b) => b.score - a.score || a.name.localeCompare(b.name));
 }

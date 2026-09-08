@@ -114,3 +114,35 @@ test('llm:run --engineer embute o contexto do façade no prompt (SPEC-048)', { c
     fs.rmSync(workspace, { recursive: true, force: true });
   }
 });
+
+test('SPEC-049: recommendProfile prefere o mais rápido/barato quando fit e sucesso empatam', () => {
+  const profiles = { version: 1, profiles: {
+    fast: { provider: 'x', model: 'fast', command: 'x', roles: ['worker'], taskTypes: ['impl'], privacy: 'local', enabled: true },
+    slow: { provider: 'x', model: 'slow', command: 'x', roles: ['worker'], taskTypes: ['impl'], privacy: 'local', enabled: true },
+  } };
+  const obs = [
+    { model: 'x:fast', outcome: 'succeeded', durationMs: 1000, cost: 0.001 },
+    { model: 'x:fast', outcome: 'succeeded', durationMs: 1200, cost: 0.001 },
+    { model: 'x:slow', outcome: 'succeeded', durationMs: 9000, cost: 0.05 },
+    { model: 'x:slow', outcome: 'succeeded', durationMs: 8000, cost: 0.05 },
+  ];
+  const r = recommendProfile(profiles, obs, 'worker', 'impl');
+  assert.equal(r[0].name, 'fast');
+  assert.ok(r[0].score > r[1].score);
+  assert.equal(r[0].evidence.samples, 2);
+  assert.equal(r[0].evidence.medianDurationMs, 1100);
+  assert.equal(r[0].evidence.meanCostUsd, 0.001);
+  assert.ok(r[0].reasons.some((x) => x.startsWith('latency:p50=')));
+  assert.ok(r[0].reasons.some((x) => x.startsWith('cost:$')));
+});
+
+test('SPEC-049: sem amostras → score de fit puro (comportamento preservado)', () => {
+  const profiles = { version: 1, profiles: {
+    a: { provider: 'x', model: 'a', command: 'x', roles: ['worker'], taskTypes: ['impl'], privacy: 'local', enabled: true },
+  } };
+  const r = recommendProfile(profiles, [], 'worker', 'impl');
+  assert.equal(r[0].score, 150);                       // 100 role + 50 task, sem bônus
+  assert.equal(r[0].evidence.samples, 0);
+  assert.equal(r[0].evidence.meanCostUsd, null);
+  assert.deepEqual(r[0].reasons, ['role:worker', 'task:impl', 'no local evidence yet']);
+});
