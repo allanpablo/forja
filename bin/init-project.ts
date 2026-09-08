@@ -17,6 +17,7 @@ import path from 'node:path';
 import process from 'node:process';
 import { execSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
+import { writeAiInstructions } from '../lib/multi-ai-instructions.ts';
 import {
   getWorkspaceRoot,
   getProjectsDir,
@@ -35,16 +36,9 @@ const kitRoot = path.resolve(__dirname, '..');
 // ============================================================================
 
 const DEFAULT_AI_AGENTS = ['copilot', 'claude', 'gemini', 'codex'];
-// Conteúdo canônico único (ADR-0020): toda IA recebe a mesma explicação da
-// estrutura Forja; só o cabeçalho muda. CLAUDE.md do framework NÃO é copiado —
-// ele descreve o repo do motor, não o projeto gerado.
-const CANONICAL_INSTRUCTIONS = '.gemini-instructions.md';
-const AI_LABELS = {
-  copilot: 'GitHub Copilot',
-  claude: 'Claude',
-  gemini: 'Gemini',
-  codex: 'OpenAI Codex',
-};
+// Conteúdo canônico único (ADR-0020): toda IA recebe a mesma explicação da estrutura Forja; só o
+// cabeçalho muda. A escrita vive em lib/multi-ai-instructions.ts (SPEC-047) e é compartilhada com
+// o project:smoke. CLAUDE.md do framework NÃO é copiado — ele descreve o motor, não o gerado.
 
 const SETUP_CHECKLIST = [
   '00-git-init',
@@ -320,70 +314,11 @@ async function step01cEmitHarness(projectDir: any, opts: any) {
 
 async function step02CopyInstructions(projectDir: any, opts: any) {
   log('Copiando instruções para IAs...', 'step');
-
-  const instructionsDir = path.join(projectDir, '.ia-instructions');
-  ensureDir(instructionsDir);
-
-  const canonicalPath = path.join(kitRoot, CANONICAL_INSTRUCTIONS);
-  let canonical: string | null = null;
-  if (fs.existsSync(canonicalPath)) {
-    canonical = fs.readFileSync(canonicalPath, 'utf8');
-  }
-
-  let copied = 0;
-  for (const ai of opts.ai) {
-    const label = (AI_LABELS as any)[ai];
-    if (!label || !canonical) {
-      log(`${ai.toUpperCase()}: não encontrado`, 'warn');
-      continue;
-    }
-
-    const others = Object.entries(AI_LABELS)
-      .filter(([key]) => key !== ai)
-      .map(([, name]) => name);
-    const content = canonical
-      .replace(/^# Instruções para .+ — Forja$/m, `# Instruções para ${label} — Forja`)
-      .replace(
-        /^> Guia para .+ multi-IA por design\.$/m,
-        `> Guia para ${label} operar a Forja. O conteúdo é o mesmo para ${others.slice(0, -1).join(', ')} e ${others.at(-1)} — a Forja é multi-IA por design.`
-      );
-
-    fs.writeFileSync(path.join(instructionsDir, `${ai}.md`), content, 'utf8');
-    log(`${ai.toUpperCase()}: ✓`, 'success');
-    copied++;
-  }
-
-  // Criar INDEX
-  const indexContent = `# IA Assistants Configuration
-
-Este diretório contém instruções específicas para cada IA assistant.
-
-## Gestão de Cotas & Alternância
-Para trocar de IA (ex: se acabar a cota), use o arquivo [models.json](./models.json) para identificar o próximo motor na fila de fallback.
-
-## IAs Configuradas
-
-${opts.ai.map((ai: any) => `- [${ai.toUpperCase()}](./${ai}.md)`).join('\n')}
-`;
-
-  fs.writeFileSync(path.join(instructionsDir, 'README.md'), indexContent);
-
-  // Criar models.json para interoperabilidade
-  const modelsJson = {
-    active_engine: opts.ai[0] || 'copilot',
-    fallback_chain: opts.ai,
-    engines: opts.ai.reduce((acc: any, ai: any) => {
-      acc[ai] = {
-        name: ai.toUpperCase(),
-        instruction_file: `.ia-instructions/${ai}.md`,
-        status: "ready"
-      };
-      return acc;
-    }, {})
-  };
-  fs.writeFileSync(path.join(instructionsDir, 'models.json'), JSON.stringify(modelsJson, null, 2));
-
-  log(`${copied} instruções copiadas para .ia-instructions/`, 'success');
+  // A lógica vive em lib/multi-ai-instructions.ts (SPEC-047) — compartilhada com o project:smoke.
+  const { written, skipped } = writeAiInstructions(projectDir, opts.ai, { kitRoot });
+  for (const ai of written) log(`${String(ai).toUpperCase()}: ✓`, 'success');
+  for (const ai of skipped) log(`${String(ai).toUpperCase()}: não encontrado`, 'warn');
+  log(`${written.length} instruções copiadas para .ia-instructions/`, 'success');
 }
 
 async function step03InstallBackend(projectDir: any, opts: any) {

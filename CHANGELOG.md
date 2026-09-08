@@ -57,6 +57,15 @@ Histórico consolidado das mudanças estruturais do framework. Para decisões ar
   roda por `tools/call`. Mapeamento argv↔payload declarativo (`apps/cli/src/params.ts`,
   `parseArgv`/`argvFor` inversos com round-trip test); o `if/else` por comando some. `spec:check`
   e `tools:doctor` fecham o débito D7 de SPEC-045 (agora `json: true`). (SPEC-046)
+- `forja project:smoke --ai <lista>` — o gate do projeto gerado passa a exercitar o caminho real
+  do `--ai` (memória + instruções nativas por IA), gerado só-memória e sem rede. (SPEC-047)
+- Check `ai-instructions` no `project:smoke`: quando `--ai` é pedido, prova que cada
+  `.ia-instructions/<ai>.md` deriva da mesma fonte (corpo byte-idêntico entre IAs, só o cabeçalho
+  muda) e que `models.json` bate com a lista. É o análogo do `agent-topology`, na saída do gerador. (SPEC-047)
+- `.github/workflows/ci.yml` — job `project-smoke-ai` em matriz (`claude` · `copilot` ·
+  `claude,copilot,gemini,codex`), tier barato, a cada PR e push. (SPEC-047)
+- `lib/multi-ai-instructions.ts` — a escrita das instruções nativas por IA vira função `lib/`
+  testada, compartilhada por `bin/init-project.ts` e pelo smoke. (SPEC-047)
 
 ### Alterado
 
@@ -88,9 +97,9 @@ Histórico consolidado das mudanças estruturais do framework. Para decisões ar
 - Decidido no plan (`specs/cli-intuitiva-v1/`): o `--fix` da spec original virou o comando
   dedicado `forja setup` — `tools:doctor` continua só diagnóstico, por desenho. O campo de args
   posicionais no registry chama-se `cliArgs` (não `args`, que é o prefixo fixo do spawn).
-- `spec:check` e `tools:doctor` ficaram **fora** do contrato de saída nesta rodada: já emitem
-  JSON, mas pelo envelope da capability MCP (`{ status: "succeeded" | "failed", … }`). Alinhar
-  esse envelope é parte da cobertura MCP (W6).
+- `spec:check` e `tools:doctor` entraram no contrato de saída via SPEC-046: o envelope da
+  capability MCP é convertido pelo adaptador `toContract` em `bin/forja.ts` (fecha o débito D7
+  de SPEC-045).
 
 ## [4.0.0] — 2026-09-05 — Integrações LLM, sessões e validação
 

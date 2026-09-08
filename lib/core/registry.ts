@@ -788,8 +788,12 @@ export const COMMANDS: Record<string, CommandSpec> = {
   },
   'project:smoke': {
     domain: 'governanca',
-    desc: 'Gate do projeto gerado: gera isolado e prova que é coerente (SPEC-015). --full instala e builda o backend',
+    desc: 'Gate do projeto gerado: gera isolado e prova que é coerente. --full instala e builda o backend; --ai <lista> valida as instruções nativas',
     node: 'scripts/project-smoke.ts',
+    spec: 'SPEC-015, SPEC-047',
+    readonly: true,
+    usage: 'forja project:smoke [--full] [--ai claude,copilot,gemini,codex]',
+    examples: ['forja project:smoke', 'forja project:smoke --ai claude,copilot'],
   },
   'check:all': {
     domain: 'governanca',

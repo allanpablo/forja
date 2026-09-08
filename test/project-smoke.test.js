@@ -5,7 +5,7 @@ import os from 'node:os';
 import path from 'node:path';
 
 import { runChecks } from '../lib/core/checks.ts';
-import { SMOKE_CHECKS, defaultEnv } from '../lib/core/project-smoke.ts';
+import { SMOKE_CHECKS, defaultEnv, worstStatus } from '../lib/core/project-smoke.ts';
 
 /** Um projeto de fixture no disco, sem rodar o gerador real. */
 function fixtureProject(files) {
@@ -97,3 +97,66 @@ test('gate-inherited: projeto com o gate aprova', async () => {
   fs.rmSync(projectDir, { recursive: true, force: true });
 });
 
+
+// --- SPEC-047: --ai + coerência multi-IA ------------------------------------
+
+import { runProjectSmoke } from '../lib/core/project-smoke.ts';
+import { writeAiInstructions } from '../lib/multi-ai-instructions.ts';
+
+const repoRoot = path.resolve(path.dirname(new URL(import.meta.url).pathname), '..');
+
+test('ai-instructions: skipped sem --ai', async () => {
+  const projectDir = fixtureProject({ 'AGENTS.md': 'ok' });
+  const [r] = await runChecks({ checks: only('ai-instructions'), env: { ...defaultEnv(), projectDir } });
+  assert.equal(r.status, 'skipped');
+  fs.rmSync(projectDir, { recursive: true, force: true });
+});
+
+test('ai-instructions: instruções da mesma fonte aprovam', async () => {
+  const projectDir = fixtureProject({ 'AGENTS.md': 'ok' });
+  writeAiInstructions(projectDir, ['claude', 'copilot'], { kitRoot: repoRoot });
+  const [r] = await runChecks({
+    checks: only('ai-instructions'),
+    env: { ...defaultEnv(), ai: ['claude', 'copilot'], projectDir },
+  });
+  assert.equal(r.status, 'ok', r.detail);
+  fs.rmSync(projectDir, { recursive: true, force: true });
+});
+
+test('ai-instructions: corpo divergente entre IAs reprova', async () => {
+  const projectDir = fixtureProject({ 'AGENTS.md': 'ok' });
+  writeAiInstructions(projectDir, ['claude', 'copilot'], { kitRoot: repoRoot });
+  const f = path.join(projectDir, '.ia-instructions', 'copilot.md');
+  fs.writeFileSync(f, fs.readFileSync(f, 'utf8') + '\nLINHA EXTRA SÓ NO COPILOT\n');
+  const [r] = await runChecks({
+    checks: only('ai-instructions'),
+    env: { ...defaultEnv(), ai: ['claude', 'copilot'], projectDir },
+  });
+  assert.equal(r.status, 'fail');
+  assert.match(r.detail, /diverge/);
+  fs.rmSync(projectDir, { recursive: true, force: true });
+});
+
+test('ai-instructions: models.json fora de sincronia com --ai reprova', async () => {
+  const projectDir = fixtureProject({ 'AGENTS.md': 'ok' });
+  writeAiInstructions(projectDir, ['claude', 'copilot'], { kitRoot: repoRoot });
+  const mj = path.join(projectDir, '.ia-instructions', 'models.json');
+  const models = JSON.parse(fs.readFileSync(mj, 'utf8'));
+  models.fallback_chain = ['copilot', 'claude']; // ordem trocada
+  fs.writeFileSync(mj, JSON.stringify(models, null, 2));
+  const [r] = await runChecks({
+    checks: only('ai-instructions'),
+    env: { ...defaultEnv(), ai: ['claude', 'copilot'], projectDir },
+  });
+  assert.equal(r.status, 'fail');
+  assert.match(r.detail, /fallback_chain/);
+  fs.rmSync(projectDir, { recursive: true, force: true });
+});
+
+test('runProjectSmoke({ ai }): gera pelo caminho real e aprova', { concurrency: false }, async () => {
+  const results = await runProjectSmoke({ ai: ['claude', 'copilot'] });
+  const byId = Object.fromEntries(results.map((r) => [r.id, r.status]));
+  assert.notEqual(byId['ai-instructions'], 'fail', JSON.stringify(byId));
+  assert.equal(byId['ai-instructions'], 'ok');
+  assert.notEqual(worstStatus(results), 'fail');
+});
