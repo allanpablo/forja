@@ -13,6 +13,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { collectStatus, recommendNext, type StatusModel, type Sub } from '../lib/status-model.ts';
+import { emitOk } from '../lib/cli-output.ts';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(__dirname, '..');
@@ -92,18 +93,12 @@ const model = await collectStatus(repoRoot);
 
 if (cmd === 'next') {
   const next = recommendNext(model);
-  if (json) {
-    console.log(JSON.stringify(next));
-  } else {
-    console.log(`→ ${next.command}`);
-    console.log(`  ${next.reason}`);
-  }
+  if (json) emitOk({ ...next });
+  console.log(`→ ${next.command}`);
+  console.log(`  ${next.reason}`);
   process.exit(0);
 }
 
-if (json) {
-  console.log(JSON.stringify({ status: 'ok', ...model }));
-} else {
-  console.log(renderStatus(model));
-}
+if (json) emitOk({ ...model });
+console.log(renderStatus(model));
 process.exit(0);

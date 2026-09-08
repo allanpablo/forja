@@ -190,6 +190,19 @@ function runGates(cmd: any) {
   return errors;
 }
 
+/**
+ * Contrato de saída (ADR-0082 / SPEC-045) — os exit codes que os comandos usam, em qualquer modo:
+ *
+ *   0    sucesso (`status:'ok'` no `--json`)
+ *   1    erro operacional: args inválidos, arquivo ausente, subsistema fora (`status:'error'`)
+ *   2    validação/gate do próprio comando deu negativo (`status:'rejected'`) — ex.: `llm:run`,
+ *        `simulate` discard
+ *   127  binário externo obrigatório ausente (alvos `bin:` — tratado abaixo, na seção de spawn)
+ *
+ * O core repassa o exit code do filho tal e qual (`result.status ?? 1`); `2` passa direto. Ver
+ * `docs/contrato-saida-cli.md`.
+ */
+
 // Auditoria nunca bloqueia o comando (NFR da SPEC-025).
 function audit(entry: any) {
   try {
@@ -418,11 +431,19 @@ if (rest.includes('--help') || rest.includes('-h')) {
 }
 
 // SPEC-043 (AC-5): args posicionais obrigatórios em falta falham aqui, sem spawnar o filho.
+// SPEC-045 (ADR-0082): se o comando é `json: true` e o operador pediu `--json`, o erro sai no
+// formato do contrato (`{status:'error'}`, exit 1) em vez do texto de uso.
 const argError = missingRequiredArg(cmd, rest);
 if (argError) {
-  console.error(argError);
-  console.error(`Uso: ${cmd.usage ?? `forja ${name}`}`);
-  console.error(`Detalhe: forja help ${name}`);
+  const usage = cmd.usage ?? `forja ${name}`;
+  if (cmd.json && rest.includes('--json')) {
+    process.stderr.write(`Uso: ${usage}\n`);
+    process.stdout.write(JSON.stringify({ status: 'error', error: { message: argError, code: 'MISSING_ARG' } }) + '\n');
+  } else {
+    console.error(argError);
+    console.error(`Uso: ${usage}`);
+    console.error(`Detalhe: forja help ${name}`);
+  }
   audit({ ts: new Date().toISOString(), cmd: name, args: auditArgs(name, rest), exitCode: 1, durationMs: 0 });
   process.exit(1);
 }

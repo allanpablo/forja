@@ -82,6 +82,7 @@ apps/dashboard/.next/
 !/specs/agent-instructions-v4
 !/specs/cli-intuitiva-v1
 !/specs/forja-status-caminho-feliz
+!/specs/contrato-saida-cli
 !/specs/llm-contexto-e-sessoes
 !/specs/llm-benchmark-recomendacao
 !/specs/llm-adaptador-claude

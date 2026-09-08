@@ -89,8 +89,10 @@ test('simulate: teste falha → recommendation discard, worktree ainda destruíd
   try {
     const before = worktreeList(graphRoot);
     const result = run(['feature', '--json'], graphRoot, workspace);
-    assert.equal(result.status, 0, result.stderr);
+    // Contrato de saída (ADR-0082): discard é um gate negativo → status:"rejected", exit 2.
+    assert.equal(result.status, 2, result.stderr);
     const report = JSON.parse(result.stdout);
+    assert.equal(report.status, 'rejected');
     assert.equal(report.testResult.passed, false);
     assert.equal(report.recommendation, 'discard');
 
