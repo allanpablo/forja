@@ -1,7 +1,7 @@
 # Spec: forja-status-caminho-feliz — "onde estou e o que faço agora?"
 
 - **ID**: SPEC-044
-- **Status**: approved
+- **Status**: implementing
 - **Owner**: apk
 - **Criado em**: 2026-09-07
 - **Sprint alvo**: <a definir>
@@ -131,9 +131,28 @@ Avaliar 30 dias após o release, baseline sobre `forja-runs.jsonl` antes:
 
 ## Evidências e estado real
 
-- AC-1 a AC-9 serão mapeados às tasks em `spec:tasks`.
-- **Hipótese**, não medição: os ganhos de §8 dependem de instrumentação inexistente; baseline antes.
-- **Dependência de contrato**: assume `forja setup` e os campos `tier`/`next`/`readonly` do
-  registry entregues por SPEC-043. Se o PR #61 mudar algum desses nomes, atualizar aqui.
-- **Decisão pendente para o `plan`**: `status` e `next` num script só (dois `args`) vs. dois
-  scripts finos + `lib` comum. Definir no plan.
+**Implementado em 2026-09-08** na branch `feat/forja-status` (empilhada sobre `feat/cli-intuitiva-v1`).
+Bateria: `tsc --noEmit` limpo; `node --test test/*.test.js` **492/492** (+13 em
+`test/forja-status.test.js`); `forja spec:check` e `forja project:check` (100%) verdes.
+
+| AC | Onde | Verificado |
+|---|---|---|
+| AC-1 | `scripts/forja-status.ts` `renderStatus()` | `forja status` mostra as 6 seções rotuladas; seção sem fonte → `indisponível: <reason>` |
+| AC-2 | `lib/status-model.ts` `collectStatus()` + `--json` | `forja status --json` → `{ status:"ok", workspace, sprint, orchestrate, specs, recentRuns, handoffs }`; coletor em erro → `{available:false,reason}`; nunca lança (teste) |
+| AC-3 | `scripts/forja-status.ts` (ramo `next`) | `forja next` → `→ forja <cmd>` + motivo; `--json` → `{action,command,reason}` |
+| AC-4 | `lib/status-model.ts` `recommendNext()` | 7 ramos + ordem, testados em `test/forja-status.test.js` (pura, sem spawn) |
+| AC-5 | `lib/core/registry.ts` | `status`/`next`: `readonly:true`, `json:true`, gate `workspace-warn` (não bloqueante) |
+| AC-6 | `lib/core/registry.ts`, `README.md` | `forja help` lista `status`/`next` no núcleo; `status`→`next`→`orchestrate*` abrem o bloco GSD; README ganhou o bloco "Orientation" |
+| AC-7 | `lib/specs-index.ts`, `lib/handoffs-index.ts`, `lib/orchestrate.ts` (`listRuns`), `scripts/hook-session-start.ts` | hook importa de `lib/`; corrida via `loadState`/`listRuns`; smoke do hook sem regressão (Specs ativas + Handoffs presentes) |
+| AC-8 | `test/forja-status.test.js` | 13 testes verdes |
+| AC-9 | — | bateria acima verde |
+
+- **Decisões do plan aplicadas**: um único `scripts/forja-status.ts` para os dois comandos (D1);
+  `listSpecs`/`openHandoffs` extraídos para `lib/`, hook reimporta (D2); estado da corrida via
+  `loadState` + `listRuns` novo, sem `orchestrate:status --json` (D3); `lib/sprint-index.ts` novo
+  em vez de reusar `sprint-manager.ts` (D4). Nenhum desvio vs. o plan.
+- **`SpecEntry` ganhou `plan`/`tasks`** (status de cada artefato) para a escada da AC-4 — o hook
+  só usa `slug`/`status`, sem impacto.
+- **Hipótese, não medição**: os ganhos de §8 dependem de instrumentação inexistente; baseline antes.
+- **Pendências**: revisão de Governança sobre o diff; handoff `review` registrado; depende do
+  merge de #61 (SPEC-043).

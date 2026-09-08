@@ -4,29 +4,41 @@ Histórico consolidado das mudanças estruturais do framework. Para decisões ar
 
 ---
 
-## [Unreleased] — CLI descobrível pela própria CLI (SPEC-043)
+## [Unreleased] — CLI mais intuitiva (roadmap v4.1, Onda 1–2)
 
 ### Adicionado
 
 - `forja help <comando>` — uso, argumentos posicionais, exemplos e próximos passos de cada
   comando, a partir de campos novos e opcionais do registry (`usage`, `cliArgs`, `examples`,
-  `next`, `spec`, `tier`). `forja <comando> --help` faz o mesmo inline.
+  `next`, `spec`, `tier`). `forja <comando> --help` faz o mesmo inline. (SPEC-043)
 - `forja setup` — rotina de primeiro uso (`workspace:init` + `sync:universal`) atrás de
-  confirmação; `--yes` para uso não-interativo; aborta sem efeito quando não há TTY.
+  confirmação; `--yes` para uso não-interativo; aborta sem efeito quando não há TTY. (SPEC-043)
+- `forja status` — retrato único do estado: workspace, sprint, corrida orchestrate aberta,
+  specs por status, últimos runs, handoffs em aberto. `--json` estável; cada seção degrada com
+  `indisponível: <motivo>`. (SPEC-044)
+- `forja next` — a próxima ação recomendada e o comando exato, por prioridade determinística
+  (workspace ausente → `setup`; memória crua → `sync:universal`; corrida travada → parecer +
+  `orchestrate:advance`; spec `approved` sem plan → `spec:plan`; …). `--json` →
+  `{ action, command, reason }`. (SPEC-044)
 - `suggest()` passou a casar por substring **e** distância de edição sobre o nome completo:
   `forja plan` sugere `spec:plan`. Toda mensagem de comando desconhecido termina com
-  `forja help <palpite>`.
+  `forja help <palpite>`. (SPEC-043)
 - Argumento posicional obrigatório em falta falha **antes** de invocar o script-filho, imprimindo
-  o `Uso:` do comando — sem stack trace.
+  o `Uso:` do comando — sem stack trace. (SPEC-043)
 
 ### Alterado
 
 - `forja help` (sem argumentos) lista só os comandos do núcleo (`tier: 'core'`), agrupados por
   domínio, com rodapé para `forja help --all`. `forja help --all` preserva a saída completa
   anterior; os sufixos `(SPEC-0XX)` saíram das descrições do núcleo para o detalhe de `help <cmd>`.
+- `orchestrate` e os comandos de estado (`status`, `next`) abrem o bloco GSD no `forja help` —
+  o caminho feliz em primeiro lugar.
 - `tools:doctor` e o bloco `<framework-status>` do SessionStart agrupam os checks em três blocos
   rotulados — **Bloqueia o fluxo**, **Rotina de primeiro uso**, **Opcional (ferramentas)**. O
   exit code do gate é inalterado. Mudança aditiva.
+- `listSpecs` e `openHandoffs` saíram de `scripts/hook-session-start.ts` para
+  `lib/specs-index.ts` / `lib/handoffs-index.ts`, compartilhados com `forja status`. `listRuns`
+  novo em `lib/orchestrate.ts`.
 
 ### Notas de contrato
 
