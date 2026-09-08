@@ -1,7 +1,7 @@
 # Spec: projeto-gerado-confiavel — smoke por `--ai` no CI + coerência multi-IA
 
 - **ID**: SPEC-047
-- **Status**: implementing
+- **Status**: done
 - **Owner**: apk
 - **Criado em**: 2026-09-08
 - **Sprint alvo**: <a definir>

@@ -1,7 +1,7 @@
 # Spec: cli-intuitiva-v1 — CLI descobrível pela própria CLI
 
 - **ID**: SPEC-043
-- **Status**: implementing
+- **Status**: done
 - **Owner**: apk
 - **Criado em**: 2026-09-07
 - **Sprint alvo**: <a definir>

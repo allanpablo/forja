@@ -1,7 +1,7 @@
 # Spec: forja-status-caminho-feliz — "onde estou e o que faço agora?"
 
 - **ID**: SPEC-044
-- **Status**: implementing
+- **Status**: done
 - **Owner**: apk
 - **Criado em**: 2026-09-07
 - **Sprint alvo**: <a definir>
