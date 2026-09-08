@@ -293,6 +293,9 @@ projects/     LEGADO — não usar; projetos vivem no workspace externo
 - **CLI-first** — sprints, SDD, GSD, handoffs e governança por comando; o front nunca é gate.
 - **ADRs** — toda decisão estrutural vira `memory/90-decisions/NNNN-titulo.md`.
 - **Handoffs** — 7 campos obrigatórios (ADR-0005), gravados no SQLite (ADR-0008).
+- **Releases** — toda versão nova reconcilia o README com o seu comportamento e abre a entrada do
+  `CHANGELOG.md` por uma seção `### O que melhorou` (diff em linguagem de produto vs. a versão
+  anterior, reusada como nota de release no GitHub). Runbook: [`docs/publishing.md`](docs/publishing.md).
 - **pt-BR** — comunicação e documentação em português.
 
 ## Roadmap

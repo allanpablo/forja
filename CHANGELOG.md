@@ -2,11 +2,70 @@
 
 Histórico consolidado das mudanças estruturais do framework. Para decisões arquiteturais com rationale, ver `memory/90-decisions/`.
 
+### Como escrever uma entrada de versão
+
+Toda versão nova (ao tagear / publicar) abre com uma subseção **`### O que melhorou`** em
+linguagem de produto: o diff observável em relação à versão anterior — o que o usuário passa a
+conseguir fazer, o que para de dar errado, o que fica mais simples. Só depois vêm as seções
+técnicas (`Adicionado`, `Alterado`, `Mudança de contrato`, `Notas…`). A nota de release do
+GitHub reusa esse bloco. O README também é reconciliado na mesma entrega — ver
+[`docs/publishing.md`](docs/publishing.md).
+
 ---
 
 ## [Unreleased]
 
+### O que melhorou
+
+_(preencher a cada release: diff de produto vs. a versão anterior, antes das seções técnicas)_
+
+## [4.1.1] — 2026-09-08 — Disciplina de release: README + "O que melhorou" acompanham toda versão
+
+### O que melhorou
+
+- **Toda versão nova passa a dizer, em linguagem de produto, o que melhorou.** Cada entrada do
+  `CHANGELOG.md` abre por uma subseção `### O que melhorou` — o diff observável vs. a versão
+  anterior — antes das seções técnicas. É esse bloco que vira a nota de release no GitHub.
+- **O README não fica mais para trás.** Reconciliar `README.md` e `README.pt-BR.md` com o
+  comportamento da versão virou passo obrigatório do runbook de release, não um "se lembrar".
+
+### Alterado
+
+- `CHANGELOG.md` ganha a seção **"Como escrever uma entrada de versão"** e um esqueleto em
+  `[Unreleased]`; a entrada da 4.1.0 foi retroalimentada com sua subseção `### O que melhorou`.
+- `docs/publishing.md` — "Preparar uma versão" reescrito como checklist de 6 passos: reconciliar
+  README (passo 2) e escrever o `### O que melhorou` (passo 3) são explícitos; a etapa de tag no
+  GitHub aponta para esse bloco como corpo da release.
+- `docs/agent-operating-contract.md` (§Entrega) e `CLAUDE.md` (§Convenções → Releases) registram
+  a regra: README reconciliado + subseção `### O que melhorou` são parte da entrega de qualquer
+  bump de versão / tag / publicação.
+- `README.md` / `README.pt-BR.md` — nova convenção **Releases** / **Releases**.
+
+### Notas
+
+- Sem mudança de código nem de contrato de CLI. Nenhum comando, flag ou saída `--json` muda.
+
 ## [4.1.0] — 2026-09-08 — Roadmap v4.1: menos erros, mais intuitivo, mais funcional com LLMs
+
+### O que melhorou
+
+- **Menos erros na CLI.** `--json` agora sempre devolve um único objeto com chave `status`
+  (`ok`/`error`/`rejected`) e exit codes previsíveis (0/1/2/127); comando com argumento
+  obrigatório faltando imprime o `Uso:` e falha limpo, sem stack trace; `simulate` com
+  recomendação `discard` passa a sinalizar rejeição (exit 2) em vez de fingir sucesso.
+- **Operação mais intuitiva.** `forja help <comando>` (e `--help`) explica uso, exemplos e
+  próximos passos; `forja setup` cobre o primeiro uso num comando; `forja status` dá o retrato
+  único do estado e `forja next` diz a próxima ação e o comando exato; erro de digitação
+  (`forja plan`) sugere o comando certo (`spec:plan`); o `help` sem argumento mostra só o núcleo,
+  agrupado por domínio.
+- **Mais funcional com LLMs.** Adaptador **Claude** com retomada de sessão (`llm:run --resume`,
+  `llm:sessions`), paridade com o Codex; `llm:run --engineer` injeta o contexto de engenharia no
+  prompt; `llm:recommend` passa a pesar latência e custo com evidência por candidato; `llm:eval`
+  reporta p50/p95 e custo por tarefa aceita; o fluxo SDD roda por MCP (cobertura 6 → 18 comandos).
+- **Gerador de projeto mais confiável.** `project:smoke --ai <lista>` exercita o caminho real
+  multi-IA (memória + instruções nativas por IA) e o CI roda isso em matriz a cada PR.
+- **Drift sentinel utilizável.** `forja drift:check --all` roda o sentinela uma vez por projeto
+  do workspace — o modo lote para retomar projetos parados há meses (SPEC-030 fecha em `done`).
 
 **Roadmap v4.1 concluído** ([`docs/roadmap-v4.1.md`](docs/roadmap-v4.1.md)): as 12 workstreams
 (W1–W12) — menos erros, operação mais intuitiva, mais funcional com LLMs — foram implementadas

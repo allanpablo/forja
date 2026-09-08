@@ -24,3 +24,5 @@ Separe `executionStatus` de `validationStatus`. Schema comprova formato; checks 
 
 ## Entrega
 Informe o que mudou, arquivos relevantes, comandos executados e resultados, limitações e pendências. Diferencie validado localmente, CI aprovado, push realizado e pacote publicado. Registre commit e link quando existirem. Antes de publicação autorizada, rode `npm run release:check -- --publish` em checkout limpo; não declare publicação sem confirmação do destino.
+
+Toda versão nova (bump de versão, tag ou publicação) inclui, como parte da entrega: o `README` reconciliado com o comportamento da versão e a entrada no `CHANGELOG.md` abrindo pela subseção `### O que melhorou` (diff de produto vs. a versão anterior). Runbook: [`docs/publishing.md`](publishing.md).

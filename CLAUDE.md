@@ -78,6 +78,7 @@ npm run tools:doctor             # raio-x do núcleo (ABI, memória, workspace) 
 - **ADRs**: toda decisão arquitetural vai para `memory/90-decisions/NNNN-titulo.md` (template em `_template.md`)
 - **Specs**: features não-triviais começam por `specs/<feature>/spec.md` antes de código (ver Frente SDD)
 - **Handoffs**: 7 campos obrigatórios (ADR-0005)
+- **Releases**: toda versão nova (bump/tag/publish) = `README` reconciliado com o comportamento da versão + entrada no `CHANGELOG.md` abrindo pela subseção `### O que melhorou` (diff de produto vs. versão anterior, reusada como release note do GitHub). Runbook: `docs/publishing.md`
 - **Memória**: 3 modos de smart-context (ADR-0003): `global`, `domain`, `task`
 - **Pasta `projects/`**: não editar — produtos em desenvolvimento ativo do usuário
 

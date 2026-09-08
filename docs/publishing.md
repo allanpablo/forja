@@ -5,10 +5,17 @@ package.json define o conteúdo distribuído. O workspace de produtos fica fora 
 
 ## Preparar uma versão
 
-1. Revisar mudanças, atualizar versão em package.json e package-lock.json e escrever o changelog.
-2. Executar tipos, testes e governança pelo core do Forja.
-3. Commitar a entrega. O modo de publicação exige árvore Git limpa.
-4. Executar doctor e o gate estrito do tarball na revisão que será publicada.
+1. Revisar mudanças e atualizar versão em package.json e package-lock.json.
+2. **Reconciliar o README** (`README.md` e `README.pt-BR.md`): tabelas de comandos e de pilares,
+   listas de features e exemplos que a versão mudou. Nenhuma tag sai com o README descrevendo o
+   comportamento anterior.
+3. **Escrever a entrada da versão no `CHANGELOG.md`** começando pela subseção `### O que melhorou`
+   — o diff em linguagem de produto vs. a versão anterior (o que passa a funcionar, o que para de
+   dar errado, o que fica mais simples) — e só então as seções técnicas. Esse bloco é o texto da
+   release note do GitHub.
+4. Executar tipos, testes e governança pelo core do Forja.
+5. Commitar a entrega. O modo de publicação exige árvore Git limpa.
+6. Executar doctor e o gate estrito do tarball na revisão que será publicada.
 
 ```bash
 npm run types:check
@@ -37,7 +44,8 @@ Se a sessão expirou, o mantenedor renova o login com `npm login`. Se o npm exig
 adicional, concluir o fluxo oficial. Não contornar o gate com ignore-scripts.
 
 Enviar o commit para o GitHub, aguardar o CI e criar a tag/release correspondente à versão
-publicada. Não mover uma tag existente nem republicar uma versão imutável.
+publicada. O corpo da release no GitHub é a subseção `### O que melhorou` daquela versão no
+`CHANGELOG.md`. Não mover uma tag existente nem republicar uma versão imutável.
 
 ## Conteúdo e compatibilidade
 

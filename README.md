@@ -365,6 +365,9 @@ output, code, and ADRs are readable regardless of language.
 - **CLI-first** — sprints, SDD, GSD, handoffs, and governance by command; the UI is never a gate.
 - **ADRs** — every structural decision becomes `memory/90-decisions/NNNN-title.md`.
 - **Handoffs** — 7 required fields (ADR-0005), stored in SQLite (ADR-0008).
+- **Releases** — every new version reconciles the README with its behavior and opens its
+  `CHANGELOG.md` entry with a `### O que melhorou` section (product-language diff vs. the previous
+  version, reused as the GitHub release note). Runbook: [`docs/publishing.md`](docs/publishing.md).
 - **pt-BR** — communication and documentation in Portuguese.
 
 ## Roadmap
