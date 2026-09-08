@@ -6,6 +6,14 @@ Histórico consolidado das mudanças estruturais do framework. Para decisões ar
 
 ## [Unreleased]
 
+**Roadmap v4.1 concluído** ([`docs/roadmap-v4.1.md`](docs/roadmap-v4.1.md)): as 12 workstreams
+(W1–W12) — menos erros, operação mais intuitiva, mais funcional com LLMs — foram implementadas
+pelo pipeline SDD do próprio Forja e merjadas em `main` (PRs #61–#69). Specs SPEC-043 a SPEC-050
+em `done`; `drift-sentinel` (SPEC-030) segue `implementing` por desenho (ADR-0084, janela de
+observação até 2026-10-08). ADRs estruturais: 0082 (contrato de saída CLI), 0083 (cobertura MCP
+declarativa), 0084 (fecho do drift-sentinel), 0085 (adaptador Claude). Detalhe de cada frente
+nas entradas abaixo.
+
 ### Adicionado
 
 - `forja llm:run --engineer "<objetivo>"` — monta o contexto pelo façade `engineer` (ADRs, risco,
