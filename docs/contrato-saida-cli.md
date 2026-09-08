@@ -59,7 +59,7 @@ Cada função termina o processo. `emitError(msg, { code, detail })` põe `detai
 
 Marque o comando com `json: true` no registry e cite `--json` no `usage` ou num `example`. O
 teste `test/cli-output-contract.test.js` itera o registry e reprova qualquer `json: true` que
-não cumpra o contrato.
+não cumpra o contrato — salvo as exceções conhecidas listadas abaixo.
 
 ## Comandos cobertos
 
@@ -70,3 +70,10 @@ não cumpra o contrato.
 em `bin/forja.ts` (SPEC-046): `succeeded`+exit 0 → `ok`, `succeeded`+exit 2 → `rejected`,
 `failed`/exit 1 → `error`; o `stdout` do filho, se for JSON, é fundido no resultado, senão vem
 em `raw`. `risk:assess` e o restante entram incrementalmente.
+
+## Exceções conhecidas
+
+`llm:sessions` (SPEC-048) é anterior a este contrato e mantém forma própria: `list --json` emite
+um **array** e `show --json` um **objeto sem `status`**. Documentado em
+[llm-fit-loop.md](llm-fit-loop.md); o teste de contrato o ignora explicitamente. Alinhá-lo é
+trabalho futuro, não regressão.

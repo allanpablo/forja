@@ -16,6 +16,11 @@ const forja = path.join(root, 'bin/forja.ts');
 // indexação de grafo). Deles verificamos só o caminho de erro do contrato — que é rápido.
 const HEAVY = new Set(['simulate', 'engineer']);
 
+// `llm:sessions` (SPEC-048) tem contrato JSON próprio e anterior ao ADR-0082: `list` emite um
+// array e `show` um objeto sem chave `status`. É uma exceção conhecida ao contrato genérico —
+// documentada em docs/llm-fit-loop.md — não uma regressão.
+const OWN_JSON_SHAPE = new Set(['llm:sessions']);
+
 // Args mínimos válidos por comando, quando precisam de um posicional.
 const MIN_ARGS = { simulate: ['HEAD'], engineer: ['"probe"'] };
 
@@ -32,7 +37,7 @@ function parseOne(stdout) {
   return parsed;
 }
 
-const jsonCommands = Object.entries(COMMANDS).filter(([, c]) => c.json === true);
+const jsonCommands = Object.entries(COMMANDS).filter(([n, c]) => c.json === true && !OWN_JSON_SHAPE.has(n));
 
 test('há comandos json:true no registry', () => {
   assert.ok(jsonCommands.length >= 4, `esperava ≥4, achei ${jsonCommands.length}`);
