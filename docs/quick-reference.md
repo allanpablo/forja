@@ -4,6 +4,19 @@
 
 ---
 
+## Descoberta pela propria CLI
+
+```bash
+forja status               # onde estou (workspace, sprint, corrida, specs, runs, handoffs)
+forja next                 # o que faco agora (proxima acao + comando)
+forja help                 # so o nucleo, agrupado por dominio
+forja help --all           # tudo
+forja help spec:new        # uso + argumentos + exemplos + proximos passos
+npm run setup              # primeiro uso: workspace:init + sync:universal (forja setup)
+```
+
+---
+
 ## Operacao CLI-First
 
 ```bash

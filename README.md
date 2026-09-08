@@ -220,6 +220,11 @@ scripts are thin aliases that route through the core.
 ## Essential commands
 
 ```bash
+# Orientation — the happy path
+forja status                               # where am I: workspace, sprint, run, specs, runs, handoffs
+forja next                                 # what now: one line — the next action + the exact command
+forja help [<command>|--all]               # the core, or one command's usage/args/examples/next steps
+
 # Workspace & projects
 forja workspace:init                       # create ~/forja-workspace
 forja project:new <name> --ai claude,copilot  # create a project in the workspace
@@ -234,7 +239,7 @@ forja sprint:start                         # also: sprint:status · sprint:compl
 forja gsd:plan <slug>                      # GSD runbook in .context/
 forja gsd:handoff <intent> <slug>          # role-to-role handoff (ADR-0005)
 forja gsd:check <slug>                     # baseline runbook gates
-forja orchestrate "<goal>" --slug <s>      # open a run: the SDD/GSD chain as a gated state machine (SPEC-021)
+forja orchestrate "<goal>" --slug <s>      # the default path: the whole SDD/GSD chain as a gated state machine (SPEC-021)
 forja orchestrate:status <slug>            # the machine state: stages, gates, verdicts
 forja orchestrate:advance <slug>           # run the stage gate; green → next; red → blocked
 

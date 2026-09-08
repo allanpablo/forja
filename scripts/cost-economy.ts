@@ -21,6 +21,7 @@ import Database from 'better-sqlite3';
 import { SqliteMigrationRunner, SqliteObservationStore } from '../packages/adapter-sqlite/src/index.ts';
 import { getWorkspaceDbDir, getWorkspaceDbPath, getWorkspaceInfo } from '../lib/workspace.ts';
 import { loadPricingTable, lookupPrice } from '../lib/core/model-pricing.ts';
+import { emitOk } from '../lib/cli-output.ts';
 
 interface ModelSummary {
   count: number;
@@ -31,6 +32,7 @@ interface ModelSummary {
 }
 
 function main(): void {
+  const json = process.argv.includes('--json');
   const info = getWorkspaceInfo();
   fs.mkdirSync(getWorkspaceDbDir(), { recursive: true });
   const db = new Database(process.env.FORJA_RUNTIME_DB ?? getWorkspaceDbPath());
@@ -58,6 +60,17 @@ function main(): void {
     if (!priceKnown) unknownPricingCount += 1;
   }
 
+  if (json) {
+    emitOk({
+      workspace: info.root,
+      currency: table.currency,
+      totalCostUsd,
+      observationCount: observations.length,
+      unknownPricingCount,
+      byModel: Object.fromEntries(byModel),
+    }); // termina o processo
+  }
+
   console.log(`\nCost economy — custo real acumulado (SPEC-029) — workspace: ${info.root}\n`);
   console.log('Estimativa baseada na tabela local de preços (lib/core/model-pricing.json), NÃO a fatura do provider.\n');
 
@@ -75,17 +88,6 @@ function main(): void {
     if (unknownPricingCount > 0) {
       console.log(`Aviso: ${unknownPricingCount} execução(ões) usaram modelo(s) sem preço na tabela local — custo real total pode ser maior que o mostrado. Atualize lib/core/model-pricing.json (\`forja llm:doctor\` lista os gaps).`);
     }
-  }
-
-  if (process.argv.includes('--json')) {
-    console.log(JSON.stringify({
-      workspace: info.root,
-      currency: table.currency,
-      totalCostUsd,
-      observationCount: observations.length,
-      unknownPricingCount,
-      byModel: Object.fromEntries(byModel),
-    }, null, 2));
   }
 }
 
