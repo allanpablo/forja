@@ -83,6 +83,7 @@ apps/dashboard/.next/
 !/specs/cli-intuitiva-v1
 !/specs/forja-status-caminho-feliz
 !/specs/contrato-saida-cli
+!/specs/mcp-cobertura-nucleo
 
 # Runbooks GSD e context packs são gerados/efêmeros e podem carregar dados de
 # produto. São regeneráveis (gsd:plan, context:build), então ficam fora do git.
