@@ -102,3 +102,52 @@ test('drift:check — --domain restringe aos documentos cujo path passa pelo seg
   const report = await checkDrift(graph, store, source, { domain: 'billing' });
   assert.equal(report.documents, 1);
 });
+
+// --- SPEC-030 §3 / ADR-0084: modo --all -----------------------------------
+
+import { spawnSync } from 'node:child_process';
+import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+
+const forja = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', 'bin', 'forja.ts');
+
+function driftAll(workspace) {
+  return spawnSync(process.execPath, [forja, 'drift:check', '--all'], {
+    encoding: 'utf8',
+    env: { ...process.env, FORJA_WORKSPACE: workspace },
+  });
+}
+
+test('drift:check --all — workspace sem projetos sai limpo', () => {
+  const ws = fs.mkdtempSync(path.join(os.tmpdir(), 'forja-drift-all-'));
+  try {
+    const r = driftAll(ws);
+    assert.equal(r.status, 0, r.stderr);
+    assert.match(r.stdout, /Nenhum projeto/);
+  } finally {
+    fs.rmSync(ws, { recursive: true, force: true });
+  }
+});
+
+test('drift:check --all — semeia o grafo de cada projeto na 1ª rodada, sem drift', () => {
+  const ws = fs.mkdtempSync(path.join(os.tmpdir(), 'forja-drift-all-'));
+  const proj = path.join(ws, 'projects', 'demo');
+  fs.mkdirSync(proj, { recursive: true });
+  fs.writeFileSync(path.join(proj, 'nota.md'), '# Nota\n\nConteudo estavel.\n');
+  const git = (args) => spawnSync('git', args, { cwd: proj, encoding: 'utf8' });
+  git(['init', '-q']);
+  git(['config', 'user.email', 't@t']);
+  git(['config', 'user.name', 't']);
+  git(['add', '-A']);
+  git(['commit', '-qm', 'seed']);
+  try {
+    const r = driftAll(ws);
+    assert.equal(r.status, 0, r.stderr);
+    assert.match(r.stdout, /demo\s+sem drift/);
+    assert.match(r.stdout, /1 projeto\(s\): 0 com drift/);
+  } finally {
+    fs.rmSync(ws, { recursive: true, force: true });
+  }
+});

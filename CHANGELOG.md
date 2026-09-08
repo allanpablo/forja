@@ -4,6 +4,22 @@ Histórico consolidado das mudanças estruturais do framework. Para decisões ar
 
 ---
 
+## [Unreleased]
+
+### Adicionado
+
+- `forja drift:check --all` — roda o sentinela de drift uma vez por projeto do workspace, cada um
+  num grafo isolado e persistente (`<projeto>/.context/drift-graph.db`). É o modo lote que a
+  SPEC-030 §3 previa: rodar antes de retomar um projeto parado há meses. (SPEC-030, ADR-0084)
+
+### Alterado
+
+- **SPEC-030 (Drift Sentinel) fecha** ([ADR-0084](memory/90-decisions/0084-drift-sentinel-fecha.md)):
+  a métrica de sucesso do §8 (drift real encontrado no mundo) era infalsificável como bloqueio de
+  `done` — foi reformulada para um aceite verificável agora (determinismo, zero falso positivo no
+  monorepo, `--all` completa), e "drift real no mundo" virou janela de observação até 2026-10-08.
+  `drift:check` segue como gate opt-in (`check:all --with-drift`), inalterado. Status → `done`.
+
 ## [4.0.0] — 2026-09-05 — Integrações LLM, sessões e validação
 
 - Prompts, skill de roteamento, instruções nativas e templates SDD alinhados ao contrato comum de execução e evidências.

@@ -212,7 +212,7 @@ export const COMMANDS = {
   },
   'drift:check': {
     domain: 'code',
-    desc: 'Reindexa e sinaliza relações verified que a extração atual não reproduz mais (SPEC-030). --domain <d> restringe',
+    desc: 'Reindexa e sinaliza relações verified que a extração atual não reproduz mais (SPEC-030). --domain <d> restringe; --all roda por projeto do workspace',
     node: 'scripts/drift-check.ts',
     gates: ['workspace-warn'],
   },
