@@ -1,7 +1,7 @@
 # Spec: llm-contexto-e-sessoes — `llm:run --engineer` e `llm:sessions`
 
 - **ID**: SPEC-048
-- **Status**: draft
+- **Status**: approved
 - **Owner**: apk
 - **Criado em**: 2026-09-08
 - **Sprint alvo**: <a definir>
