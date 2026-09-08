@@ -1,7 +1,7 @@
 # Spec: contrato-saida-cli — `--json` e exit codes como contrato de máquina
 
 - **ID**: SPEC-045
-- **Status**: draft
+- **Status**: approved
 - **Owner**: apk
 - **Criado em**: 2026-09-08
 - **Sprint alvo**: <a definir>
