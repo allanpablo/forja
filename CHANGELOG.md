@@ -6,6 +6,8 @@ Histórico consolidado das mudanças estruturais do framework. Para decisões ar
 
 ## [Unreleased]
 
+## [4.1.0] — 2026-09-08 — Roadmap v4.1: menos erros, mais intuitivo, mais funcional com LLMs
+
 **Roadmap v4.1 concluído** ([`docs/roadmap-v4.1.md`](docs/roadmap-v4.1.md)): as 12 workstreams
 (W1–W12) — menos erros, operação mais intuitiva, mais funcional com LLMs — foram implementadas
 pelo pipeline SDD do próprio Forja e merjadas em `main` (PRs #61–#69). Specs SPEC-043 a SPEC-050
