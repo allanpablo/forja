@@ -58,6 +58,22 @@ duplicados removidos. Arquivo ausente ou diretório causa erro antes de executar
 O hash cobre tarefa e contexto completos. O Forja não salva esses conteúdos nem a resposta no banco
 ou na auditoria; salva modelo, duração, resultado, comando, referências e contagens de tokens.
 
+### Contexto pelo façade — `--engineer` (SPEC-048)
+
+```bash
+forja llm:run --profile codex --engineer "adicionar rate limit no login" --prompt "implemente"
+```
+
+`--engineer "<objetivo>"` roda `forja engineer "<objetivo>" --json` (contexto mínimo do domínio +
+ADRs relevantes + `architecture:check` + risco + agentes recomendados + incidentes parecidos +
+fluxo) e **embute o relatório no prompt**, antes do que você passar em `--prompt`/`--task` e antes
+dos `--context`. Sem `--prompt`/`--task`, o próprio objetivo vira o prompt.
+
+O hash cobre o prompt transmitido, incluindo o bloco do `engineer`. Em `contextRefs` fica só a
+**referência** `engineer:<objetivo>` — o conteúdo do relatório **nunca** é persistido, igual ao
+tratamento de `--context`. Se o façade sair com erro, o `llm:run` falha **antes** de chamar o
+provedor com `errorCode: "ENGINEER_FAILED"`.
+
 Codex recebe o prompt por stdin e retorna eventos JSONL. O Forja extrai a resposta do agente,
 `sessionId` e uso, sem devolver eventos de raciocínio como resposta final. Falhas explícitas,
 JSONL inválido ou ausência de conclusão resultam em erro mesmo com exit zero do subprocesso.
@@ -98,6 +114,17 @@ provedor, modelo declarado, executável, argumentos ou privacidade bloqueia ante
 Esforço e timeout podem mudar. A configuração global da CLI não é fingerprintada; use um modelo
 explícito no perfil quando precisar fixá-lo. Não há coordenação de retomadas simultâneas da mesma
 sessão nem garantia de que o modelo nunca repetirá uma ação.
+
+### Descobrir o `SESSION_ID` — `llm:sessions` (SPEC-048)
+
+```bash
+forja llm:sessions list                # id, projeto, quando, observação — mais recente primeiro
+forja llm:sessions show <id> [--json]   # a sessão + a observação e a validação vinculadas
+```
+
+Somente leitura sobre `llm_session` — não abre o provedor nem a rede. É como recuperar o `id` do
+`--resume` quando a saída da execução anterior se perdeu. `list --json` emite um array; `show`
+emite um objeto; `id` desconhecido sai com código 1.
 
 ## Formato e validação independente
 

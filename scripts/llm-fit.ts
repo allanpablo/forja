@@ -10,7 +10,7 @@ import { ObservabilityRecorder } from '../packages/observability/src/index.ts';
 import { SqliteMigrationRunner, SqliteObservationStore, SqliteJsonRepository } from '../packages/adapter-sqlite/src/index.ts';
 import { getWorkspaceContextDir, getWorkspaceDbDir, getWorkspaceDbPath } from '../lib/workspace.ts';
 import { computeCostUsd, isPriceStale, loadPricingTable, lookupPrice, STALE_PRICE_MAX_AGE_DAYS } from '../lib/core/model-pricing.ts';
-import { buildContextPrompt } from '../lib/llm/context.ts';
+import { buildContextPrompt, buildEngineerBlock } from '../lib/llm/context.ts';
 import { normalizeCodexResult, type NormalizedLlmResult } from '../lib/llm/codex-output.ts';
 import { LlmSessionStore, validSessionId } from '../lib/llm/session.ts';
 import { prepareValidation, validateLlmResponse } from '../lib/llm/validation.ts';
@@ -99,15 +99,36 @@ function doctor(name?: string): void {
 async function run(): Promise<void> {
   const input = flags(process.argv.slice(3));
   for (const [key, values] of input) {
-    if (!['--profile', '--prompt', '--task', '--context', '--resume', '--output-schema', '--validation'].includes(key)) throw new Error(`Opção não suportada: ${key}`);
+    if (!['--profile', '--prompt', '--task', '--context', '--resume', '--output-schema', '--validation', '--engineer'].includes(key)) throw new Error(`Opção não suportada: ${key}`);
     if (key !== '--context' && values.length !== 1) throw new Error(`Opção repetida: ${key}`);
   }
   if (input.has('--prompt') && input.has('--task')) throw new Error('Use --prompt ou --task, não ambos.');
   const name = option(input, '--profile');
-  const prompt = option(input, '--prompt') ?? (option(input, '--task') ? fs.readFileSync(path.resolve(option(input, '--task')!), 'utf8') : undefined);
+  const objective = option(input, '--engineer');
+  // Sem --prompt/--task, o próprio objetivo do --engineer vira o prompt.
+  const prompt = option(input, '--prompt')
+    ?? (option(input, '--task') ? fs.readFileSync(path.resolve(option(input, '--task')!), 'utf8') : undefined)
+    ?? objective;
   if (!name || !prompt) usage();
   const selected = profile(name);
-  const context = buildContextPrompt(prompt, input.get('--context') ?? []);
+
+  // SPEC-048: --engineer monta o contexto pelo façade e o embute no prompt. Falha do façade =
+  // falha ANTES do provedor — nunca mandar um prompt sem o contexto pedido.
+  const engineerRefs: string[] = [];
+  let promptWithEngineer = prompt;
+  if (objective !== undefined) {
+    try {
+      const block = buildEngineerBlock(objective);
+      promptWithEngineer = `${block.text}\n\n${prompt}`;
+      engineerRefs.push(block.ref);
+    } catch (error) {
+      const detail = error instanceof Error && 'detail' in error ? (error as { detail: string }).detail : String(error);
+      console.log(JSON.stringify({ profile: name, exitCode: 1, errorCode: 'ENGINEER_FAILED', stderr: detail }, null, 2));
+      process.exit(1);
+    }
+  }
+
+  const context = buildContextPrompt(promptWithEngineer, input.get('--context') ?? []);
   const prepared = prepareValidation(option(input, '--output-schema'), option(input, '--validation'));
   const resume = option(input, '--resume');
   const fullPrompt = prepared.schemaText === undefined ? context.prompt : `${context.prompt}\n\nResponda somente JSON conforme este JSON Schema:\n${prepared.schemaText}`;
@@ -125,7 +146,7 @@ async function run(): Promise<void> {
     const sessionId = result.errorCode === 'SESSION_MISMATCH' ? undefined : result.sessionId ?? resume;
     const validation = await validateLlmResponse(prepared, result.stdout, process.cwd(), result.exitCode === 0);
     const recorder = new ObservabilityRecorder(store);
-    const refs = [...context.refs, ...[prepared.schemaPath, prepared.manifestPath].filter((value): value is string => value !== undefined)];
+    const refs = [...engineerRefs, ...context.refs, ...[prepared.schemaPath, prepared.manifestPath].filter((value): value is string => value !== undefined)];
     const model = `${selected.provider}:${selected.model}`;
     const inputTokens = result.usage?.inputTokens ?? Math.ceil(Buffer.byteLength(fullPrompt) / 4);
     const outputTokens = result.usage?.outputTokens ?? Math.ceil(Buffer.byteLength(result.stdout) / 4);
@@ -165,6 +186,61 @@ async function evaluate(): Promise<void> {
   try { console.log(JSON.stringify(await new EvaluationEngine(store).evaluate({ scope: scope as 'workspace' | 'model', scopeId }), null, 2)); } finally { db.close(); }
 }
 
+/**
+ * SPEC-048 — `llm:sessions list|show`. Somente leitura sobre `llm_session`: torna descobrível o
+ * `SESSION_ID` que `llm:run --resume` exige. Não usa `flags()` (subcomandos são posicionais).
+ */
+function cmdSessions(): void {
+  const args = process.argv.slice(3);
+  const json = args.includes('--json');
+  const positionals = args.filter((a) => !a.startsWith('--'));
+  const sub = positionals[0] ?? 'list';
+  if (sub !== 'list' && sub !== 'show') { console.error('Uso: forja llm:sessions <list|show> [id] [--json]'); process.exit(1); }
+
+  const { db, store } = storage();
+  try {
+    const repository = new SqliteJsonRepository(db);
+    const sessions = new LlmSessionStore(repository);
+
+    if (sub === 'list') {
+      const all = sessions.all();
+      if (json) { console.log(JSON.stringify(all, null, 2)); return; }
+      if (all.length === 0) { console.log('Nenhuma sessão registrada neste workspace.'); return; }
+      console.log(`\n${all.length} sessão(ões) — mais recente primeiro. Use o id em \`llm:run --resume <id>\`.\n`);
+      for (const s of all) console.log(`  ${s.id.padEnd(40)} ${path.basename(s.cwd).padEnd(24)} ${s.updatedAt}  obs:${s.observationId}`);
+      return;
+    }
+
+    // show <id>
+    const id = positionals[1];
+    if (!id) { console.error('Uso: forja llm:sessions show <id> [--json]'); process.exit(1); }
+    const session = sessions.find(id);
+    if (!session) { console.error(`Sessão não encontrada: ${id}`); process.exit(1); }
+
+    const observation = store.list().find((o: { id: string }) => o.id === session.observationId) as
+      | { model?: string; outcome?: string; validationStatus?: string; durationMs?: number }
+      | undefined;
+    const validation = repository.get<{ status?: string; checks?: { name: string }[] }>('llm_validation', session.observationId);
+    const payload = {
+      session,
+      observation: observation
+        ? { model: observation.model ?? null, outcome: observation.outcome ?? null, validationStatus: observation.validationStatus ?? null, durationMs: observation.durationMs ?? null }
+        : null,
+      validation: validation ? { status: validation.status ?? null, checks: (validation.checks ?? []).map((c) => c.name) } : null,
+    };
+    if (json) { console.log(JSON.stringify(payload, null, 2)); return; }
+    console.log(`\nSessão ${session.id}`);
+    console.log(`  projeto: ${session.cwd}`);
+    console.log(`  atualizada: ${session.updatedAt}`);
+    console.log(`  observação: ${session.observationId}`);
+    if (payload.observation) console.log(`  → ${payload.observation.model} · ${payload.observation.outcome} · validação ${payload.observation.validationStatus} · ${payload.observation.durationMs}ms`);
+    if (payload.validation) console.log(`  → validação: ${payload.validation.status}${payload.validation.checks.length ? ` (checks: ${payload.validation.checks.join(', ')})` : ''}`);
+    if (!payload.observation && !payload.validation) console.log('  (sem observação/validação vinculada — sessão pode ser de outra versão)');
+  } finally {
+    db.close();
+  }
+}
+
 async function main(): Promise<void> {
   const command = process.argv[2];
   if (command === 'profiles:init') {
@@ -176,6 +252,7 @@ async function main(): Promise<void> {
   else if (command === 'recommend') recommend();
   else if (command === 'run') await run();
   else if (command === 'eval') await evaluate();
+  else if (command === 'sessions') cmdSessions();
   else usage();
 }
 

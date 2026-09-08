@@ -84,3 +84,33 @@ test('runLlm derruba com SIGKILL um subprocesso que ignora SIGTERM após o timeo
     fs.rmSync(tmp, { recursive: true, force: true });
   }
 });
+
+test('llm:run --engineer embute o contexto do façade no prompt (SPEC-048)', { concurrency: false }, () => {
+  const workspace = fs.mkdtempSync(path.join(os.tmpdir(), 'forja-llm-engineer-'));
+  const root = path.resolve(import.meta.dirname, '..');
+  const run = (args) => spawnSync(process.execPath, [path.join(root, 'bin', 'forja.ts'), ...args], { cwd: root, encoding: 'utf8', env: { ...process.env, FORJA_WORKSPACE: workspace } });
+  try {
+    assert.equal(run(['workspace:init']).status, 0);
+    assert.equal(run(['llm:profiles:init']).status, 0);
+    const profilePath = path.join(workspace, '.context', 'llm-profiles.json');
+    const configured = JSON.parse(fs.readFileSync(profilePath, 'utf8'));
+    configured.profiles.fixture = {
+      provider: 'fixture', model: 'v1', command: process.execPath,
+      commandArgs: ['-e', 'process.stdout.write(process.argv.at(-1))'], roles: ['worker'],
+      taskTypes: ['test'], privacy: 'local', enabled: true,
+    };
+    fs.writeFileSync(profilePath, JSON.stringify(configured));
+
+    const executed = run(['llm:run', '--profile', 'fixture', '--prompt', 'faça X', '--engineer', 'adicionar rate limit']);
+    assert.equal(executed.status, 0, executed.stderr);
+    const out = JSON.parse(executed.stdout);
+    // o fixture ecoa o prompt transmitido — deve conter o bloco do engineer + o prompt
+    assert.match(out.stdout, /Contexto do engineer \(objetivo: adicionar rate limit\)/);
+    assert.match(out.stdout, /faça X/);
+    // a referência entra em contextRefs; o conteúdo não é persistido na auditoria
+    const audit = fs.readFileSync(path.join(workspace, '.context', 'forja-runs.jsonl'), 'utf8');
+    assert.ok(!audit.includes('Contexto do engineer'), 'conteúdo do engineer vazou para a auditoria');
+  } finally {
+    fs.rmSync(workspace, { recursive: true, force: true });
+  }
+});

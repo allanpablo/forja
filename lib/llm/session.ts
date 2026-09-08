@@ -28,6 +28,16 @@ export class LlmSessionStore {
     return session;
   }
 
+  /** Leitura pura para `llm:sessions` (SPEC-048): todas as sessões, mais recentes primeiro. */
+  all(): readonly LlmSession[] {
+    return [...this.repository.list<LlmSession>('llm_session')].sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
+  }
+
+  /** Leitura pura: uma sessão pelo id, sem validar binding (que é do fluxo de retomada). */
+  find(id: string): LlmSession | undefined {
+    return this.repository.get<LlmSession>('llm_session', id);
+  }
+
   save(id: string, profile: LlmProfile, cwd: string, observationId: string): void {
     if (!validSessionId(id)) throw new Error('ID de sessão inválido retornado pelo provedor.');
     const previous = this.repository.get<LlmSession>('llm_session', id);
