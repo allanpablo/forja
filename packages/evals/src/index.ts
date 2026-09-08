@@ -38,6 +38,18 @@ export class EvaluationEngine {
     return candidate === scopeId;
   }
 
+  /** Percentil por interpolação linear (`p·(n-1)`); `[]` → 0. SPEC-049. */
+  private percentile(values: readonly number[], p: number): number {
+    if (values.length === 0) return 0;
+    const sorted = [...values].sort((a, b) => a - b);
+    if (sorted.length === 1) return sorted[0];
+    const rank = (p / 100) * (sorted.length - 1);
+    const low = Math.floor(rank);
+    const high = Math.ceil(rank);
+    if (low === high) return sorted[low];
+    return sorted[low] + (sorted[high] - sorted[low]) * (rank - low);
+  }
+
   private metrics(values: readonly Observation[]): Readonly<Record<string, number>> {
     const total = values.length;
     const succeeded = values.filter((value) => value.outcome === 'succeeded').length;
@@ -66,6 +78,13 @@ export class EvaluationEngine {
       totalInputTokens: values.reduce((sum, value) => sum + value.inputTokens, 0),
       totalOutputTokens: values.reduce((sum, value) => sum + value.outputTokens, 0),
       totalCost: values.reduce((sum, value) => sum + (value.cost ?? 0), 0),
+      // SPEC-049 — latência por percentil e custo por tarefa aprovada. `costPerAcceptedTask` = 0
+      // quando nenhuma foi aceita (não Infinity nem null): `metrics` é Record<string, number>.
+      durationMsP50: this.percentile(values.map((value) => value.durationMs), 50),
+      durationMsP95: this.percentile(values.map((value) => value.durationMs), 95),
+      costPerAcceptedTask: accepted === 0
+        ? 0
+        : values.reduce((sum, value) => sum + (value.cost ?? 0), 0) / accepted,
     };
   }
 
