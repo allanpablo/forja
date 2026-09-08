@@ -31,6 +31,7 @@ import { GitGraphDocumentSource } from '../packages/adapter-git/src/index.ts';
 import { GraphIndexer, GraphLoop } from '../packages/graph/src/index.ts';
 import { SqliteGraphStore, SqliteMigrationRunner } from '../packages/adapter-sqlite/src/index.ts';
 import { buildRiskInput, changedFiles } from '../lib/core/risk-collect.ts';
+import { emitOk, emitError, emitRejected } from '../lib/cli-output.ts';
 import type { RunId } from '../packages/contracts/src/index.ts';
 
 const CONSTITUTION_PATH = '.context/architecture/constitution.json';
@@ -100,7 +101,13 @@ async function cmdSimulate(args: string[]): Promise<void> {
   const commandIndex = args.indexOf('--command');
   const testCommand = commandIndex === -1 ? 'npm test' : args[commandIndex + 1];
   const ref = args.filter((arg, index) => arg !== '--json' && (commandIndex === -1 || (index !== commandIndex && index !== commandIndex + 1)))[0];
-  if (!ref) { console.error('Uso: forja simulate <ref> [--command "npm test"] [--json]'); process.exitCode = 1; return; }
+  if (!ref) {
+    const usage = 'Uso: forja simulate <ref> [--command "npm test"] [--json]';
+    if (json) emitError(usage); // termina o processo
+    console.error(usage);
+    process.exitCode = 1;
+    return;
+  }
 
   const paths = changedFiles(ref);
   const runner = new SpawnCommandRunner();
@@ -111,6 +118,7 @@ async function cmdSimulate(args: string[]): Promise<void> {
   const worktreeRoot = path.join(tempBase, 'worktree');
   const runId = randomUUID() as RunId;
   const session = await sandbox.create({ runId, root: worktreeRoot });
+  let report: SimulationReport;
   try {
     await sandbox.prepare(session.id);
     const [executable, ...cmdArgs] = testCommand.split(' ');
@@ -120,9 +128,7 @@ async function cmdSimulate(args: string[]): Promise<void> {
     const { architectureCheck, risk } = await assessWorktree(worktreeRoot, paths);
     const recommendation = recommendationFor(testResult.passed, architectureCheck, risk);
 
-    const report: SimulationReport = { ref, changedFiles: paths, testCommand, testResult, architectureCheck, risk, recommendation };
-    if (json) console.log(JSON.stringify(report, null, 2));
-    else printText(report);
+    report = { ref, changedFiles: paths, testCommand, testResult, architectureCheck, risk, recommendation };
   } finally {
     // best-effort — reject() pode já ter deixado a sessão num estado terminal se execute() lançou,
     // e destroy() pode achar o worktree já removido pelo reject(); nenhum dos dois é fatal aqui. O
@@ -132,6 +138,16 @@ async function cmdSimulate(args: string[]): Promise<void> {
     await sandbox.destroy(session.id).catch((error) => { console.error(`simulate: aviso — destroy do sandbox falhou: ${error instanceof Error ? error.message : String(error)}`); });
     fs.rmSync(tempBase, { recursive: true, force: true });
   }
+
+  // Fora do try/finally: o cleanup do sandbox já rodou, então as saídas que terminam o processo
+  // (emit*) são seguras. `discard` = o gate do simulate dizendo "não promova" → rejected/exit 2
+  // (ADR-0082).
+  if (json) {
+    if (report.recommendation === 'discard') emitRejected({ ...report }); // termina o processo
+    emitOk({ ...report }); // termina o processo
+  }
+  printText(report);
+  if (report.recommendation === 'discard') process.exitCode = 2;
 }
 
 function printText(report: SimulationReport): void {

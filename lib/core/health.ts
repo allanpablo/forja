@@ -663,6 +663,26 @@ export const CHECKS = [
 ];
 
 /**
+ * SPEC-043 (AC-7): em qual bloco cada resultado aparece no `tools:doctor` e no hook SessionStart.
+ * `blocking` pode travar o fluxo (exit 1 quando `critical`). `first-run` é rotina de clone novo,
+ * que `forja setup` resolve. `optional` são as ferramentas ADR-0018, que nunca travam.
+ * É um mapa por `id` de propósito: não toca o tipo `Check` nem o runner (`runChecks` intacto).
+ */
+export type HealthBucket = 'blocking' | 'first-run' | 'optional';
+
+const FIRST_RUN_CHECKS = new Set(['memory-db', 'memory-fresh', 'workspace']);
+
+export function bucketFor(id: string): HealthBucket {
+  return FIRST_RUN_CHECKS.has(id) ? 'first-run' : 'blocking';
+}
+
+export const BUCKET_LABEL: Record<HealthBucket, string> = {
+  blocking: 'Bloqueia o fluxo',
+  'first-run': 'Rotina de primeiro uso',
+  optional: 'Opcional (ferramentas)',
+};
+
+/**
  * Roda os checks do núcleo. Fachada sobre o runner de `checks.mjs`: existe só para injetar o
  * `defaultEnv` do framework, que o runner genérico não conhece nem deve conhecer.
  *

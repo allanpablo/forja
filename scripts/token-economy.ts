@@ -22,6 +22,11 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { domainsOf, buildContextPack } from '../lib/code-context.ts';
+import { emitOk } from '../lib/cli-output.ts';
+
+const JSON_MODE = process.argv.includes('--json');
+/** No modo `--json` o stdout é só o objeto final (ADR-0082); o texto de análise é suprimido. */
+const say = (line = ''): void => { if (!JSON_MODE) console.log(line); };
 
 const __filename = fileURLToPath(import.meta.url);
 const root = path.resolve(path.dirname(__filename), '..');
@@ -32,25 +37,26 @@ const root = path.resolve(path.dirname(__filename), '..');
  */
 function projectMode(projectRoot: string): void {
   const domains = domainsOf(projectRoot);
-  console.log(`\nToken economy — eixo memória nos domínios de ${projectRoot} (ADR-0009)\n`);
+  say(`\nToken economy — eixo memória nos domínios de ${projectRoot} (ADR-0009)\n`);
   if (!domains.length) {
-    console.log(`Nenhum domínio em ${path.join(projectRoot, 'memory/30-domains')}. Rode dentro de um projeto gerado.`);
+    say(`Nenhum domínio em ${path.join(projectRoot, 'memory/30-domains')}. Rode dentro de um projeto gerado.`);
+    if (JSON_MODE) emitOk({ rows: [] });
     return;
   }
-  console.log('Para cada domínio: ler o mapa (context.md) vs ler todo o código da fatia.\n');
+  say('Para cada domínio: ler o mapa (context.md) vs ler todo o código da fatia.\n');
   const rows: any[] = [];
   for (const domain of domains) {
     const pack = buildContextPack({ projectRoot, domain, includeCode: true });
     const economy = pack.codeTokens === 0 ? '—' : `−${Math.round(((pack.codeTokens - pack.mapTokens) / pack.codeTokens) * 100)}%`;
     rows.push({ domínio: domain, mapa_tok: pack.mapTokens, código_tok: pack.codeTokens, mapa_vs_código: economy });
-    console.log(`■ ${domain}`);
-    console.log(`  mapa (context.md):  ${String(pack.mapTokens).padStart(5)} tok`);
-    console.log(`  código da fatia:    ${String(pack.codeTokens).padStart(5)} tok  (${pack.code.length} arq.)`);
-    console.log(`  o mapa custa ${economy} do código — é o resumo que substitui a leitura da árvore\n`);
+    say(`■ ${domain}`);
+    say(`  mapa (context.md):  ${String(pack.mapTokens).padStart(5)} tok`);
+    say(`  código da fatia:    ${String(pack.codeTokens).padStart(5)} tok  (${pack.code.length} arq.)`);
+    say(`  o mapa custa ${economy} do código — é o resumo que substitui a leitura da árvore\n`);
   }
-  console.log('O mapa é o resumo do domínio: lê-lo custa uma fração de ler a fatia inteira. Essa é a');
-  console.log('economia da memória, medida no SEU projeto. (Sem mapa? rode `forja memory:audit`.)\n');
-  if (process.argv.includes('--json')) console.log(JSON.stringify(rows, null, 2));
+  say('O mapa é o resumo do domínio: lê-lo custa uma fração de ler a fatia inteira. Essa é a');
+  say('economia da memória, medida no SEU projeto. (Sem mapa? rode `forja memory:audit`.)\n');
+  if (JSON_MODE) emitOk({ rows });
 }
 
 const CLEAN = 'boilerplates/06-clean-arch/backend/src/modules/orders';
@@ -132,31 +138,29 @@ if (projIdx >= 0) {
   process.exit(0);
 }
 
-console.log('\nToken economy — o custo do CONTEXTO por cenário (ADR-0027, ADR-0009)\n');
-console.log('Token ≈ bytes/4. Não mede o custo de gerar do zero (custo único); mede o regime permanente.\n');
+say('\nToken economy — o custo do CONTEXTO por cenário (ADR-0027, ADR-0009)\n');
+say('Token ≈ bytes/4. Não mede o custo de gerar do zero (custo único); mede o regime permanente.\n');
 
 const out: any[] = [];
 for (const s of SCENARIOS) {
   const a = sum(s.a.files);
   const b = sum(s.b.files);
   out.push({ eixo: s.axis, cenário: s.name, [s.a.label]: a, [s.b.label]: b, a_vs_b: pct(a, b) });
-  console.log(`■ [${s.axis}] ${s.name}`);
-  console.log(`  ${s.question}`);
-  console.log(`  ${s.a.label.padEnd(18)} ${String(a).padStart(5)} tok  (${s.a.files.length} arq.)`);
-  console.log(`  ${s.b.label.padEnd(18)} ${String(b).padStart(5)} tok  (${s.b.files.length} arq.)`);
-  console.log(`  ${s.a.label} vs ${s.b.label}: ${pct(a, b)}\n`);
+  say(`■ [${s.axis}] ${s.name}`);
+  say(`  ${s.question}`);
+  say(`  ${s.a.label.padEnd(18)} ${String(a).padStart(5)} tok  (${s.a.files.length} arq.)`);
+  say(`  ${s.b.label.padEnd(18)} ${String(b).padStart(5)} tok  (${s.b.files.length} arq.)`);
+  say(`  ${s.a.label} vs ${s.b.label}: ${pct(a, b)}\n`);
 }
 
 const arch = out[1]; // mudar a regra, clean vs flat
 const mem = out[2]; // frio vs quente
-console.log('Veredito (derivado dos números):');
-console.log(`  • EIXO ARQUITETURA: numa feature pequena, camadas custam MAIS token (${arch.a_vs_b} para`);
-console.log(`    a mudança isolada). "Clean Architecture economiza tokens" não se sustenta nessa escala —`);
-console.log(`    a justificativa das camadas é isolamento e testabilidade, não token.`);
-console.log(`  • EIXO MEMÓRIA: o mapa (context.md) faz o contexto mínimo custar ${mem.a_vs_b} vs varrer`);
-console.log(`    a fatia no frio. É AQUI que a economia mora — e ela COMPÕE: o scaffold é custo único,`);
-console.log(`    o mapa economiza a cada tarefa futura. Depois do projeto levantado, a memória paga de volta.\n`);
+say('Veredito (derivado dos números):');
+say(`  • EIXO ARQUITETURA: numa feature pequena, camadas custam MAIS token (${arch.a_vs_b} para`);
+say(`    a mudança isolada). "Clean Architecture economiza tokens" não se sustenta nessa escala —`);
+say(`    a justificativa das camadas é isolamento e testabilidade, não token.`);
+say(`  • EIXO MEMÓRIA: o mapa (context.md) faz o contexto mínimo custar ${mem.a_vs_b} vs varrer`);
+say(`    a fatia no frio. É AQUI que a economia mora — e ela COMPÕE: o scaffold é custo único,`);
+say(`    o mapa economiza a cada tarefa futura. Depois do projeto levantado, a memória paga de volta.\n`);
 
-if (process.argv.includes('--json')) {
-  console.log(JSON.stringify(out, null, 2));
-}
+if (JSON_MODE) emitOk({ rows: out });

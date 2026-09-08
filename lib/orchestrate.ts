@@ -81,6 +81,24 @@ export function loadState(root: string, slug: string, env: OrchestrateEnv = defa
   }
 }
 
+/**
+ * Slugs das corridas com estado em `<root>/.context/` (SPEC-044). Restrito a esse diretório — não
+ * varre projetos gerados. Nunca lança: `[]` quando não há `.context/` ou nenhuma corrida.
+ */
+export function listRuns(root: string, env: OrchestrateEnv = defaultEnv): string[] {
+  const dir = path.join(root, '.context');
+  let names: string[];
+  try {
+    names = env.fs.readdirSync(dir);
+  } catch {
+    return [];
+  }
+  return names
+    .map((n) => /^orchestrate-(.+)\.json$/.exec(n)?.[1])
+    .filter((s): s is string => typeof s === 'string')
+    .sort();
+}
+
 function saveState(root: string, state: RunState, env: OrchestrateEnv): void {
   const file = statePath(root, state.slug);
   env.fs.mkdirSync(path.dirname(file), { recursive: true });

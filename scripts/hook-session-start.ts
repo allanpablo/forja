@@ -15,43 +15,16 @@
  * nativo. Quem seguisse o conselho do próprio framework não consertava nada.
  */
 
-import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { runChecks } from '../lib/core/health.ts';
+import { runChecks, bucketFor, BUCKET_LABEL } from '../lib/core/health.ts';
+import { listSpecs } from '../lib/specs-index.ts';
+import { openHandoffs } from '../lib/handoffs-index.ts';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const root = path.resolve(__dirname, '..');
-
-function safeReadDir(p: any) { try { return fs.readdirSync(p); } catch { return []; } }
-
-function listSpecs() {
-  const specsDir = path.join(root, 'specs');
-  const out: { slug: string; status: string }[] = [];
-  for (const slug of safeReadDir(specsDir)) {
-    if (slug.startsWith('_') || slug.startsWith('.')) continue;
-    const specPath = path.join(specsDir, slug, 'spec.md');
-    if (!fs.existsSync(specPath)) continue;
-    const c = fs.readFileSync(specPath, 'utf8');
-    const m = c.match(/-\s*\*\*Status\*\*:\s*([a-z]+)/i);
-    out.push({ slug, status: m ? m[1] : 'unknown' });
-  }
-  return out;
-}
-
-/** Handoffs só fazem sentido com a memória de pé — daí o `memoriaOk` do caller. */
-async function openHandoffs() {
-  try {
-    const { getWorkspaceDbPath } = await import('../lib/workspace.ts');
-    const { default: Database } = await import('better-sqlite3');
-    const db = new Database(getWorkspaceDbPath(), { readonly: true });
-    const rows = db.prepare(`SELECT id, from_agent, to_agent, intent, spec_slug FROM handoffs WHERE status='open' ORDER BY id DESC LIMIT 10`).all();
-    db.close();
-    return rows;
-  } catch { return []; }
-}
 
 /**
  * Nunca lança e nunca trava a sessão: o hook reporta, o `tools:doctor` é que é gate. Se a própria
@@ -64,7 +37,7 @@ async function coreHealth() {
 }
 
 (async function main() {
-  const specs = listSpecs();
+  const specs = listSpecs(root);
   const health = await coreHealth();
   const problemas = health.filter((c) => c.status === 'fail' || c.status === 'warn');
   const memoriaOk = !health.some((c) => c.status === 'fail');
@@ -75,10 +48,16 @@ async function coreHealth() {
 
   if (problemas.length) {
     lines.push('');
-    for (const p of problemas) {
-      const icone = p.status === 'fail' ? '✖' : '⚠';
-      lines.push(`${icone} ${p.title}: ${p.detail}`);
-      if (p.fix) lines.push(`  corrigir: ${p.fix}`);
+    for (const bucket of ['blocking', 'first-run'] as const) {
+      const grp = problemas.filter((p) => bucketFor(p.id) === bucket);
+      if (!grp.length) continue;
+      lines.push(`${BUCKET_LABEL[bucket]}:`);
+      for (const p of grp) {
+        const icone = p.status === 'fail' ? '✖' : '⚠';
+        lines.push(`  ${icone} ${p.title}: ${p.detail}`);
+        if (p.fix) lines.push(`    corrigir: ${p.fix}`);
+      }
+      if (bucket === 'first-run') lines.push('    (ou rode tudo: `npm run setup`)');
     }
     lines.push('  raio-x completo: `npm run tools:doctor`');
   }
@@ -89,10 +68,10 @@ async function coreHealth() {
   }
   if (handoffs.length) {
     lines.push('\nHandoffs em aberto:');
-    for (const h of handoffs) lines.push(`  - #${h.id} ${h.from_agent} → ${h.to_agent} (${h.intent}) ${h.spec_slug || ''}`);
+    for (const h of handoffs) lines.push(`  - #${h.id} ${h.from} → ${h.to} (${h.intent}) ${h.slug || ''}`);
   }
-  lines.push('\nFluxo SDD: `npm run spec:new|plan|tasks|check`');
-  lines.push('Handoff: `node scripts/agent-router.mjs append <json>`');
+  lines.push('\nFluxo SDD: `npm run spec:new|plan|tasks|check`  ·  detalhe: `forja help <comando>`');
+  lines.push('Handoff: `npm run hermes:handoff -- \'<json ADR-0005>\'`');
   lines.push('</framework-status>');
 
   process.stdout.write(JSON.stringify({

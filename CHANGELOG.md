@@ -8,6 +8,64 @@ Histórico consolidado das mudanças estruturais do framework. Para decisões ar
 
 ### Adicionado
 
+- `forja llm:run --engineer "<objetivo>"` — monta o contexto pelo façade `engineer` (ADRs, risco,
+  fluxo, …) e o embute no prompt. O hash cobre o prompt transmitido; em `contextRefs` fica só a
+  referência `engineer:<objetivo>`, nunca o conteúdo. Falha do façade → `errorCode:
+  "ENGINEER_FAILED"` antes de chamar o provedor. (SPEC-048)
+- `forja llm:sessions list|show` — leitura das sessões LLM registradas (`llm_session`) para
+  recuperar o `SESSION_ID` que `llm:run --resume` exige. Somente leitura. (SPEC-048)
+- `forja llm:eval` reporta `durationMsP50`/`durationMsP95` e `costPerAcceptedTask`
+  (`totalCost / tarefas aceitas`; 0 quando nenhuma). As métricas anteriores não mudam. (SPEC-049)
+- `forja llm:recommend` pondera **latência e custo** além do fit declarado e do sucesso local
+  (bônus limitado — nunca inverte um fit) e devolve `evidence` por candidato
+  (`samples`, `medianDurationMs`, `meanCostUsd`, `successRate`) + `reasons` com `latency:p50=…` /
+  `cost:$…/run`. Nenhum percentual de ganho é afirmado antes de um baseline de 30 dias. (SPEC-049)
+- Adaptador **Claude** com paridade de retomada e formato: `llm:run --profile claude` invoca
+  `claude -p "<prompt>" --output-format json [--resume <id>]` (`shell:false`, sem ler API keys),
+  normaliza o objeto JSON único do provedor (`result`/`session_id`/`usage`) e trata
+  `is_error`/`subtype` como erro visível. `RESUME_PROVIDERS = { codex, claude }` — `--resume` e
+  `llm:sessions` passam a valer para Claude. `--output-schema` com o perfil `claude` é validação
+  **local (Ajv)**, não geração garantida pelo provedor; `llm:probe claude` reporta
+  `features.resume: true` / `features.outputSchema: false`. (SPEC-050, ADR-0085)
+- `forja help <comando>` — uso, argumentos posicionais, exemplos e próximos passos de cada
+  comando, a partir de campos novos e opcionais do registry (`usage`, `cliArgs`, `examples`,
+  `next`, `spec`, `tier`). `forja <comando> --help` faz o mesmo inline. (SPEC-043)
+- `forja setup` — rotina de primeiro uso (`workspace:init` + `sync:universal`) atrás de
+  confirmação; `--yes` para uso não-interativo; aborta sem efeito quando não há TTY. (SPEC-043)
+- `forja status` — retrato único do estado: workspace, sprint, corrida orchestrate aberta,
+  specs por status, últimos runs, handoffs em aberto. `--json` estável; cada seção degrada com
+  `indisponível: <motivo>`. (SPEC-044)
+- `forja next` — a próxima ação recomendada e o comando exato, por prioridade determinística
+  (workspace ausente → `setup`; memória crua → `sync:universal`; corrida travada → parecer +
+  `orchestrate:advance`; spec `approved` sem plan → `spec:plan`; …). `--json` →
+  `{ action, command, reason }`. (SPEC-044)
+- `suggest()` passou a casar por substring **e** distância de edição sobre o nome completo:
+  `forja plan` sugere `spec:plan`. Toda mensagem de comando desconhecido termina com
+  `forja help <palpite>`. (SPEC-043)
+- Argumento posicional obrigatório em falta falha **antes** de invocar o script-filho, imprimindo
+  o `Uso:` do comando — sem stack trace. (SPEC-043)
+- **Contrato de saída da CLI** ([ADR-0082](memory/90-decisions/0082-contrato-saida-cli.md),
+  [`docs/contrato-saida-cli.md`](docs/contrato-saida-cli.md)): `--json` emite um único objeto com
+  chave `status` (`ok`|`error`|`rejected`); exit codes 0/1/2/127. `lib/cli-output.ts`
+  (`emitOk`/`emitError`/`emitRejected`) impõe o formato; `test/cli-output-contract.test.js` itera
+  o registry e reprova qualquer `json: true` que desvie. Conjunto conformado: `status`, `next`,
+  `engineer`, `simulate`, `cost:economy`, `token:economy`. (SPEC-045)
+- **Cobertura MCP de 6 → 18 comandos** ([ADR-0083](memory/90-decisions/0083-mcp-cobertura-declarativa.md)):
+  `spec:new`, `spec:plan`, `spec:tasks`, `query:universal`, `engineer`, `risk:assess`,
+  `orchestrate:status`, `orchestrate:advance`, `drift:check`, `code:context`, `status`, `next`
+  viram capabilities tipadas — `forja mcp:start` → `tools/list` passa a expô-las e o fluxo SDD
+  roda por `tools/call`. Mapeamento argv↔payload declarativo (`apps/cli/src/params.ts`,
+  `parseArgv`/`argvFor` inversos com round-trip test); o `if/else` por comando some. `spec:check`
+  e `tools:doctor` fecham o débito D7 de SPEC-045 (agora `json: true`). (SPEC-046)
+- `forja project:smoke --ai <lista>` — o gate do projeto gerado passa a exercitar o caminho real
+  do `--ai` (memória + instruções nativas por IA), gerado só-memória e sem rede. (SPEC-047)
+- Check `ai-instructions` no `project:smoke`: quando `--ai` é pedido, prova que cada
+  `.ia-instructions/<ai>.md` deriva da mesma fonte (corpo byte-idêntico entre IAs, só o cabeçalho
+  muda) e que `models.json` bate com a lista. É o análogo do `agent-topology`, na saída do gerador. (SPEC-047)
+- `.github/workflows/ci.yml` — job `project-smoke-ai` em matriz (`claude` · `copilot` ·
+  `claude,copilot,gemini,codex`), tier barato, a cada PR e push. (SPEC-047)
+- `lib/multi-ai-instructions.ts` — a escrita das instruções nativas por IA vira função `lib/`
+  testada, compartilhada por `bin/init-project.ts` e pelo smoke. (SPEC-047)
 - `forja drift:check --all` — roda o sentinela de drift uma vez por projeto do workspace, cada um
   num grafo isolado e persistente (`<projeto>/.context/drift-graph.db`). É o modo lote que a
   SPEC-030 §3 previa: rodar antes de retomar um projeto parado há meses. (SPEC-030, ADR-0084)
@@ -19,6 +77,37 @@ Histórico consolidado das mudanças estruturais do framework. Para decisões ar
   `done` — foi reformulada para um aceite verificável agora (determinismo, zero falso positivo no
   monorepo, `--all` completa), e "drift real no mundo" virou janela de observação até 2026-10-08.
   `drift:check` segue como gate opt-in (`check:all --with-drift`), inalterado. Status → `done`.
+- **`--json` de comando-capability** (`spec:check`, `tools:doctor`, `code:impact`, `spec:new`, …)
+  deixa de emitir o `ExecutionResult` cru e passa a seguir o contrato de saída (`{ status, … }`)
+  via o adaptador `toContract` em `bin/forja.ts`. O consumo por MCP (`tools/call`) não muda.
+  (SPEC-046, ADR-0083)
+- **`token:economy --json`** deixa de emitir um array cru — passa a `{ "status": "ok",
+  "rows": [...] }`. Quebra do JSON desse comando (ADR-0082). (SPEC-045)
+- **`simulate`** com recomendação `discard`: exit code passa de `0` para **`2`** e, com `--json`,
+  `status: "rejected"` — é um gate negativo, não sucesso (ADR-0082). (SPEC-045)
+- **`cost:economy --json`** deixava de ser parseável (avisos de texto iam no stdout); agora o
+  stdout é só o objeto, avisos vão para o stderr. (SPEC-045)
+
+- `forja help` (sem argumentos) lista só os comandos do núcleo (`tier: 'core'`), agrupados por
+  domínio, com rodapé para `forja help --all`. `forja help --all` preserva a saída completa
+  anterior; os sufixos `(SPEC-0XX)` saíram das descrições do núcleo para o detalhe de `help <cmd>`. (SPEC-043)
+- `orchestrate` e os comandos de estado (`status`, `next`) abrem o bloco GSD no `forja help` —
+  o caminho feliz em primeiro lugar. (SPEC-044)
+- `tools:doctor` e o bloco `<framework-status>` do SessionStart agrupam os checks em três blocos
+  rotulados — **Bloqueia o fluxo**, **Rotina de primeiro uso**, **Opcional (ferramentas)**. O
+  exit code do gate é inalterado. Mudança aditiva. (SPEC-043)
+- `listSpecs` e `openHandoffs` saíram de `scripts/hook-session-start.ts` para
+  `lib/specs-index.ts` / `lib/handoffs-index.ts`, compartilhados com `forja status`. `listRuns`
+  novo em `lib/orchestrate.ts`. (SPEC-044)
+
+### Notas de contrato
+
+- Decidido no plan (`specs/cli-intuitiva-v1/`): o `--fix` da spec original virou o comando
+  dedicado `forja setup` — `tools:doctor` continua só diagnóstico, por desenho. O campo de args
+  posicionais no registry chama-se `cliArgs` (não `args`, que é o prefixo fixo do spawn).
+- `spec:check` e `tools:doctor` entraram no contrato de saída via SPEC-046: o envelope da
+  capability MCP é convertido pelo adaptador `toContract` em `bin/forja.ts` (fecha o débito D7
+  de SPEC-045).
 
 ## [4.0.0] — 2026-09-05 — Integrações LLM, sessões e validação
 

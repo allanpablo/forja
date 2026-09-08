@@ -58,6 +58,22 @@ duplicados removidos. Arquivo ausente ou diretório causa erro antes de executar
 O hash cobre tarefa e contexto completos. O Forja não salva esses conteúdos nem a resposta no banco
 ou na auditoria; salva modelo, duração, resultado, comando, referências e contagens de tokens.
 
+### Contexto pelo façade — `--engineer` (SPEC-048)
+
+```bash
+forja llm:run --profile codex --engineer "adicionar rate limit no login" --prompt "implemente"
+```
+
+`--engineer "<objetivo>"` roda `forja engineer "<objetivo>" --json` (contexto mínimo do domínio +
+ADRs relevantes + `architecture:check` + risco + agentes recomendados + incidentes parecidos +
+fluxo) e **embute o relatório no prompt**, antes do que você passar em `--prompt`/`--task` e antes
+dos `--context`. Sem `--prompt`/`--task`, o próprio objetivo vira o prompt.
+
+O hash cobre o prompt transmitido, incluindo o bloco do `engineer`. Em `contextRefs` fica só a
+**referência** `engineer:<objetivo>` — o conteúdo do relatório **nunca** é persistido, igual ao
+tratamento de `--context`. Se o façade sair com erro, o `llm:run` falha **antes** de chamar o
+provedor com `errorCode: "ENGINEER_FAILED"`.
+
 Codex recebe o prompt por stdin e retorna eventos JSONL. O Forja extrai a resposta do agente,
 `sessionId` e uso, sem devolver eventos de raciocínio como resposta final. Falhas explícitas,
 JSONL inválido ou ausência de conclusão resultam em erro mesmo com exit zero do subprocesso.
@@ -98,6 +114,61 @@ provedor, modelo declarado, executável, argumentos ou privacidade bloqueia ante
 Esforço e timeout podem mudar. A configuração global da CLI não é fingerprintada; use um modelo
 explícito no perfil quando precisar fixá-lo. Não há coordenação de retomadas simultâneas da mesma
 sessão nem garantia de que o modelo nunca repetirá uma ação.
+
+### Descobrir o `SESSION_ID` — `llm:sessions` (SPEC-048)
+
+```bash
+forja llm:sessions list                # id, projeto, quando, observação — mais recente primeiro
+forja llm:sessions show <id> [--json]   # a sessão + a observação e a validação vinculadas
+```
+
+Somente leitura sobre `llm_session` — não abre o provedor nem a rede. É como recuperar o `id` do
+`--resume` quando a saída da execução anterior se perdeu. `list --json` emite um array; `show`
+emite um objeto; `id` desconhecido sai com código 1.
+
+## Adaptador Claude (SPEC-050, ADR-0085)
+
+O perfil `claude` tem paridade de retomada e formato com o Codex, dentro da mesma fronteira de
+privacidade (`shell:false`, o Forja nunca lê API keys; prompt e contexto vão ao provedor, ao DB
+só as refs).
+
+```bash
+forja llm:run --profile claude --prompt "Analise o requisito pendente"
+forja llm:run --profile claude --resume SESSION_ID --prompt "Continue a análise"
+```
+
+- **Invocação**: `claude -p "<prompt>" --output-format json [--model <m>] [--resume <id>]`. A
+  resposta é um **objeto JSON único** (não JSONL como o Codex); o Forja lê `result`,
+  `session_id` e `usage` (`input_tokens`, `output_tokens`, `cache_read_input_tokens`). Formato
+  inesperado, `is_error: true` ou `subtype != "success"` viram erro visível — nunca resposta
+  silenciosa.
+- **Retomada**: `RESUME_PROVIDERS = { codex, claude }`. `--resume` exige um id explícito e
+  válido; as mesmas travas de fingerprint do Codex se aplicam (projeto, provedor, modelo
+  declarado, executável, argumentos, privacidade). `llm:sessions` também lista sessões `claude`.
+- **`--output-schema` com o perfil `claude`**: a validação é **local (Ajv), nunca uma garantia
+  do provedor**. O `claude` CLI não tem geração estruturada nativa equivalente; ele recebe a
+  instrução de responder JSON e a resposta é validada localmente pelo mesmo caminho do Codex.
+  Por isso `llm:probe claude` reporta `features.outputSchema: false` e `features.resume: true`.
+- **Custo**: o `total_cost_usd` do provedor **não** substitui a estimativa local de
+  `model-pricing.json` — a evidência de custo continua vindo do preço declarado no Forja.
+
+## Métricas e recomendação por custo/latência (SPEC-049)
+
+`llm:eval` acrescenta às métricas do relatório:
+
+- `durationMsP50` / `durationMsP95` — percentis da latência das observações do escopo.
+- `costPerAcceptedTask` — `totalCost` dividido pelas observações com `validationStatus: "accepted"`
+  (`0` quando nenhuma foi aceita, não `null` nem infinito).
+
+`llm:recommend` passa a ponderar **latência** e **custo** além do fit declarado (`role`/`taskType`)
+e da taxa de sucesso local. O bônus de latência/custo é limitado (soma no máximo 8 pontos): ele
+desempata e refina entre pares próximos, **nunca inverte um fit declarado** (que vale 100+50).
+Cada candidato ganha `evidence: { samples, medianDurationMs, meanCostUsd, successRate }` e o
+`reasons` mostra `latency:p50=<ms>` e `cost:$<x>/run` — a recomendação deixa de ser um número opaco.
+
+Sem amostras para um perfil, o score é o de fit puro (comportamento anterior). **Nenhum
+percentual de melhoria é afirmado**: os eixos precisam de um baseline de observações reais de 30
+dias antes de qualquer comparação numérica (ver [llm-evolution.md](llm-evolution.md)).
 
 ## Formato e validação independente
 
@@ -158,8 +229,9 @@ aprova somente os checks configurados; não equivale a merge ou aprovação gera
 
 - O adapter padrão do Codex é `read-only`; mudanças de arquivos continuam no runtime/sandbox
   supervisionado do Forja.
-- `llm:probe` executa `--version` e, para Codex, os helps de `exec` e `exec resume`;
-  informa também `features.resume` e `features.outputSchema`, sem consumir tokens ou enviar contexto.
+- `llm:probe` executa `--version` e, para Codex, os helps de `exec` e `exec resume`; para Claude,
+  o `--help` (procura `--resume`). Informa `features.resume` e `features.outputSchema` (sempre
+  `false` para Claude — validação de schema é local), sem consumir tokens ou enviar contexto.
 - Recomendações são ordenadas por compatibilidade declarada e observações locais. O operador escolhe
   o perfil; não existe failover automático nem chamada direta a APIs nesta versão.
 - O dashboard pode editar e exibir perfis, mas não executa modelos. A antiga rota de execução retorna

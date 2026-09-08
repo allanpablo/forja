@@ -60,12 +60,18 @@ export interface LlmExecutionOptions {
   readonly outputSchema?: string;
 }
 
+/**
+ * Provedores cujo adaptador suporta retomada de sessão (ADR-0081, ADR-0085). É propriedade do
+ * adaptador — o que a CLI do provedor oferece — não uma escolha do operador no perfil.
+ */
+export const RESUME_PROVIDERS: ReadonlySet<string> = new Set(['codex', 'claude']);
+
 export function buildLlmExecution(profile: LlmProfile, prompt: string, options: LlmExecutionOptions = {}): LlmExecution {
   validateProfile('execution', profile);
   if (!profile.enabled) throw new LlmProfileError('profile is disabled');
   if (prompt.trim().length === 0) throw new LlmProfileError('prompt is required');
-  if (options.resume !== undefined && (profile.provider !== 'codex' || !/^[a-zA-Z0-9][a-zA-Z0-9_-]{0,127}$/.test(options.resume))) {
-    throw new LlmProfileError('resume requires codex and an explicit session ID');
+  if (options.resume !== undefined && (!RESUME_PROVIDERS.has(profile.provider) || !/^[a-zA-Z0-9][a-zA-Z0-9_-]{0,127}$/.test(options.resume))) {
+    throw new LlmProfileError('resume requires a resume-capable adapter (codex, claude) and an explicit session ID');
   }
   const base = [...(profile.commandArgs ?? [])];
   if (profile.provider === 'codex') return {
@@ -78,7 +84,11 @@ export function buildLlmExecution(profile: LlmProfile, prompt: string, options: 
       '--json', ...(options.resume ? [options.resume] : []), '-'],
     stdin: prompt,
   };
-  if (profile.provider === 'claude') return { executable: profile.command, args: [...base, ...(profile.model === 'default' ? [] : ['--model', profile.model]), '-p', prompt] };
+  if (profile.provider === 'claude') return {
+    executable: profile.command,
+    args: [...base, ...(profile.model === 'default' ? [] : ['--model', profile.model]), '-p', prompt,
+      '--output-format', 'json', ...(options.resume ? ['--resume', options.resume] : [])],
+  };
   if (profile.provider === 'gemini-cli') return { executable: profile.command, args: [...base, ...(profile.model === 'default' ? [] : ['-m', profile.model]), '-p', prompt] };
   if (profile.provider === 'ollama') return { executable: profile.command, args: [...base, 'run', profile.model, prompt] };
   if (profile.provider === 'copilot') return { executable: profile.command, args: [...base, 'copilot', 'suggest', '-t', 'shell', prompt] };
@@ -132,21 +142,79 @@ export async function runLlm(execution: LlmExecution, cwd: string, timeoutMs = 1
   });
 }
 
-export function recommendProfile(profiles: LlmProfiles, observations: readonly { readonly model?: string; readonly outcome: string; readonly durationMs: number; readonly cost?: number }[], role: string, taskType: string, privacy?: LlmProfile['privacy']): readonly { readonly name: string; readonly score: number; readonly reasons: readonly string[] }[] {
+interface RecommendObservation { readonly model?: string; readonly outcome: string; readonly durationMs: number; readonly cost?: number }
+
+export interface ProfileRecommendation {
+  readonly name: string;
+  readonly score: number;
+  readonly reasons: readonly string[];
+  /** SPEC-049 — a base numérica da recomendação, para o operador ponderar/contestar. */
+  readonly evidence: {
+    readonly samples: number;
+    readonly medianDurationMs: number;
+    readonly meanCostUsd: number | null;
+    readonly successRate: number;
+  };
+}
+
+function median(values: readonly number[]): number {
+  if (values.length === 0) return 0;
+  const sorted = [...values].sort((a, b) => a - b);
+  const mid = Math.floor(sorted.length / 2);
+  return sorted.length % 2 === 0 ? (sorted[mid - 1] + sorted[mid]) / 2 : sorted[mid];
+}
+
+/**
+ * SPEC-049 — recomendação por fit declarado + evidência local, agora ponderando **latência** e
+ * **custo**. Os bônus de latência/custo somam no máximo 8 pontos: refinam entre pares próximos,
+ * nunca invertem um fit declarado (que vale 100+50). Nenhum percentual de ganho é afirmado —
+ * `evidence` expõe a base para o operador julgar.
+ */
+export function recommendProfile(profiles: LlmProfiles, observations: readonly RecommendObservation[], role: string, taskType: string, privacy?: LlmProfile['privacy']): readonly ProfileRecommendation[] {
+  const allDurations = observations.filter((value) => value.model !== undefined).map((value) => value.durationMs);
+  const definedCosts = observations.map((value) => value.cost).filter((value): value is number => typeof value === 'number');
+  const cohortMedianLatency = median(allDurations);
+  const cohortMeanCost = definedCosts.length === 0 ? null : definedCosts.reduce((sum, value) => sum + value, 0) / definedCosts.length;
+
   return Object.entries(profiles.profiles)
     .filter(([, profile]) => profile.enabled && (privacy === undefined || profile.privacy === privacy))
-    .map(([name, profile]) => {
+    .map(([name, profile]): ProfileRecommendation => {
       const model = `${profile.provider}:${profile.model}`;
       const samples = observations.filter((value) => value.model === model);
       const succeeded = samples.filter((value) => value.outcome === 'succeeded').length;
       const successRate = samples.length === 0 ? 0 : succeeded / samples.length;
-      const score = (profile.roles.includes(role) ? 100 : 0) + (profile.taskTypes.includes(taskType) ? 50 : 0) + Math.round(successRate * 25) + Math.min(samples.length, 10);
+
+      const medianDurationMs = median(samples.map((value) => value.durationMs));
+      const sampleCosts = samples.map((value) => value.cost).filter((value): value is number => typeof value === 'number');
+      const meanCostUsd = sampleCosts.length === 0 ? null : sampleCosts.reduce((sum, value) => sum + value, 0) / sampleCosts.length;
+
+      let latencyBonus = 0;
+      let costBonus = 0;
+      if (samples.length > 0) {
+        if (cohortMedianLatency > 0 && medianDurationMs < cohortMedianLatency) {
+          latencyBonus = Math.min(4, Math.round(4 * (1 - medianDurationMs / cohortMedianLatency)));
+        }
+        if (cohortMeanCost !== null && cohortMeanCost > 0 && meanCostUsd !== null && meanCostUsd < cohortMeanCost) {
+          costBonus = Math.min(4, Math.round(4 * (1 - meanCostUsd / cohortMeanCost)));
+        }
+      }
+
+      const score = (profile.roles.includes(role) ? 100 : 0)
+        + (profile.taskTypes.includes(taskType) ? 50 : 0)
+        + Math.round(successRate * 25)
+        + Math.min(samples.length, 10)
+        + latencyBonus
+        + costBonus;
+
       const reasons = [
         ...(profile.roles.includes(role) ? [`role:${role}`] : []),
         ...(profile.taskTypes.includes(taskType) ? [`task:${taskType}`] : []),
         ...(samples.length > 0 ? [`${succeeded}/${samples.length} successful runs`] : ['no local evidence yet']),
+        ...(samples.length > 0 ? [`latency:p50=${Math.round(medianDurationMs)}ms`] : []),
+        ...(meanCostUsd !== null ? [`cost:$${meanCostUsd.toFixed(4)}/run`] : []),
       ];
-      return { name, score, reasons };
+
+      return { name, score, reasons, evidence: { samples: samples.length, medianDurationMs, meanCostUsd, successRate } };
     })
     .sort((a, b) => b.score - a.score || a.name.localeCompare(b.name));
 }

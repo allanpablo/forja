@@ -32,6 +32,7 @@ import { SqliteAgentProfileStore, SqliteGraphStore, SqliteMigrationRunner } from
 import { getWorkspaceDbDir, getWorkspaceDbPath } from '../lib/workspace.ts';
 import { buildRiskInput, changedFiles, graphRoot } from '../lib/core/risk-collect.ts';
 import { incidentRecords, rankIncidentsByQuery, titleOf } from '../lib/core/incident-search.ts';
+import { emitOk, emitError } from '../lib/cli-output.ts';
 import type { ContextPackage } from '../packages/contracts/src/index.ts';
 
 const CONSTITUTION_PATH = '.context/architecture/constitution.json';
@@ -207,11 +208,17 @@ async function cmdEngineer(args: string[]): Promise<void> {
   if (refIndex !== -1) { consumed.add(refIndex); consumed.add(refIndex + 1); }
   if (roleIndex !== -1) { consumed.add(roleIndex); consumed.add(roleIndex + 1); }
   const objective = args.find((arg, index) => arg !== '--json' && !consumed.has(index));
-  if (!objective) { console.error('Uso: forja engineer "<objetivo>" [--ref <ref>] [--role <role>] [--json]'); process.exitCode = 1; return; }
+  if (!objective) {
+    const usage = 'Uso: forja engineer "<objetivo>" [--ref <ref>] [--role <role>] [--json]';
+    if (json) emitError(usage); // termina o processo
+    console.error(usage);
+    process.exitCode = 1;
+    return;
+  }
 
   const report = await buildReport(objective, ref, role);
-  if (json) console.log(JSON.stringify(report, null, 2));
-  else printText(report);
+  if (json) emitOk({ ...report }); // termina o processo
+  printText(report);
 }
 
 async function main(): Promise<void> {

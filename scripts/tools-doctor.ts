@@ -20,7 +20,7 @@
 
 import { spawnSync } from 'node:child_process';
 
-import { runChecks, worstStatus } from '../lib/core/health.ts';
+import { runChecks, worstStatus, bucketFor, BUCKET_LABEL } from '../lib/core/health.ts';
 
 const TOOLS = [
   {
@@ -77,15 +77,21 @@ const TAG = {
 function printCore(results: any) {
   console.log('Núcleo — o que impede o framework de trabalhar (SPEC-009)\n');
 
-  for (const r of results) {
-    console.log(`${(TAG as any)[r.status]} ${r.id.padEnd(13)} ${r.detail}`);
-    if (r.fix) console.log(`      corrigir: ${r.fix}`);
+  for (const bucket of ['blocking', 'first-run'] as const) {
+    const group = results.filter((r: any) => bucketFor(r.id) === bucket);
+    if (group.length === 0) continue;
+    console.log(`— ${BUCKET_LABEL[bucket]} —`);
+    for (const r of group) {
+      console.log(`${(TAG as any)[r.status]} ${r.id.padEnd(13)} ${r.detail}`);
+      if (r.fix) console.log(`      corrigir: ${r.fix}`);
+    }
+    if (bucket === 'first-run') console.log('      (ou rode tudo de uma vez: forja setup)');
     console.log('');
   }
 }
 
 function printTools() {
-  console.log('Ferramentas de processo — opcionais (ADR-0018)\n');
+  console.log(`— ${BUCKET_LABEL.optional} —  potencializam o harness, nunca travam (ADR-0018)\n`);
 
   let installed = 0;
   for (const tool of TOOLS) {

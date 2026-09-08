@@ -16,13 +16,25 @@ import { runProjectSmoke, worstStatus } from '../lib/core/project-smoke.ts';
 
 const TAG = { ok: 'OK   ', warn: 'AVISO', fail: 'FALHA', skipped: '—    ' };
 
+function parseAi(argv: readonly string[]): string[] | undefined {
+  const i = argv.indexOf('--ai');
+  if (i < 0 || argv[i + 1] === undefined) return undefined;
+  const list = argv[i + 1].split(',').map((s) => s.trim()).filter(Boolean);
+  return list.length ? list : undefined;
+}
+
 async function main() {
   const full = process.argv.includes('--full');
+  const ai = parseAi(process.argv.slice(2));
 
-  console.log(`\nForja project smoke${full ? ' (tier --full)' : ''}\n`);
-  console.log(`Gerando um projeto num diretório isolado${full ? ' e buildando o backend — isto leva minutos' : ''}.\n`);
+  console.log(`\nForja project smoke${full ? ' (tier --full)' : ''}${ai ? ` (--ai ${ai.join(',')})` : ''}\n`);
+  console.log(
+    ai
+      ? `Gerando um projeto só-memória + instruções nativas (${ai.join(', ')}) num diretório isolado.\n`
+      : `Gerando um projeto num diretório isolado${full ? ' e buildando o backend — isto leva minutos' : ''}.\n`,
+  );
 
-  const results = await runProjectSmoke({ full });
+  const results = await runProjectSmoke({ full, ai });
 
   for (const r of results) {
     console.log(`${(TAG as any)[r.status]} ${r.id.padEnd(16)} ${r.detail}`);
