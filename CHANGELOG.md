@@ -4,6 +4,17 @@ Histórico consolidado das mudanças estruturais do framework. Para decisões ar
 
 ---
 
+## [Unreleased]
+
+### Adicionado
+
+- `forja llm:run --engineer "<objetivo>"` — monta o contexto pelo façade `engineer` (ADRs, risco,
+  fluxo, …) e o embute no prompt. O hash cobre o prompt transmitido; em `contextRefs` fica só a
+  referência `engineer:<objetivo>`, nunca o conteúdo. Falha do façade → `errorCode:
+  "ENGINEER_FAILED"` antes de chamar o provedor. (SPEC-048)
+- `forja llm:sessions list|show` — leitura das sessões LLM registradas (`llm_session`) para
+  recuperar o `SESSION_ID` que `llm:run --resume` exige. Somente leitura. (SPEC-048)
+
 ## [4.0.0] — 2026-09-05 — Integrações LLM, sessões e validação
 
 - Prompts, skill de roteamento, instruções nativas e templates SDD alinhados ao contrato comum de execução e evidências.

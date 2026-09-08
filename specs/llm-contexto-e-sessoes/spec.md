@@ -1,7 +1,7 @@
 # Spec: llm-contexto-e-sessoes — `llm:run --engineer` e `llm:sessions`
 
 - **ID**: SPEC-048
-- **Status**: approved
+- **Status**: done
 - **Owner**: apk
 - **Criado em**: 2026-09-08
 - **Sprint alvo**: <a definir>
@@ -116,10 +116,24 @@ perde mais uma sessão por fechar um terminal.
 
 ## Evidências e estado real
 
-- AC-1 a AC-9 → tasks em `spec:tasks`.
-- **Sem mudança de contrato**: `llm:run` ganha um caminho de entrada; a saída JSON e os exit
-  codes seguem iguais. `errorCode: 'ENGINEER_FAILED'` é aditivo.
-- **Hipótese, não medição**: as métricas de §8 dependem de adoção real; sem instrumentação
-  dedicada além da flag auditada.
-- **Dependência**: independente das Ondas 1–3; branch a partir de `main`. Usa `forja engineer`
-  (SPEC-035) e `llm_session` (ADR-0081), ambos já em `main`.
+**Implementado em 2026-09-08** na branch `feat/llm-engineer-sessions` (de `main`).
+Bateria: `tsc --noEmit` limpo; `node --test test/*.test.js` **479/479** (+6: `test/llm-sessions.test.js`
+e 1 em `test/llm-fit.test.js`); `forja spec:check` e `forja project:check` (100%) verdes.
+
+| AC | Onde | Verificado |
+|---|---|---|
+| AC-1 | `lib/llm/context.ts` `buildEngineerBlock` + `scripts/llm-fit.ts run()` | `llm:run --engineer` embute `=== Contexto do engineer (objetivo: …) ===` + JSON antes do prompt; combina com `--prompt` |
+| AC-2 | `scripts/llm-fit.ts` (`promptWithEngineer` → `buildContextPrompt` → `inputHash`) | teste: o `stdout` transmitido contém o bloco; `forja-runs.jsonl` **não** contém "Contexto do engineer"; `contextRefs` ganha `engineer:<obj>` |
+| AC-3 | `buildEngineerBlock` (throw `.code='ENGINEER_FAILED'`) + `run()` try/catch antes de `runLlm` | teste unitário: `run` fake exit 1 → `Error.code === 'ENGINEER_FAILED'`, `.detail` = 1ª linha do stderr |
+| AC-4 | `LlmSessionStore.all()` + `cmdSessions` `list` | `forja llm:sessions list [--json]` — array/tabela, mais recente primeiro |
+| AC-5 | `LlmSessionStore.find()` + `cmdSessions` `show` | `show <id>` → `{ session, observation?, validation? }`; `show <id-ruim>` → exit 1, "não encontrada" |
+| AC-6 | `lib/core/registry.ts` (`llm:sessions` `readonly: true`) + `cmdSessions` | teste: `llm_session` inalterado após `list`/`show` |
+| AC-7 | `lib/core/registry.ts`, `docs/llm-fit-loop.md` | `llm:run.desc` cita `--engineer`; `llm:sessions` nova; `commands-documented`/`docs-*` verdes |
+| AC-8 | `lib/llm/session.ts` `all`/`find`, `lib/llm/context.ts` `buildEngineerBlock` (com `run` injetável) | testes unitários verdes |
+| AC-9 | — | bateria acima; `test/llm-fit.test.js`/`llm-resume-validation.test.js` intactos |
+
+- **Sem desvio do plan.** `docs/llm-evolution.md` não foi tocado (sem âncora natural para C2/C5;
+  o registro do fecho fica no roadmap e neste spec).
+- **Sem mudança de contrato** na saída do `llm:run` — só o `errorCode: 'ENGINEER_FAILED'`, aditivo.
+- **Hipótese, não medição**: adoção depende de uso real; a flag `--engineer` já é auditada.
+- **Pendências**: revisão de Governança; handoff `review` registrado.
