@@ -1,7 +1,7 @@
 # Spec: Drift Sentinel — verificação contínua de que o verificado continua verdade
 
 - **ID**: SPEC-030
-- **Status**: implementing
+- **Status**: done
 - **Owner**: apk
 - **Criado em**: 2026-08-31
 - **Sprint alvo**: <a definir>
@@ -12,10 +12,11 @@
   `runGates`/`CHECKS` para rodar `drift:check` in-process, o gate opt-in chama o comando real via
   subprocess (mesmo padrão de `lib/core/release.ts`/`project-smoke.ts`) e traduz o resultado —
   mantém `check:all` desacoplado do wiring do grafo (SQLite/git) sem tocar o contrato do runner de
-  checks. Não marcado `done` porque a métrica de sucesso do §8 (drift genuíno encontrado em projeto
-  real, confirmado por humano, 30 dias após o release) ainda não foi observada — só dogfooding
-  local contra o próprio monorepo, que não achou drift real algum ainda.
-- **ADRs relacionadas**: nenhuma ainda — nasce da auditoria de segurança de 2026-08-31, que corrigiu
+  checks. **Fechado em 2026-09-08 por ADR-0084**: a métrica original do §8 (drift real encontrado
+  no mundo, confirmado por humano) é infalsificável como bloqueio de `done`; foi reformulada para
+  um aceite observável e "drift real no mundo" virou janela de observação até 2026-10-08.
+  Adicionado `drift:check --all` (lote por projeto do workspace, §3). Status → `done`.
+- **ADRs relacionadas**: **ADR-0084** (fecho da spec). Nasce da auditoria de segurança de 2026-08-31, que corrigiu
   `packages/graph` para que `status: 'verified'` só venha de fontes de evidência confiáveis
   (`deterministic-extractor`, `sandbox.*`). Este spec é a continuação natural: **verified é um
   instantâneo, não uma garantia permanente.**
@@ -112,6 +113,14 @@ que já foi verdade e hoje não é mais, sem que nada tenha formalmente revogado
 
 ## 8. Métricas de sucesso
 
-30 dias após o release: rodar `drift:check` num projeto real e ativo (não um fixture) resulta em pelo
-menos um drift genuíno encontrado que um humano confirma como real (não falso positivo) — provando que
-o sinal vale o custo de rodar.
+**Reformulada por ADR-0084** (a original era infalsificável como bloqueio de `done` — dependia de
+drift *acontecer* no mundo num intervalo dado).
+
+**Aceite (verificável agora)**:
+- `drift:check` é determinístico: duas rodadas sobre o mesmo input dão o mesmo resultado.
+- Contra o monorepo, reporta **zero** drift — nenhum falso positivo.
+- `drift:check --all` completa sobre o workspace (0 projetos → saída limpa; N → semeia cada grafo).
+
+**Janela de observação (não bloqueia `done`)** — até **2026-10-08**: se nenhum drift real for
+confirmado **e** um falso positivo **for** reportado, rebaixar `drift:check` a ferramenta manual
+(tirar do `check:all --with-drift`). Na ausência dessa combinação, mantém-se como está.

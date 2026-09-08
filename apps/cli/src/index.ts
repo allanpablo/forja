@@ -265,7 +265,10 @@ export const CLI_CAPABILITY_SPECS: readonly CliCapabilitySpec<InputRecord>[] = [
     permissions: ['read'],
     risk: 'medium',
     sideEffects: ['graph_write'],
-    params: [{ name: 'domain', kind: 'flag-value', flag: '--domain' }],
+    params: [
+      { name: 'domain', kind: 'flag-value', flag: '--domain' },
+      { name: 'all', kind: 'flag' }, // SPEC-030 §3 / ADR-0084: modo lote por projeto do workspace
+    ],
     timeoutMs: 120_000,
   },
   {
