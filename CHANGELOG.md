@@ -20,6 +20,13 @@ Histórico consolidado das mudanças estruturais do framework. Para decisões ar
   (bônus limitado — nunca inverte um fit) e devolve `evidence` por candidato
   (`samples`, `medianDurationMs`, `meanCostUsd`, `successRate`) + `reasons` com `latency:p50=…` /
   `cost:$…/run`. Nenhum percentual de ganho é afirmado antes de um baseline de 30 dias. (SPEC-049)
+- Adaptador **Claude** com paridade de retomada e formato: `llm:run --profile claude` invoca
+  `claude -p "<prompt>" --output-format json [--resume <id>]` (`shell:false`, sem ler API keys),
+  normaliza o objeto JSON único do provedor (`result`/`session_id`/`usage`) e trata
+  `is_error`/`subtype` como erro visível. `RESUME_PROVIDERS = { codex, claude }` — `--resume` e
+  `llm:sessions` passam a valer para Claude. `--output-schema` com o perfil `claude` é validação
+  **local (Ajv)**, não geração garantida pelo provedor; `llm:probe claude` reporta
+  `features.resume: true` / `features.outputSchema: false`. (SPEC-050, ADR-0085)
 
 ## [4.0.0] — 2026-09-05 — Integrações LLM, sessões e validação
 

@@ -1,7 +1,7 @@
 # Spec: llm-adaptador-claude — adaptador Claude com paridade de retomada e formato
 
 - **ID**: SPEC-050
-- **Status**: implementing
+- **Status**: done
 - **Owner**: apk
 - **Criado em**: 2026-09-08
 - **Sprint alvo**: <a definir>
@@ -35,33 +35,33 @@ do Codex — `shell: false`, sem ler API keys.
 
 ## 4. Critérios de aceite (Definition of Done)
 
-- [ ] **AC-1**: `buildLlmExecution` para `provider: 'claude'` monta
+- [x] **AC-1**: `buildLlmExecution` para `provider: 'claude'` monta
       `claude -p "<prompt>" --output-format json [--model <m>] [--resume <session-id>]`
       (`shell: false`, prompt por argumento). Sem `--resume`, sem esse par.
-- [ ] **AC-2**: o guard de `resume` deixa de ser Codex-only — `RESUME_PROVIDERS = { 'codex',
+- [x] **AC-2**: o guard de `resume` deixa de ser Codex-only — `RESUME_PROVIDERS = { 'codex',
       'claude' }` rege `buildLlmExecution` e `LlmSessionStore.require`. `validSessionId` já aceita
       UUID (não muda). Um provedor fora do conjunto com `--resume` → erro claro.
-- [ ] **AC-3**: `lib/llm/claude-output.ts` `normalizeClaudeResult(result): NormalizedLlmResult`
+- [x] **AC-3**: `lib/llm/claude-output.ts` `normalizeClaudeResult(result): NormalizedLlmResult`
       parseia o objeto JSON único: `stdout` ← `result`; `sessionId` ← `session_id`; `usage` ←
       `{ inputTokens: input_tokens, outputTokens: output_tokens, cachedInputTokens:
       cache_read_input_tokens? }`. `is_error: true` ou `subtype !== 'success'` → `errorCode:
       'PROVIDER_FAILED'`; JSON inválido → `'INVALID_PROVIDER_OUTPUT'`; nunca devolve o objeto cru
       como resposta.
-- [ ] **AC-4**: `llm:run` `run()` — `provider === 'claude'` → `normalizeClaudeResult(raw)`;
+- [x] **AC-4**: `llm:run` `run()` — `provider === 'claude'` → `normalizeClaudeResult(raw)`;
       `sessionId` gravado em `llm_session` via `LlmSessionStore.save` para `claude` também (a
       condição `provider === 'codex'` vira `RESUME_PROVIDERS.has(provider)`).
-- [ ] **AC-5**: `--output-schema` com um perfil Claude — o Forja instrui "responda só JSON
+- [x] **AC-5**: `--output-schema` com um perfil Claude — o Forja instrui "responda só JSON
       conforme o schema" e valida com Ajv localmente (caminho não-Codex já existente); nenhum
       flag de schema é passado ao `claude`.
-- [ ] **AC-6**: `doctor()` (`llm:probe`/`llm:doctor`) — para `provider: 'claude'` disponível,
+- [x] **AC-6**: `doctor()` (`llm:probe`/`llm:doctor`) — para `provider: 'claude'` disponível,
       `features = { resume: <`claude --help` tem `--resume`>, outputSchema: false }`.
-- [ ] **AC-7**: `docs/llm-fit-loop.md` (seção do adaptador Claude + a nota "schema é garantia
+- [x] **AC-7**: `docs/llm-fit-loop.md` (seção do adaptador Claude + a nota "schema é garantia
       local, não do provedor") e `docs/llm-evolution.md` (C3 fechado). Registry: `llm:run.desc`
       pode citar `--profile claude` sem mudança estrutural.
-- [ ] **AC-8**: testes — `buildLlmExecution` claude com/sem `--resume` (argv exato);
+- [x] **AC-8**: testes — `buildLlmExecution` claude com/sem `--resume` (argv exato);
       `normalizeClaudeResult` (sucesso, `is_error`, JSON inválido); `LlmSessionStore.require`
       aceita `claude`; `doctor` reporta `features` para claude (probe do binário fake).
-- [ ] **AC-9**: `tsc --noEmit`, `node --test test/*.test.js`, `forja spec:check`,
+- [x] **AC-9**: `tsc --noEmit`, `node --test test/*.test.js`, `forja spec:check`,
       `forja project:check` verdes. Testes de Codex/sessão/`buildLlmExecution` existentes
       inalterados (o caminho Codex não muda).
 
@@ -113,10 +113,32 @@ do Codex — `shell: false`, sem ler API keys.
 
 ## Evidências e estado real
 
-- AC-1 a AC-9 → tasks em `spec:tasks`.
-- **Sem mudança no contrato de saída do `llm:run`** — os campos são os mesmos do Codex
-  (`sessionId`, `usage`, `errorCode`, `validationStatus`, …).
+**Implementado (branch `feat/llm-adaptador-claude`, W12):**
+
+- **AC-1/AC-2** — `packages/llm/src/index.ts`: `RESUME_PROVIDERS = new Set(['codex','claude'])`;
+  `buildLlmExecution` ramo `claude` → `['-p', prompt, '--output-format', 'json', …('--model' m)?,
+  …('--resume' id)?]`; guard `resume` rejeita provedor fora do conjunto ou id inválido
+  (`LlmProfileError`). `lib/llm/session.ts` re-exporta `RESUME_PROVIDERS`; `LlmSessionStore.require`
+  usa `RESUME_PROVIDERS.has(provider)`.
+- **AC-3** — `lib/llm/claude-output.ts` `normalizeClaudeResult`: objeto JSON único → `stdout`←`result`,
+  `sessionId`←`session_id`, `usage`←`input_tokens`/`output_tokens`/`cache_read_input_tokens`;
+  `is_error`/`subtype!=='success'` → `PROVIDER_FAILED`; parse falho ou sem `result` →
+  `INVALID_PROVIDER_OUTPUT`.
+- **AC-4** — `scripts/llm-fit.ts` `run()`: normalizador por provedor
+  (`codex`→`normalizeCodexResult`, `claude`→`normalizeClaudeResult`); `sessions.save` guardado por
+  `RESUME_PROVIDERS.has(selected.provider)`.
+- **AC-5** — caminho Ajv local não-Codex reusado; nenhum flag de schema vai ao `claude`.
+- **AC-6** — `doctor()` ramo `provider === 'claude'`: `features = { resume: `claude --help` tem
+  `--resume`, outputSchema: false }`. Verificado por `llm:probe claude` (real: `resume:true`).
+- **AC-7** — `docs/llm-fit-loop.md` (seção "Adaptador Claude"), `docs/llm-evolution.md` (etapa 2b),
+  `docs/agent-operating-contract.md`, `CHANGELOG.md`.
+- **AC-8** — `test/llm-claude-adapter.test.js` (7 casos: `RESUME_PROVIDERS`, argv com/sem resume,
+  `normalizeClaudeResult` × 3, `LlmSessionStore.require` claude, `llm:probe` com fixture executável).
+  `test/llm-resume-validation.test.js` ajustado: `claude`+resume agora **passa**; `ollama` rejeita.
+- **AC-9** — `tsc --noEmit` exit 0; `node --test test/*.test.js` → 490/490; `spec:check
+  llm-adaptador-claude` e `project:check` verdes.
+
+- **Sem mudança no contrato de saída do `llm:run`** — mesmos campos do Codex.
 - **Limitação assumida**: `--output-schema` para Claude é garantia **local** (Ajv), não do
   provedor — `features.outputSchema: false`.
-- **Dependência**: de `main` (com W10 + W11). Reusa `NormalizedLlmResult`, `LlmSessionStore`,
-  `prepareValidation`.
+- **ADR**: [0085](../../memory/90-decisions/0085-adaptador-claude-paridade.md).
