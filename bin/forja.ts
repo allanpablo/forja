@@ -257,6 +257,50 @@ function auditArgs(command: string, args: readonly string[]): readonly string[] 
   return args.map((arg, index) => args[index - 1] === '--prompt' ? '<redacted>' : arg);
 }
 
+// SPEC-046 / ADR-0083: no modo --json, a saída de um comando-capability segue o contrato de
+// saída (ADR-0082), não o ExecutionResult cru. Único ponto que conhece o mapa envelope→contrato.
+function mergeChildStdout(stdout: string): Record<string, unknown> {
+  const trimmed = stdout.trim();
+  if (!trimmed) return {};
+  try {
+    const parsed = JSON.parse(trimmed);
+    if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+      const { status: _dropChildStatus, ...rest } = parsed as Record<string, unknown>;
+      return rest;
+    }
+    return { raw: parsed };
+  } catch {
+    return { raw: stdout };
+  }
+}
+
+function toContract(result: unknown): { json: Record<string, unknown>; exitCode: 0 | 1 | 2 } {
+  const r = result as {
+    readonly status?: string;
+    readonly error?: { readonly message?: string; readonly code?: string };
+    readonly output?: { readonly payload?: Record<string, unknown> };
+  };
+  // Erro antes de executar a capability (ex.: input inválido) — vem como `{ error: string }`.
+  if (r && typeof r === 'object' && typeof (r as { error?: unknown }).error === 'string') {
+    return { json: { status: 'error', error: { message: String((r as { error: string }).error) } }, exitCode: 1 };
+  }
+  const payload = r.output?.payload ?? {};
+  const childExit = typeof payload.exitCode === 'number' ? (payload.exitCode as number) : undefined;
+  const stdout = typeof payload.stdout === 'string' ? (payload.stdout as string) : '';
+  const stderr = typeof payload.stderr === 'string' ? (payload.stderr as string) : '';
+  if (stderr.trim()) process.stderr.write(stderr.endsWith('\n') ? stderr : `${stderr}\n`);
+  const merged = mergeChildStdout(stdout);
+
+  if (r.status === 'succeeded' && (childExit === undefined || childExit === 0)) {
+    return { json: { status: 'ok', ...merged }, exitCode: 0 };
+  }
+  if (r.status === 'succeeded' && childExit === 2) {
+    return { json: { status: 'rejected', ...merged }, exitCode: 2 };
+  }
+  const message = r.error?.message ?? `comando terminou com exit ${childExit ?? 1}`;
+  return { json: { status: 'error', error: { message, ...(r.error?.code ? { code: r.error.code } : {}) }, ...merged }, exitCode: 1 };
+}
+
 function printExecutionResult(result: unknown, json: boolean): void {
   if (json) {
     console.log(JSON.stringify(result));
@@ -316,6 +360,25 @@ async function runCapabilityCommand(command: string, args: readonly string[]): P
       result = { error: error instanceof Error ? error.message : 'Invalid command input' };
       commandSucceeded = false;
     }
+  }
+
+  // SPEC-046: comando-capability em --json → contrato de saída (ADR-0083), não o ExecutionResult cru.
+  if (json && !command.startsWith('capabilit')) {
+    const contract = toContract(result);
+    console.log(JSON.stringify(contract.json));
+    const exec = result as { readonly runId?: string; readonly correlationId?: string };
+    audit({
+      ts: new Date().toISOString(),
+      cmd: command,
+      args,
+      capabilityId,
+      runId: exec.runId,
+      correlationId: exec.correlationId,
+      status: contract.json.status,
+      exitCode: contract.exitCode,
+      durationMs: Date.now() - started,
+    });
+    return contract.exitCode;
   }
 
   printExecutionResult(result, json || command.startsWith('capabilit'));
@@ -463,7 +526,11 @@ if (gateErrors.length) {
   process.exit(1);
 }
 
-if (capabilityIdForCommand(name) !== undefined) {
+// SPEC-046: alguns comandos são capability (para o MCP) mas têm script próprio que já trata
+// `--json` e a saída de texto (`status`, `next`, `engineer`). No CLI eles rodam direto — a
+// camada de capability só serve o MCP e os comandos sem `--json` nativo.
+const NATIVE_JSON_CAPABILITIES = new Set(['status', 'next', 'engineer']);
+if (capabilityIdForCommand(name) !== undefined && !NATIVE_JSON_CAPABILITIES.has(name)) {
   process.exit(await runCapabilityCommand(name, rest));
 }
 

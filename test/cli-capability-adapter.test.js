@@ -18,10 +18,16 @@ const success = (command, args) => ({
   args,
 });
 
-test('CLI adapter maps the three proof commands to discoverable capabilities', () => {
+test('CLI adapter maps the proof commands to discoverable capabilities', () => {
   const runtime = createCliCapabilityRuntime(() => success('noop', []));
-  assert.deepEqual(runtime.registry.list().map((item) => item.id), ['code.impact', 'context.budget', 'handoff.create', 'spec.validate', 'sprint.status', 'system.doctor']);
+  const ids = runtime.registry.list().map((item) => item.id);
+  // Os 6 originais seguem descobríveis (AC-9); a cobertura do núcleo (SPEC-046) é aditiva.
+  for (const original of ['code.impact', 'context.budget', 'handoff.create', 'spec.validate', 'sprint.status', 'system.doctor']) {
+    assert.ok(ids.includes(original), `capability original ausente: ${original}`);
+  }
+  assert.ok(ids.length >= 18, `esperava ≥18 capabilities, achei ${ids.length}`);
   assert.equal(capabilityIdForCommand('tools:doctor'), 'system.doctor');
+  assert.equal(capabilityIdForCommand('spec:new'), 'spec.create');
   assert.equal(runtime.registry.describe('code:impact').id, 'code.impact');
   assert.equal(runtime.registry.describe('context.budget').aliases[0], 'context:budget');
 });

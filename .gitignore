@@ -83,6 +83,7 @@ apps/dashboard/.next/
 !/specs/cli-intuitiva-v1
 !/specs/forja-status-caminho-feliz
 !/specs/contrato-saida-cli
+!/specs/mcp-cobertura-nucleo
 !/specs/llm-contexto-e-sessoes
 !/specs/llm-benchmark-recomendacao
 !/specs/llm-adaptador-claude

@@ -17,6 +17,7 @@ import {
 import { PolicyEngine, type PolicyCategory } from '../../../packages/policy/src/index.ts';
 import { COMMANDS, resolveScript } from '../../../lib/core/registry.ts';
 import { GraphIndexer, GraphLoop, type GraphDocumentSource } from '../../../packages/graph/src/index.ts';
+import { parseArgv, argvFor, makeValidator, type CapabilityParam } from './params.ts';
 
 export interface LegacyCliResult {
   readonly exitCode: number;
@@ -69,11 +70,16 @@ interface CliCapabilitySpec<Input extends InputRecord> {
   readonly permissions: readonly string[];
   readonly risk: 'low' | 'medium' | 'high' | 'critical';
   readonly sideEffects: readonly string[];
-  readonly validateInput: (value: unknown) => Input;
-  readonly toArgs: (input: Input) => readonly string[];
+  /** argv↔payload declarativo (SPEC-046). `toArgs` e o parse de argv derivam daqui. */
+  readonly params: readonly CapabilityParam[];
+  /** Opcional: só quando há checagem além de "required + tipo" (range, enum). Default: `makeValidator(params)`. */
+  readonly validateInput?: (value: unknown) => Input;
+  /** Opcional: `timeoutMs` do registry quando o default de 30s é curto. */
+  readonly timeoutMs?: number;
 }
 
-const CLI_CAPABILITY_SPECS: readonly CliCapabilitySpec<InputRecord>[] = [
+export const CLI_CAPABILITY_SPECS: readonly CliCapabilitySpec<InputRecord>[] = [
+  // --- Os 6 originais: mesma assinatura, `params` no lugar do `toArgs` manual (SPEC-046) ---
   {
     id: 'system.doctor' as CapabilityId,
     command: 'tools:doctor',
@@ -82,8 +88,8 @@ const CLI_CAPABILITY_SPECS: readonly CliCapabilitySpec<InputRecord>[] = [
     permissions: ['read'],
     risk: 'low',
     sideEffects: [],
+    params: [],
     validateInput: emptyInput,
-    toArgs: () => [],
   },
   {
     id: 'code.impact' as CapabilityId,
@@ -93,8 +99,11 @@ const CLI_CAPABILITY_SPECS: readonly CliCapabilitySpec<InputRecord>[] = [
     permissions: ['read'],
     risk: 'low',
     sideEffects: [],
+    params: [
+      { name: 'symbol', kind: 'positional', required: true },
+      { name: 'depth', kind: 'positional', parse: 'int' },
+    ],
     validateInput: validateCodeImpactInput,
-    toArgs: (input) => input.depth === undefined ? [input.symbol as string] : [input.symbol as string, String(input.depth)],
   },
   {
     id: 'context.budget' as CapabilityId,
@@ -104,8 +113,11 @@ const CLI_CAPABILITY_SPECS: readonly CliCapabilitySpec<InputRecord>[] = [
     permissions: ['read'],
     risk: 'low',
     sideEffects: ['context_run_record'],
+    params: [
+      { name: 'target', kind: 'positional', required: true },
+      { name: 'limitTokens', kind: 'positional', parse: 'int' },
+    ],
     validateInput: validateContextBudgetInput,
-    toArgs: (input) => input.limitTokens === undefined ? [input.target as string] : [input.target as string, String(input.limitTokens)],
   },
   {
     id: 'spec.validate' as CapabilityId,
@@ -115,8 +127,8 @@ const CLI_CAPABILITY_SPECS: readonly CliCapabilitySpec<InputRecord>[] = [
     permissions: ['read'],
     risk: 'low',
     sideEffects: [],
+    params: [{ name: 'feature', kind: 'positional' }],
     validateInput: validateSpecCheckInput,
-    toArgs: (input) => input.feature === undefined ? [] : [input.feature as string],
   },
   {
     id: 'sprint.status' as CapabilityId,
@@ -126,8 +138,8 @@ const CLI_CAPABILITY_SPECS: readonly CliCapabilitySpec<InputRecord>[] = [
     permissions: ['read'],
     risk: 'low',
     sideEffects: [],
+    params: [{ name: 'project', kind: 'positional' }],
     validateInput: validateSprintStatusInput,
-    toArgs: (input) => input.project === undefined ? [] : [input.project as string],
   },
   {
     id: 'handoff.create' as CapabilityId,
@@ -137,8 +149,144 @@ const CLI_CAPABILITY_SPECS: readonly CliCapabilitySpec<InputRecord>[] = [
     permissions: ['write'],
     risk: 'low',
     sideEffects: ['handoff_record'],
+    params: [
+      { name: 'phase', kind: 'positional', required: true },
+      { name: 'slug', kind: 'positional', required: true },
+      { name: 'context', kind: 'rest' },
+    ],
     validateInput: validateHandoffInput,
-    toArgs: (input) => [input.phase as string, input.slug as string, ...(input.context === undefined ? [] : [input.context as string])],
+  },
+
+  // --- SPEC-046 / ADR-0083: o núcleo do fluxo operável por MCP ---
+  {
+    id: 'spec.create' as CapabilityId,
+    command: 'spec:new',
+    description: 'Cria specs/<slug>/spec.md a partir do template.',
+    categories: ['write'],
+    permissions: ['write'],
+    risk: 'low',
+    sideEffects: ['spec_file'],
+    params: [{ name: 'slug', kind: 'positional', required: true }],
+  },
+  {
+    id: 'spec.plan' as CapabilityId,
+    command: 'spec:plan',
+    description: 'Deriva plan.md de uma spec aprovada.',
+    categories: ['write'],
+    permissions: ['write'],
+    risk: 'low',
+    sideEffects: ['spec_file'],
+    params: [{ name: 'slug', kind: 'positional', required: true }],
+  },
+  {
+    id: 'spec.tasks' as CapabilityId,
+    command: 'spec:tasks',
+    description: 'Decompõe plan.md em tasks.md.',
+    categories: ['write'],
+    permissions: ['write'],
+    risk: 'low',
+    sideEffects: ['spec_file'],
+    params: [{ name: 'slug', kind: 'positional', required: true }],
+  },
+  {
+    id: 'code.context' as CapabilityId,
+    command: 'code:context',
+    description: 'Pacote de contexto mínimo de um domínio (o mapa; + código com --code).',
+    categories: ['read'],
+    permissions: ['read'],
+    risk: 'low',
+    sideEffects: [],
+    params: [
+      { name: 'domain', kind: 'positional' },
+      { name: 'code', kind: 'flag' },
+    ],
+  },
+  {
+    id: 'memory.query' as CapabilityId,
+    command: 'query:universal',
+    description: 'Busca FTS5 na memória universal.',
+    categories: ['read', 'database'],
+    permissions: ['read'],
+    risk: 'low',
+    sideEffects: [],
+    params: [{ name: 'query', kind: 'positional', required: true }],
+  },
+  {
+    id: 'engineering.facade' as CapabilityId,
+    command: 'engineer',
+    description: 'Façade: contexto + ADRs relevantes + architecture:check + risco + fluxo recomendado.',
+    categories: ['read', 'database', 'execution'],
+    permissions: ['read'],
+    risk: 'medium',
+    sideEffects: [],
+    params: [
+      { name: 'objective', kind: 'positional', required: true },
+      { name: 'ref', kind: 'flag-value', flag: '--ref' },
+      { name: 'role', kind: 'flag-value', flag: '--role' },
+    ],
+    timeoutMs: 120_000,
+  },
+  {
+    id: 'risk.assess' as CapabilityId,
+    command: 'risk:assess',
+    description: 'Score de risco 0-100 (7 fatores) sobre o diff de um ref.',
+    categories: ['read', 'database'],
+    permissions: ['read'],
+    risk: 'low',
+    sideEffects: ['risk_assessment'],
+    params: [{ name: 'ref', kind: 'positional' }],
+  },
+  {
+    id: 'orchestrate.status' as CapabilityId,
+    command: 'orchestrate:status',
+    description: 'O estado de uma corrida orchestrate: etapas, gates, vereditos.',
+    categories: ['read'],
+    permissions: ['read'],
+    risk: 'low',
+    sideEffects: [],
+    params: [{ name: 'slug', kind: 'positional', required: true }],
+  },
+  {
+    id: 'orchestrate.advance' as CapabilityId,
+    command: 'orchestrate:advance',
+    description: 'Roda o gate da etapa aberta; verde abre a próxima, vermelho trava com o parecer.',
+    categories: ['write', 'execution', 'database'],
+    permissions: ['write'],
+    risk: 'medium',
+    sideEffects: ['orchestrate_state'],
+    params: [{ name: 'slug', kind: 'positional', required: true }],
+    timeoutMs: 300_000,
+  },
+  {
+    id: 'drift.check' as CapabilityId,
+    command: 'drift:check',
+    description: 'Reindexa e sinaliza relações verified que a extração atual não reproduz mais.',
+    categories: ['read', 'database', 'execution'],
+    permissions: ['read'],
+    risk: 'medium',
+    sideEffects: ['graph_write'],
+    params: [{ name: 'domain', kind: 'flag-value', flag: '--domain' }],
+    timeoutMs: 120_000,
+  },
+  {
+    id: 'forja.status' as CapabilityId,
+    command: 'status',
+    description: 'Retrato único do estado: workspace, sprint, corrida, specs, runs, handoffs.',
+    categories: ['read'],
+    permissions: ['read'],
+    risk: 'low',
+    sideEffects: [],
+    params: [],
+  },
+  {
+    id: 'forja.next' as CapabilityId,
+    command: 'next',
+    description: 'A próxima ação recomendada e o comando exato para executá-la.',
+    categories: ['read'],
+    permissions: ['read'],
+    risk: 'low',
+    sideEffects: [],
+    params: [],
   },
 ];
 
@@ -200,23 +348,13 @@ export function capabilityIdForCommand(command: string): CapabilityId | undefine
 }
 
 export function parseLegacyCommandInput(command: string, args: readonly string[]): { readonly capabilityId: CapabilityId; readonly payload: InputRecord } {
+  // `graph:sync` é o único sem comando CLI / sem params — os demais derivam de `spec.params` (SPEC-046).
   if (command === 'graph:sync') return { capabilityId: 'graph.sync' as CapabilityId, payload: {} };
   const capabilityId = capabilityIdForCommand(command);
   if (capabilityId === undefined) throw new Error(`Command is not migrated to a capability: ${command}`);
-
-  if (command === 'tools:doctor') return { capabilityId, payload: {} };
-  if (command === 'code:impact') {
-    const [symbol, depth] = args;
-    return { capabilityId, payload: { symbol, ...(depth === undefined ? {} : { depth: Number(depth) }) } };
-  }
-  if (command === 'context:budget') {
-    const [target, limitTokens] = args;
-    return { capabilityId, payload: { target, ...(limitTokens === undefined ? {} : { limitTokens: Number(limitTokens) }) } };
-  }
-  if (command === 'spec:check') return { capabilityId, payload: args[0] === undefined ? {} : { feature: args[0] } };
-  if (command === 'sprint:status') return { capabilityId, payload: args[0] === undefined ? {} : { project: args[0] } };
-  const [phase, slug, ...contextParts] = args;
-  return { capabilityId, payload: { phase, slug, ...(contextParts.length === 0 ? {} : { context: contextParts.join(' ') }) } };
+  const spec = CLI_CAPABILITY_SPECS.find((s) => s.command === command);
+  if (spec === undefined) throw new Error(`No capability spec for command: ${command}`);
+  return { capabilityId, payload: parseArgv(spec.params, args) };
 }
 
 export async function executeCliCapability(
@@ -274,16 +412,16 @@ function registerCliCapability(
     requirements: [],
     supportsAutonomy: true,
     idempotent: true,
-    timeoutMs: 30_000,
+    timeoutMs: spec.timeoutMs ?? 30_000,
     retry: { maxAttempts: 1, backoffMs: 0 },
     aliases: [spec.command],
   };
   const registration: CapabilityRegistration<InputRecord, CliExecutionPayload> = {
     definition,
-    validateInput: spec.validateInput,
+    validateInput: spec.validateInput ?? makeValidator(spec.params),
     validateOutput: validateCliPayload,
     handler: async (input) => {
-      const args = spec.toArgs(input);
+      const args = argvFor(spec.params, input);
       const result = await runner(spec.command, args);
       const capturedAt = new Date().toISOString() as ISO8601;
       const evidence: Evidence = {
