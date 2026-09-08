@@ -80,6 +80,7 @@ apps/dashboard/.next/
 !/specs/llm-integration-v2
 !/specs/llm-resume-validation
 !/specs/agent-instructions-v4
+!/specs/llm-contexto-e-sessoes
 
 # Runbooks GSD e context packs são gerados/efêmeros e podem carregar dados de
 # produto. São regeneráveis (gsd:plan, context:build), então ficam fora do git.
