@@ -675,10 +675,21 @@ export const COMMANDS: Record<string, CommandSpec> = {
   },
   'llm:run': {
     domain: 'llm',
-    desc: 'Executa um perfil LLM e registra observação normalizada',
+    desc: 'Executa um perfil LLM e registra observação normalizada. --engineer "<objetivo>" monta o contexto pelo façade',
     node: 'scripts/llm-fit.ts',
     args: ['run'],
     gates: ['workspace'],
+  },
+  'llm:sessions': {
+    domain: 'llm',
+    desc: 'Lista/mostra sessões LLM registradas (o SESSION_ID de llm:run --resume) — somente leitura (SPEC-048)',
+    node: 'scripts/llm-fit.ts',
+    args: ['sessions'],
+    gates: ['workspace'],
+    readonly: true,
+    json: true,
+    usage: 'forja llm:sessions <list|show> [id] [--json]',
+    examples: ['forja llm:sessions list', 'forja llm:sessions show <id> --json'],
   },
   'llm:eval': {
     domain: 'llm',

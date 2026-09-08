@@ -18,7 +18,7 @@ No checkout, use `npm run <script> -- <argumentos>` ou `npm run forja -- <comand
 5. Em handoffs, informe `from`, `to`, `intent`, `context`, `acceptance`, `constraints`, `return`. Delegação depende das capacidades e permissões da sessão.
 
 ## LLMs e evidência
-Use [o fluxo de LLMs](llm-fit-loop.md) para perfis, contexto, sessões e validação. Não deduza disponibilidade de modelo pelo nome comercial do chat. O probe verifica a CLI, não o acesso ao modelo. Recursos de resume e output schema são específicos do adapter Codex atual; outros provedores não herdam essas garantias.
+Use [o fluxo de LLMs](llm-fit-loop.md) para perfis, contexto, sessões e validação. Não deduza disponibilidade de modelo pelo nome comercial do chat. O probe verifica a CLI, não o acesso ao modelo. Retomada por sessão vale para os adapters em `RESUME_PROVIDERS` (`codex`, `claude`); os demais provedores não a herdam. Geração estruturada nativa é só do Codex — para Claude, `--output-schema` é validação local (Ajv), não garantia do provedor (`llm:probe` reporta `features.outputSchema: false`).
 
 Separe `executionStatus` de `validationStatus`. Schema comprova formato; checks independentes sustentam aceite. Sem checks, a validação é inconclusiva. Custo desconhecido é `null`; não converta estimativas em medições. Os checks executam com as permissões do processo Forja: revise o manifest antes de usá-lo.
 
