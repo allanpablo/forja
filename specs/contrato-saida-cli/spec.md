@@ -1,7 +1,7 @@
 # Spec: contrato-saida-cli — `--json` e exit codes como contrato de máquina
 
 - **ID**: SPEC-045
-- **Status**: approved
+- **Status**: implementing
 - **Owner**: apk
 - **Criado em**: 2026-09-08
 - **Sprint alvo**: <a definir>
@@ -63,8 +63,10 @@ uma chave `status`; os exit codes seguem uma tabela fixa (0 / 1 / 2 / 127)**. Co
 - [ ] **AC-4**: `bin/forja.ts` — comentário/normalização que documenta a tabela de exit codes num
       lugar; nenhuma mudança de comportamento para comandos que já saem 0/1/127.
 - [ ] **AC-5**: conjunto inicial marcado `json: true` no registry e **conformado**:
-      `status`, `next`, `tools:doctor`, `spec:check`, `engineer`, `simulate`, `risk:assess`,
-      `cost:economy`, `token:economy`. (Lista final fechada no `plan`.)
+      `status`, `next`, `engineer`, `simulate`, `cost:economy`, `token:economy`.
+      `spec:check` e `tools:doctor` ficaram **fora**: já emitem JSON, mas pelo envelope da
+      capability (roteados como MCP em `apps/cli/src/index.ts`) — alinhar isso é W6.
+      `risk:assess` fica para depois (orientado a arquivo). (Ajustado do texto original no `plan`.)
 - [ ] **AC-6**: `test/cli-output-contract.test.js` — para cada comando `json: true`: roda com
       `--json` e argumentos mínimos válidos, e afirma (a) stdout é **um** JSON parseável,
       (b) é objeto com `status` ∈ {`ok`,`error`,`rejected`}, (c) exit code casa com o `status`,
@@ -124,9 +126,32 @@ uma chave `status`; os exit codes seguem uma tabela fixa (0 / 1 / 2 / 127)**. Co
 
 ## Evidências e estado real
 
-- AC-1 a AC-9 → tasks em `spec:tasks`.
-- **Mudança de contrato**: `token:economy --json` (array → `{status, rows}`) e exit code de
-  `simulate` para discard (1 → 2). Ambas no ADR-0082 e no CHANGELOG.
-- **Hipótese, não medição**: os ganhos de §8 dependem de instrumentação (flag `--json` já é
-  auditada em `forja-runs.jsonl`, mas ninguém agrega isso ainda).
-- **Dependência**: empilhada sobre `feat/forja-status`; usa o campo `json` do registry (SPEC-043).
+**Implementado em 2026-09-08** na branch `feat/contrato-saida-cli` (sobre `feat/forja-status`).
+Bateria: `tsc --noEmit` limpo; `node --test test/*.test.js` **503/503** (+7: `test/cli-output.test.js`,
+`test/cli-output-contract.test.js`); `forja spec:check` e `forja project:check` (100%) verdes.
+
+| AC | Onde | Verificado |
+|---|---|---|
+| AC-1 | `memory/90-decisions/0082-contrato-saida-cli.md` | `adr-refs` do doctor verde (78 ADRs) |
+| AC-2 | `docs/contrato-saida-cli.md`, `DOC-MAP.md` | `docs-links`/`docs-commands` verdes |
+| AC-3 | `lib/cli-output.ts` (`emitOk`/`emitError`/`emitRejected`) | `test/cli-output.test.js` — forma + exit + `detail` no stderr |
+| AC-4 | `bin/forja.ts` — comentário da tabela; arg obrigatório + `--json` → `{status:'error'}` | teste no `cli-output-contract` |
+| AC-5 | `lib/core/registry.ts` `json:true` | `status`, `next`, `engineer`, `simulate`, `cost:economy`, `token:economy` |
+| AC-6 | `test/cli-output-contract.test.js` | itera `json:true` do registry; forma + exit por `status` |
+| AC-7 | `scripts/{token-economy,cost-economy,simulate,engineer,forja-status}.ts` | `token:economy --json`→objeto; `cost:economy --json` sem poluição; `simulate` discard→exit 2; saída default inalterada (testes existentes verdes) |
+| AC-8 | `lib/core/registry.ts` | `--json` no `usage`/`examples` dos 6 |
+| AC-9 | — | bateria acima verde |
+
+- **Desvio vs. o plan (D7, descoberto na implementação)**: `spec:check` e `tools:doctor`
+  **saíram** do conjunto. São roteados como capability MCP por `bin/forja.ts` — o `--json` é
+  consumido pelo dispatcher e a saída sai no envelope `{ status: 'succeeded'|'failed', output }`.
+  Conformar o script seria código morto atrás do envelope; alinhar o **envelope** é W6.
+- **Quebras de contrato deliberadas** (ADR-0082 + CHANGELOG): `token:economy --json` (array →
+  `{status, rows}`); `simulate` discard (exit 0 → 2, `status:'rejected'` no `--json`). O texto
+  original da spec dizia "1 → 2" — na verdade discard não sinalizava exit code algum; agora
+  sinaliza 2. Teste `test/simulate-cli.test.js` atualizado.
+- **Também corrigido**: `cost:economy --json` escrevia avisos de texto no stdout, quebrando o
+  `JSON.parse`; agora vão para o stderr.
+- **Hipótese, não medição**: os ganhos de §8 dependem de agregação da flag `--json` do
+  `forja-runs.jsonl`, que ninguém faz ainda.
+- **Pendências**: revisão de Governança; handoff `review` registrado; depende do merge de #62/#61.

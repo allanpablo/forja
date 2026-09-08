@@ -76,9 +76,10 @@ export function emitRejected(fields?: Json): never;
 | 2 | validação/gate do comando deu negativo (`status:'rejected'`) — ex.: `llm:run`, `simulate` discard |
 | 127 | binário externo obrigatório ausente (só `bin:` no registry; `bin/forja.ts` já cuida) |
 
-**Conjunto `json: true` fechado** (AC-5, ajustado do spec): `status`, `next` (já conformes),
-`spec:check`, `tools:doctor`, `engineer`, `simulate`, `cost:economy`, `token:economy`.
-`risk:assess` fica de fora desta rodada (orientado a arquivo; `--json` lá é backlog).
+**Conjunto `json: true` fechado** (AC-5, ajustado na implementação): `status`, `next` (já
+conformes da SPEC-044), `engineer`, `simulate`, `cost:economy`, `token:economy`.
+`spec:check` e `tools:doctor` **saíram** (ver D7). `risk:assess` fica de fora (orientado a
+arquivo; `--json` lá é backlog).
 
 ## 5. Decisões e alternativas
 
@@ -105,6 +106,13 @@ e CHANGELOG registram. Alternativa (manter o array e pôr `status` num header): 
 `rejected`. Alternativa (deixar 1): rejeitada — apaga a distinção que o contrato existe para criar.
 
 **D6 — ADR-0082 `accepted`, não `proposed`.** Allan aprovou a spec incluindo D4 e D5.
+
+**D7 — `spec:check` e `tools:doctor` saem do conjunto (descoberto na implementação).** Os dois
+são roteados como **capability MCP** por `bin/forja.ts` (`capabilityIdForCommand` → `apps/cli/
+src/index.ts`): o `--json` é consumido pelo dispatcher, o script roda sem ele, e a saída é
+embrulhada no envelope `{ status: 'succeeded'|'failed', output: { payload } }`. Fazer o script
+conformar seria código morto atrás do envelope. Alinhar o **envelope da capability** ao contrato
+é trabalho de W6 (cobertura MCP). Registrado no ADR-0082 e no §Evidências da spec.
 
 ## 6. Dependências
 

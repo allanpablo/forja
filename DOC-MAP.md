@@ -55,6 +55,7 @@ Ponto de entrada por papel. Para histórico de fases ver `CHANGELOG.md`; para de
 | Manual operacional CLI-first | `docs/manual-operacional-cli-sdd-gsd.md` |
 | Modos embedded e studio | `docs/modos-de-operacao.md` |
 | Guia curto CLI-first | `docs/cli-first-operacao.md` |
+| Contrato de saída da CLI (`--json` + exit codes) | `docs/contrato-saida-cli.md` |
 | Mudanças recentes | `CHANGELOG.md` |
 | Decisões arquiteturais | `memory/90-decisions/` |
 | Glossário | `docs/glossary.md` |

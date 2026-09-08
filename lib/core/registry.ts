@@ -427,9 +427,10 @@ export const COMMANDS: Record<string, CommandSpec> = {
     gates: ['workspace-warn'],
     spec: 'SPEC-035',
     tier: 'core',
-    usage: 'forja engineer "<objetivo>"',
+    json: true,
+    usage: 'forja engineer "<objetivo>" [--ref <ref>] [--role <role>] [--json]',
     cliArgs: [{ name: 'objetivo', required: true, desc: 'o que você quer fazer (entre aspas)' }],
-    examples: ['forja engineer "adicionar rate limit no login"'],
+    examples: ['forja engineer "adicionar rate limit no login"', 'forja engineer "auth por token" --json'],
     next: ['risk:assess'],
   },
   'agent:register': {
@@ -504,9 +505,14 @@ export const COMMANDS: Record<string, CommandSpec> = {
   },
   'simulate': {
     domain: 'code',
-    desc: 'Testa+arquitetura+risco de um ref num worktree isolado, nunca promove (SPEC-038)',
+    desc: 'Testa+arquitetura+risco de um ref num worktree isolado, nunca promove',
     node: 'scripts/simulate.ts',
     gates: ['workspace-warn'],
+    spec: 'SPEC-038',
+    json: true,
+    usage: 'forja simulate <ref> [--command "npm test"] [--json]',
+    cliArgs: [{ name: 'ref', required: true, desc: 'git ref a simular' }],
+    examples: ['forja simulate HEAD', 'forja simulate HEAD --json'],
   },
   'provenance:record': {
     domain: 'code',
@@ -657,8 +663,12 @@ export const COMMANDS: Record<string, CommandSpec> = {
   },
   'token:economy': {
     domain: 'contexto',
-    desc: 'Economia de token: eixos arquitetura + memória; --project mede seus domínios reais (ADR-0009/0027)',
+    desc: 'Economia de token: eixos arquitetura + memória; --project mede seus domínios reais',
     node: 'scripts/token-economy.ts',
+    spec: 'ADR-0009, ADR-0027',
+    json: true,
+    usage: 'forja token:economy [--project <path>] [--json]',
+    examples: ['forja token:economy', 'forja token:economy --json'],
   },
   'benchmark:context': {
     domain: 'contexto',
@@ -717,9 +727,13 @@ export const COMMANDS: Record<string, CommandSpec> = {
   },
   'cost:economy': {
     domain: 'llm',
-    desc: 'Custo real acumulado (USD) das execuções LLM registradas, por modelo — tabela de preço local (SPEC-029)',
+    desc: 'Custo real acumulado (USD) das execuções LLM registradas, por modelo — tabela de preço local',
     node: 'scripts/cost-economy.ts',
     gates: ['workspace'],
+    spec: 'SPEC-029',
+    json: true,
+    usage: 'forja cost:economy [--json]',
+    examples: ['forja cost:economy', 'forja cost:economy --json'],
   },
 
   // --- Governança & qualidade ---------------------------------------------------

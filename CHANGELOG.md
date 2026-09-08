@@ -25,8 +25,21 @@ Histórico consolidado das mudanças estruturais do framework. Para decisões ar
   `forja help <palpite>`. (SPEC-043)
 - Argumento posicional obrigatório em falta falha **antes** de invocar o script-filho, imprimindo
   o `Uso:` do comando — sem stack trace. (SPEC-043)
+- **Contrato de saída da CLI** ([ADR-0082](memory/90-decisions/0082-contrato-saida-cli.md),
+  [`docs/contrato-saida-cli.md`](docs/contrato-saida-cli.md)): `--json` emite um único objeto com
+  chave `status` (`ok`|`error`|`rejected`); exit codes 0/1/2/127. `lib/cli-output.ts`
+  (`emitOk`/`emitError`/`emitRejected`) impõe o formato; `test/cli-output-contract.test.js` itera
+  o registry e reprova qualquer `json: true` que desvie. Conjunto conformado: `status`, `next`,
+  `engineer`, `simulate`, `cost:economy`, `token:economy`. (SPEC-045)
 
 ### Alterado
+
+- **`token:economy --json`** deixa de emitir um array cru — passa a `{ "status": "ok",
+  "rows": [...] }`. Quebra do JSON desse comando (ADR-0082). (SPEC-045)
+- **`simulate`** com recomendação `discard`: exit code passa de `0` para **`2`** e, com `--json`,
+  `status: "rejected"` — é um gate negativo, não sucesso (ADR-0082). (SPEC-045)
+- **`cost:economy --json`** deixava de ser parseável (avisos de texto iam no stdout); agora o
+  stdout é só o objeto, avisos vão para o stderr. (SPEC-045)
 
 - `forja help` (sem argumentos) lista só os comandos do núcleo (`tier: 'core'`), agrupados por
   domínio, com rodapé para `forja help --all`. `forja help --all` preserva a saída completa
@@ -45,6 +58,9 @@ Histórico consolidado das mudanças estruturais do framework. Para decisões ar
 - Decidido no plan (`specs/cli-intuitiva-v1/`): o `--fix` da spec original virou o comando
   dedicado `forja setup` — `tools:doctor` continua só diagnóstico, por desenho. O campo de args
   posicionais no registry chama-se `cliArgs` (não `args`, que é o prefixo fixo do spawn).
+- `spec:check` e `tools:doctor` ficaram **fora** do contrato de saída nesta rodada: já emitem
+  JSON, mas pelo envelope da capability MCP (`{ status: "succeeded" | "failed", … }`). Alinhar
+  esse envelope é parte da cobertura MCP (W6).
 
 ## [4.0.0] — 2026-09-05 — Integrações LLM, sessões e validação
 
