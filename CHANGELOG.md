@@ -4,10 +4,29 @@ Histórico consolidado das mudanças estruturais do framework. Para decisões ar
 
 ---
 
-## [Unreleased] — CLI mais intuitiva (roadmap v4.1, Onda 1–2)
+## [Unreleased]
 
 ### Adicionado
 
+- `forja llm:run --engineer "<objetivo>"` — monta o contexto pelo façade `engineer` (ADRs, risco,
+  fluxo, …) e o embute no prompt. O hash cobre o prompt transmitido; em `contextRefs` fica só a
+  referência `engineer:<objetivo>`, nunca o conteúdo. Falha do façade → `errorCode:
+  "ENGINEER_FAILED"` antes de chamar o provedor. (SPEC-048)
+- `forja llm:sessions list|show` — leitura das sessões LLM registradas (`llm_session`) para
+  recuperar o `SESSION_ID` que `llm:run --resume` exige. Somente leitura. (SPEC-048)
+- `forja llm:eval` reporta `durationMsP50`/`durationMsP95` e `costPerAcceptedTask`
+  (`totalCost / tarefas aceitas`; 0 quando nenhuma). As métricas anteriores não mudam. (SPEC-049)
+- `forja llm:recommend` pondera **latência e custo** além do fit declarado e do sucesso local
+  (bônus limitado — nunca inverte um fit) e devolve `evidence` por candidato
+  (`samples`, `medianDurationMs`, `meanCostUsd`, `successRate`) + `reasons` com `latency:p50=…` /
+  `cost:$…/run`. Nenhum percentual de ganho é afirmado antes de um baseline de 30 dias. (SPEC-049)
+- Adaptador **Claude** com paridade de retomada e formato: `llm:run --profile claude` invoca
+  `claude -p "<prompt>" --output-format json [--resume <id>]` (`shell:false`, sem ler API keys),
+  normaliza o objeto JSON único do provedor (`result`/`session_id`/`usage`) e trata
+  `is_error`/`subtype` como erro visível. `RESUME_PROVIDERS = { codex, claude }` — `--resume` e
+  `llm:sessions` passam a valer para Claude. `--output-schema` com o perfil `claude` é validação
+  **local (Ajv)**, não geração garantida pelo provedor; `llm:probe claude` reporta
+  `features.resume: true` / `features.outputSchema: false`. (SPEC-050, ADR-0085)
 - `forja help <comando>` — uso, argumentos posicionais, exemplos e próximos passos de cada
   comando, a partir de campos novos e opcionais do registry (`usage`, `cliArgs`, `examples`,
   `next`, `spec`, `tier`). `forja <comando> --help` faz o mesmo inline. (SPEC-043)
@@ -30,15 +49,15 @@ Histórico consolidado das mudanças estruturais do framework. Para decisões ar
 
 - `forja help` (sem argumentos) lista só os comandos do núcleo (`tier: 'core'`), agrupados por
   domínio, com rodapé para `forja help --all`. `forja help --all` preserva a saída completa
-  anterior; os sufixos `(SPEC-0XX)` saíram das descrições do núcleo para o detalhe de `help <cmd>`.
+  anterior; os sufixos `(SPEC-0XX)` saíram das descrições do núcleo para o detalhe de `help <cmd>`. (SPEC-043)
 - `orchestrate` e os comandos de estado (`status`, `next`) abrem o bloco GSD no `forja help` —
-  o caminho feliz em primeiro lugar.
+  o caminho feliz em primeiro lugar. (SPEC-044)
 - `tools:doctor` e o bloco `<framework-status>` do SessionStart agrupam os checks em três blocos
   rotulados — **Bloqueia o fluxo**, **Rotina de primeiro uso**, **Opcional (ferramentas)**. O
-  exit code do gate é inalterado. Mudança aditiva.
+  exit code do gate é inalterado. Mudança aditiva. (SPEC-043)
 - `listSpecs` e `openHandoffs` saíram de `scripts/hook-session-start.ts` para
   `lib/specs-index.ts` / `lib/handoffs-index.ts`, compartilhados com `forja status`. `listRuns`
-  novo em `lib/orchestrate.ts`.
+  novo em `lib/orchestrate.ts`. (SPEC-044)
 
 ### Notas de contrato
 

@@ -30,7 +30,8 @@ e da conta. Codex, Claude, Gemini, Ollama e executáveis locais permanecem integ
 |---|---|---|
 | 1 — implementada e testada | Contexto enviado; Codex JSONL; esforço e timeout configuráveis; telemetria e validação explícitas | Testes sem rede, tipos e build |
 | 2 — implementada e testada | Retomada por sessão, resposta com schema e validação por testes/requisitos | Continuação sem replay pelo Forja; checks independentes rejeitam resultados inválidos |
-| 3 — planejada | Benchmark real; recomendação por qualidade, risco, custo e latência | Custo por tarefa aprovada, regressões e retrabalho |
+| 2b — implementada e testada (SPEC-050) | Adaptador Claude com paridade: `--resume` nativo e `--output-format json`; `RESUME_PROVIDERS = { codex, claude }`. `--output-schema` para Claude é validação local (Ajv), não geração garantida pelo provedor | `llm:probe claude` reporta `features.resume`/`features.outputSchema`; testes sem rede com fixture |
+| 3 — parcial (SPEC-049) | `llm:eval` com p50/p95 de latência e custo por tarefa aprovada; `llm:recommend` pondera custo e latência com `evidence` por candidato. Falta o eixo de qualidade por avaliador e o de risco por perfil. **Nenhum percentual afirmado** antes de baseline de 30 dias | Custo por tarefa aprovada, regressões e retrabalho |
 | 4 — planejada | Contexto incremental e cache medido; adaptador de API opcional com ADR próprio | Economia total sem perda de qualidade |
 | 5 — planejada | Expandir MCP existente; ferramentas sob demanda; checkpoints no runtime | Mesmas políticas e auditoria para CLI e agentes |
 

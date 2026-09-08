@@ -25,7 +25,9 @@ test('resume usa ID explícito e preserva permissões antes e depois do subcoman
   assert.ok(execution.args.includes('approval_policy="never"'));
   assert.ok(execution.args.includes('--output-schema'));
   for (const id of ['', '--last', '../session', 'a b']) assert.throws(() => buildLlmExecution(profile, 'x', { resume: id }), /resume/);
-  assert.throws(() => buildLlmExecution({ ...profile, provider: 'claude' }, 'x', { resume: 'session-1' }), /resume/);
+  // SPEC-050: `claude` passou a suportar retomada (RESUME_PROVIDERS); um provedor fora do conjunto não.
+  assert.deepEqual(buildLlmExecution({ ...profile, provider: 'claude' }, 'x', { resume: 'session-1' }).args.slice(-2), ['--resume', 'session-1']);
+  assert.throws(() => buildLlmExecution({ ...profile, provider: 'ollama' }, 'x', { resume: 'session-1' }), /resume/);
 });
 
 test('sessões são isoladas por projeto e identidade do perfil', () => {
