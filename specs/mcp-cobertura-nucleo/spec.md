@@ -1,7 +1,7 @@
 # Spec: mcp-cobertura-nucleo — o núcleo do fluxo operável por MCP
 
 - **ID**: SPEC-046
-- **Status**: draft
+- **Status**: approved
 - **Owner**: apk
 - **Criado em**: 2026-09-08
 - **Sprint alvo**: <a definir>
