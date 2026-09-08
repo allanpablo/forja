@@ -1,7 +1,9 @@
 import fs from 'node:fs';
 import { createHash } from 'node:crypto';
-import type { LlmProfile } from '../../packages/llm/src/index.ts';
+import { RESUME_PROVIDERS, type LlmProfile } from '../../packages/llm/src/index.ts';
 import type { SqliteJsonRepository } from '../../packages/adapter-sqlite/src/index.ts';
+
+export { RESUME_PROVIDERS };
 
 export interface LlmSession {
   readonly id: string;
@@ -21,7 +23,7 @@ export class LlmSessionStore {
   constructor(repository: SqliteJsonRepository) { this.repository = repository; }
 
   require(id: string, profile: LlmProfile, cwd: string): LlmSession {
-    if (profile.provider !== 'codex' || !validSessionId(id)) throw new Error('Retomada exige Codex e ID explícito válido.');
+    if (!RESUME_PROVIDERS.has(profile.provider) || !validSessionId(id)) throw new Error('Retomada exige um adaptador que a suporte (codex, claude) e um ID explícito válido.');
     const session = this.repository.get<LlmSession>('llm_session', id);
     if (!session) throw new Error('Sessão não registrada neste workspace Forja.');
     this.assertBinding(session, profile, cwd);

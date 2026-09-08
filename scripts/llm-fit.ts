@@ -12,7 +12,8 @@ import { getWorkspaceContextDir, getWorkspaceDbDir, getWorkspaceDbPath } from '.
 import { computeCostUsd, isPriceStale, loadPricingTable, lookupPrice, STALE_PRICE_MAX_AGE_DAYS } from '../lib/core/model-pricing.ts';
 import { buildContextPrompt, buildEngineerBlock } from '../lib/llm/context.ts';
 import { normalizeCodexResult, type NormalizedLlmResult } from '../lib/llm/codex-output.ts';
-import { LlmSessionStore, validSessionId } from '../lib/llm/session.ts';
+import { normalizeClaudeResult } from '../lib/llm/claude-output.ts';
+import { LlmSessionStore, RESUME_PROVIDERS, validSessionId } from '../lib/llm/session.ts';
 import { prepareValidation, validateLlmResponse } from '../lib/llm/validation.ts';
 
 const profilePath = () => path.join(getWorkspaceContextDir(), 'llm-profiles.json');
@@ -84,6 +85,12 @@ function doctor(name?: string): void {
       const resumeHelp = spawnSync(value.command, ['exec', 'resume', '--help'], { encoding: 'utf8', timeout: 10_000, shell: false });
       features = { outputSchema: !help.error && help.status === 0 && help.stdout.includes('--output-schema'),
         resume: !resumeHelp.error && resumeHelp.status === 0 && ['--json', '--config'].every((flag) => resumeHelp.stdout.includes(flag)) };
+    } else if (available && value.provider === 'claude') {
+      // SPEC-050 — o `claude` CLI oferece --resume nativo; schema não (validação é local, Ajv).
+      const help = spawnSync(value.command, ['--help'], { encoding: 'utf8', timeout: 10_000, shell: false });
+      const helpOk = !help.error && help.status === 0;
+      compatible = helpOk && ['--output-format', '--print'].every((flag) => help.stdout.includes(flag));
+      features = { resume: helpOk && help.stdout.includes('--resume'), outputSchema: false };
     }
     return { name: profileName, provider: value.provider, model: value.model, enabled: value.enabled, executable: value.command, available, compatible,
       features, modelAccess: 'not-probed', detail: errorCode ?? (probe.status === 0 ? String(probe.stdout).trim().split('\n')[0] : String(probe.stderr).trim().split('\n')[0]), pricing };
@@ -139,7 +146,11 @@ async function run(): Promise<void> {
     const sessions = new LlmSessionStore(repository);
     if (resume !== undefined) sessions.require(resume, selected, process.cwd());
     const raw = await runLlm(execution, process.cwd(), selected.timeoutMs);
-    let result: NormalizedLlmResult = selected.provider === 'codex' ? normalizeCodexResult(raw) : raw;
+    let result: NormalizedLlmResult = selected.provider === 'codex'
+      ? normalizeCodexResult(raw)
+      : selected.provider === 'claude'
+        ? normalizeClaudeResult(raw)
+        : raw;
     if (result.sessionId !== undefined && (!validSessionId(result.sessionId) || (resume !== undefined && result.sessionId !== resume))) {
       result = { ...result, exitCode: result.exitCode || 1, errorCode: 'SESSION_MISMATCH', sessionId: undefined };
     }
@@ -156,7 +167,7 @@ async function run(): Promise<void> {
     if (costUsd === undefined) console.warn(`Aviso: preço desconhecido para ${model} — custo desta execução não computado. Rode \`forja llm:doctor\` ou adicione uma entrada em lib/core/model-pricing.json.`);
     const observation = await recorder.record({ traceId: `llm:${name}:${randomUUID()}`, model, inputHash: createHash('sha256').update(fullPrompt).digest('hex'), contextRefs: refs, inputTokens, outputTokens, durationMs: result.durationMs, cost: costUsd, tools: [selected.command], commands: [selected.command], outcome: result.exitCode === 0 ? 'succeeded' : 'failed', validationStatus: validation.status, errorCode: result.errorCode ?? validation.errorCode });
     repository.put('llm_validation', observation.id, { ...validation, observationId: observation.id, cwd: fs.realpathSync(process.cwd()) }, observation.updatedAt);
-    if (selected.provider === 'codex' && sessionId !== undefined) sessions.save(sessionId, selected, process.cwd(), observation.id);
+    if (RESUME_PROVIDERS.has(selected.provider) && sessionId !== undefined) sessions.save(sessionId, selected, process.cwd(), observation.id);
     const exitCode = result.exitCode || (validation.status === 'rejected' ? 2 : 0);
     console.log(JSON.stringify({ profile: name, model: observation.model, exitCode, executionExitCode: result.exitCode, durationMs: result.durationMs,
       executionStatus: result.exitCode === 0 ? 'completed' : 'failed', validationStatus: observation.validationStatus,

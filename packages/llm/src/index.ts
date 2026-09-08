@@ -60,12 +60,18 @@ export interface LlmExecutionOptions {
   readonly outputSchema?: string;
 }
 
+/**
+ * Provedores cujo adaptador suporta retomada de sessão (ADR-0081, ADR-0085). É propriedade do
+ * adaptador — o que a CLI do provedor oferece — não uma escolha do operador no perfil.
+ */
+export const RESUME_PROVIDERS: ReadonlySet<string> = new Set(['codex', 'claude']);
+
 export function buildLlmExecution(profile: LlmProfile, prompt: string, options: LlmExecutionOptions = {}): LlmExecution {
   validateProfile('execution', profile);
   if (!profile.enabled) throw new LlmProfileError('profile is disabled');
   if (prompt.trim().length === 0) throw new LlmProfileError('prompt is required');
-  if (options.resume !== undefined && (profile.provider !== 'codex' || !/^[a-zA-Z0-9][a-zA-Z0-9_-]{0,127}$/.test(options.resume))) {
-    throw new LlmProfileError('resume requires codex and an explicit session ID');
+  if (options.resume !== undefined && (!RESUME_PROVIDERS.has(profile.provider) || !/^[a-zA-Z0-9][a-zA-Z0-9_-]{0,127}$/.test(options.resume))) {
+    throw new LlmProfileError('resume requires a resume-capable adapter (codex, claude) and an explicit session ID');
   }
   const base = [...(profile.commandArgs ?? [])];
   if (profile.provider === 'codex') return {
@@ -78,7 +84,11 @@ export function buildLlmExecution(profile: LlmProfile, prompt: string, options: 
       '--json', ...(options.resume ? [options.resume] : []), '-'],
     stdin: prompt,
   };
-  if (profile.provider === 'claude') return { executable: profile.command, args: [...base, ...(profile.model === 'default' ? [] : ['--model', profile.model]), '-p', prompt] };
+  if (profile.provider === 'claude') return {
+    executable: profile.command,
+    args: [...base, ...(profile.model === 'default' ? [] : ['--model', profile.model]), '-p', prompt,
+      '--output-format', 'json', ...(options.resume ? ['--resume', options.resume] : [])],
+  };
   if (profile.provider === 'gemini-cli') return { executable: profile.command, args: [...base, ...(profile.model === 'default' ? [] : ['-m', profile.model]), '-p', prompt] };
   if (profile.provider === 'ollama') return { executable: profile.command, args: [...base, 'run', profile.model, prompt] };
   if (profile.provider === 'copilot') return { executable: profile.command, args: [...base, 'copilot', 'suggest', '-t', 'shell', prompt] };
