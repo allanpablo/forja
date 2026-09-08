@@ -63,9 +63,10 @@ não cumpra o contrato.
 
 ## Comandos cobertos
 
-`status` · `next` · `engineer` · `simulate` · `cost:economy` · `token:economy`.
+`status` · `next` · `engineer` · `simulate` · `cost:economy` · `token:economy` — saída própria.
 
-`spec:check` e `tools:doctor` também respondem `--json`, mas pelo **envelope da capability**
-(`{ status: "succeeded" | "failed", output: { payload: … } }`) — são comandos MCP. Alinhar esse
-envelope a este contrato é parte da cobertura MCP (W6). `risk:assess` e o restante entram
-incrementalmente.
+`spec:check` · `tools:doctor` e os demais **comandos-capability** (ver
+[`docs/2x/CLI-CAPABILITIES.md`](2x/CLI-CAPABILITIES.md)) conformam pelo adaptador `toContract`
+em `bin/forja.ts` (SPEC-046): `succeeded`+exit 0 → `ok`, `succeeded`+exit 2 → `rejected`,
+`failed`/exit 1 → `error`; o `stdout` do filho, se for JSON, é fundido no resultado, senão vem
+em `raw`. `risk:assess` e o restante entram incrementalmente.

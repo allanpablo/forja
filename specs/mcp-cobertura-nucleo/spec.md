@@ -1,7 +1,7 @@
 # Spec: mcp-cobertura-nucleo — o núcleo do fluxo operável por MCP
 
 - **ID**: SPEC-046
-- **Status**: approved
+- **Status**: implementing
 - **Owner**: apk
 - **Criado em**: 2026-09-08
 - **Sprint alvo**: <a definir>
@@ -130,11 +130,32 @@ comando-capability passa a seguir o contrato de saída. Adicionar um comando nov
 
 ## Evidências e estado real
 
-- AC-1 a AC-9 → tasks em `spec:tasks`.
-- **Mudança de contrato**: o `--json` de comandos-capability passa do `ExecutionResult` cru para
-  o objeto do contrato de saída (ADR-0082). No ADR-0083 e no CHANGELOG.
-- **Fecha D7 da SPEC-045** (`spec:check`/`tools:doctor` no contrato).
-- **Hipótese, não medição**: adoção via MCP depende de agentes configurarem `mcp:start` — sem
-  instrumentação dedicada ainda.
-- **Dependência**: empilhada sobre `feat/contrato-saida-cli` (#63) → `feat/forja-status` (#62)
-  → `feat/cli-intuitiva-v1` (#61).
+**Implementado em 2026-09-08** na branch `feat/mcp-cobertura` (sobre `feat/contrato-saida-cli`).
+Bateria: `tsc --noEmit` limpo; `node --test test/*.test.js` **531/531** (+28: `cli-params`,
+`mcp-coverage`, e o ajuste em `cli-capability-adapter`); `forja spec:check` e `forja project:check`
+(100%) verdes; `adr-refs` 79 ADRs.
+
+| AC | Onde | Verificado |
+|---|---|---|
+| AC-1 | `memory/90-decisions/0083-mcp-cobertura-declarativa.md` | `adr-refs` verde |
+| AC-2 | `apps/cli/src/params.ts`, `apps/cli/src/index.ts` | `parseLegacyCommandInput` = `parseArgv(spec.params, argv)`; único special-case restante é `graph:sync` |
+| AC-3 | `test/cli-params.test.js` | round-trip `argvFor(parseArgv(argv)) === argv` para os **18** specs |
+| AC-4 | `apps/cli/src/index.ts` | `CLI_CAPABILITY_SPECS.length === 18` (+`graph.sync` = 19 no `capabilities:list`); `test/mcp-coverage.test.js` |
+| AC-5 | `bin/forja.ts` `toContract()` | `--json` de comando-capability → `{status:'ok'\|'error'\|'rejected', ...merge(stdout)}`; `stderr`→stderr; exit 0/1/2 |
+| AC-6 | `lib/core/registry.ts` | `spec:check`/`tools:doctor` `json: true`; `test/cli-output-contract.test.js` cobre-os (via `toContract` → `{status:'ok', raw}`) |
+| AC-7 | `apps/cli/src/index.ts` | cada spec com `permissions`/`risk`/`categories`/`sideEffects`; `validateInput` = `makeValidator(params)` (default) + os 3 custom com range/enum |
+| AC-8 | `test/mcp-coverage.test.js` | `tools/list` expõe o núcleo; `tools/call` `spec.create` → `spec.validate` roda num workspace temp |
+| AC-9 | — | round-trip dos 6 originais verde; testes MCP existentes verdes (`cli-capability-adapter` ajustado para "os 6 ⊆ lista, ≥18") |
+
+- **Desvio vs. o plan**: `context:smart` **saiu** da lista (o script tem shape posicional ambíguo
+  `[project, keyword]`, não `--mode`/`--domain`) — 12 novos, não 13; total 18. `status`/`next`/
+  `engineer` são capability (para o MCP) mas rodam **direto** no CLI (têm `--json` nativo de W4/W5);
+  `bin/forja.ts` desvia esses 3 da camada de capability (`NATIVE_JSON_CAPABILITIES`).
+- **Mudança de contrato**: o `--json` de comando-capability (`spec:check`, `code:impact`,
+  `spec:new`, …) passa do `ExecutionResult` cru para o contrato de saída. O `tools/call` do MCP
+  não muda. No ADR-0083 e no CHANGELOG.
+- **Fecha D7 da SPEC-045**. Nota: `spec:check`/`tools:doctor --json` hoje devolvem
+  `{status:'ok', raw:'<texto>'}` — o filho roda em texto e o texto vai em `raw`; estruturar a
+  saída deles é follow-up (não bloqueia o contrato).
+- **Hipótese, não medição**: adoção via MCP depende de agentes configurarem `mcp:start`.
+- **Pendências**: revisão de Governança; handoff `review` registrado; depende do merge de #63→#62→#61.

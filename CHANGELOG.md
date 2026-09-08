@@ -31,9 +31,20 @@ Histórico consolidado das mudanças estruturais do framework. Para decisões ar
   (`emitOk`/`emitError`/`emitRejected`) impõe o formato; `test/cli-output-contract.test.js` itera
   o registry e reprova qualquer `json: true` que desvie. Conjunto conformado: `status`, `next`,
   `engineer`, `simulate`, `cost:economy`, `token:economy`. (SPEC-045)
+- **Cobertura MCP de 6 → 18 comandos** ([ADR-0083](memory/90-decisions/0083-mcp-cobertura-declarativa.md)):
+  `spec:new`, `spec:plan`, `spec:tasks`, `query:universal`, `engineer`, `risk:assess`,
+  `orchestrate:status`, `orchestrate:advance`, `drift:check`, `code:context`, `status`, `next`
+  viram capabilities tipadas — `forja mcp:start` → `tools/list` passa a expô-las e o fluxo SDD
+  roda por `tools/call`. Mapeamento argv↔payload declarativo (`apps/cli/src/params.ts`,
+  `parseArgv`/`argvFor` inversos com round-trip test); o `if/else` por comando some. `spec:check`
+  e `tools:doctor` fecham o débito D7 de SPEC-045 (agora `json: true`). (SPEC-046)
 
 ### Alterado
 
+- **`--json` de comando-capability** (`spec:check`, `tools:doctor`, `code:impact`, `spec:new`, …)
+  deixa de emitir o `ExecutionResult` cru e passa a seguir o contrato de saída (`{ status, … }`)
+  via o adaptador `toContract` em `bin/forja.ts`. O consumo por MCP (`tools/call`) não muda.
+  (SPEC-046, ADR-0083)
 - **`token:economy --json`** deixa de emitir um array cru — passa a `{ "status": "ok",
   "rows": [...] }`. Quebra do JSON desse comando (ADR-0082). (SPEC-045)
 - **`simulate`** com recomendação `discard`: exit code passa de `0` para **`2`** e, com `--json`,
