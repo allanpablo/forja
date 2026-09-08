@@ -290,7 +290,7 @@ forja cost:economy                         # real $ cost per model, from the obs
 forja project:check                        # framework standards (pre-commit)
 forja tools:doctor                         # core X-ray; tells permission/lock from corruption; exit 1 if broken
 forja release:check --publish              # tarball gate before publishing
-forja project:smoke                        # generated-project gate; --full installs and builds the backend
+forja project:smoke                        # generated-project gate; --full installs+builds; --ai <list> checks native instructions
 forja project:dashboard                    # static status report
 
 # Governance & audit

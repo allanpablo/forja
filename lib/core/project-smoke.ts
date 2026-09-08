@@ -21,6 +21,7 @@ import { fileURLToPath } from 'node:url';
 import { runChecks as run, worstStatus } from './checks.ts';
 import { resolveScript } from './registry.ts';
 import type { Check } from './checks.ts';
+import { writeAiInstructions, stripInstructionHeader, AI_LABELS } from '../multi-ai-instructions.ts';
 // @ts-ignore — validador legado sem tipos exportados; usado só pela forma { isValid, errors }.
 import { validateProjectStructure } from '../validators/structure-validator.ts';
 
@@ -37,6 +38,8 @@ interface SmokeEnv {
   fs: typeof fs;
   projectDir?: string;
   full: boolean;
+  /** SPEC-047: lista de IAs. Presente ⇒ gera só-memória + instruções nativas; ativa `ai-instructions`. */
+  ai?: readonly string[];
   spawn: (cmd: string, args: string[], opts?: any) => { stdout: string; stderr: string; code: number };
 }
 
@@ -46,18 +49,26 @@ interface SmokeEnv {
  */
 export async function withGeneratedProject<T>(
   fn: (ctx: { projectDir: string }) => Promise<T> | T,
-  { root = repoRoot, spawn }: { root?: string; spawn: SmokeEnv['spawn'] }
+  { root = repoRoot, spawn, ai }: { root?: string; spawn: SmokeEnv['spawn']; ai?: readonly string[] }
 ): Promise<T> {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'forja-smoke-'));
   const projectDir = path.join(dir, 'smoke-proj');
+  const aiMode = Array.isArray(ai) && ai.length > 0;
 
   try {
     // resolveScript acha .ts em dev e .js no dist — cravar .ts quebrava no pacote publicado.
     const gen = resolveScript(root, 'bin/create-memory-nest-kit');
-    const res = spawn(process.execPath, [gen, projectDir, '--force'], { cwd: dir });
+    // Modo --ai (SPEC-047): só a memória — `create-memory-nest-kit` roda em dev, `init-project.ts`
+    // não (hardcoda `.js`) e trata o path como projeto de workspace. As instruções nativas vêm de
+    // lib/multi-ai-instructions.ts, a mesma fonte que o gerador usa. Sem rede, sem backend.
+    const genArgs = aiMode
+      ? [gen, projectDir, '--only-memory', '--force']
+      : [gen, projectDir, '--force'];
+    const res = spawn(process.execPath, genArgs, { cwd: dir });
     if (res.code !== 0) {
       throw new Error(`o gerador saiu com código ${res.code}:\n${(res.stderr || res.stdout).slice(0, 800)}`);
     }
+    if (aiMode) writeAiInstructions(projectDir, ai!, { kitRoot: root });
     return await fn({ projectDir });
   } finally {
     fs.rmSync(dir, { recursive: true, force: true });
@@ -176,7 +187,9 @@ const structure: Check = {
   severity: 'critical',
   dependsOn: 'generated',
   probe(env: SmokeEnv) {
-    const report = validateProjectStructure(env.projectDir!, { includeNest: true });
+    // Modo --ai (SPEC-047) é só-memória — não há backend NestJS para validar.
+    const includeNest = !(Array.isArray(env.ai) && env.ai.length > 0);
+    const report = validateProjectStructure(env.projectDir!, { includeNest });
     if (!report.isValid) {
       return {
         status: 'fail',
@@ -236,8 +249,69 @@ const builds: Check = {
   },
 };
 
+/**
+ * SPEC-047: no modo `--ai`, as instruções nativas por IA têm que derivar da MESMA fonte. O check
+ * prova (a) que cada `<ai>.md` existe, (b) que o corpo — sem as linhas de cabeçalho que diferem
+ * entre IAs — é byte-idêntico entre todas, (c) que `models.json` bate com a lista pedida.
+ * Sem `--ai` → skipped. É o análogo do `agent-topology`, na saída do gerador.
+ */
+const aiInstructionsCoherent: Check = {
+  id: 'ai-instructions',
+  title: 'as instruções nativas por IA derivam da mesma fonte (--ai)',
+  severity: 'critical',
+  dependsOn: 'generated',
+  probe(env: SmokeEnv) {
+    const ai = env.ai;
+    if (!Array.isArray(ai) || ai.length === 0) {
+      return { status: 'skipped', detail: 'sem --ai (o smoke completo não escreve .ia-instructions/)', fix: null };
+    }
+    const dir = path.join(env.projectDir!, '.ia-instructions');
+
+    const bodies = new Map<string, string>();
+    const missing: string[] = [];
+    for (const name of ai) {
+      const file = path.join(dir, `${name}.md`);
+      const src = readText(env, file);
+      if (src == null) { missing.push(`${name}.md`); continue; }
+      bodies.set(name, stripInstructionHeader(src));
+    }
+    if (missing.length) {
+      return { status: 'fail', detail: `instrução ausente: ${missing.join(', ')}`, fix: 'confira writeAiInstructions / a lista --ai' };
+    }
+
+    const [first, ...rest] = [...bodies.entries()];
+    for (const [name, body] of rest) {
+      if (body !== first[1]) {
+        return {
+          status: 'fail',
+          detail: `o corpo de ${name}.md diverge de ${first[0]}.md — as instruções não são a mesma fonte`,
+          fix: 'toda IA parte de .gemini-instructions.md; só o cabeçalho muda (lib/multi-ai-instructions.ts)',
+        };
+      }
+    }
+
+    const modelsRaw = readText(env, path.join(dir, 'models.json'));
+    let models: any;
+    try { models = JSON.parse(modelsRaw ?? ''); }
+    catch { return { status: 'fail', detail: 'models.json ausente ou inválido', fix: 'writeAiInstructions deve gerá-lo' }; }
+    if (JSON.stringify(models.fallback_chain) !== JSON.stringify([...ai])) {
+      return { status: 'fail', detail: `models.json fallback_chain ${JSON.stringify(models.fallback_chain)} ≠ --ai ${JSON.stringify(ai)}`, fix: 'sincronize a lista' };
+    }
+    for (const name of ai) {
+      if (models.engines?.[name]?.instruction_file !== `.ia-instructions/${name}.md`) {
+        return { status: 'fail', detail: `models.json.engines.${name} sem instruction_file correto`, fix: 'writeAiInstructions' };
+      }
+      if (!(name in AI_LABELS)) {
+        return { status: 'fail', detail: `IA desconhecida na lista --ai: ${name} (conhecidas: ${Object.keys(AI_LABELS).join(', ')})`, fix: 'use uma IA suportada' };
+      }
+    }
+
+    return { status: 'ok', detail: `${ai.length} instruções coerentes (mesmo corpo, models.json em dia)`, fix: null };
+  },
+};
+
 /** @type {Check[]} */
-export const SMOKE_CHECKS: Check[] = [generated, noPlaceholders, jsonValid, structure, gateInherited, builds];
+export const SMOKE_CHECKS: Check[] = [generated, noPlaceholders, jsonValid, structure, gateInherited, aiInstructionsCoherent, builds];
 
 export function defaultEnv(overrides: Partial<SmokeEnv> = {}): SmokeEnv {
   return {
@@ -261,10 +335,13 @@ export function defaultEnv(overrides: Partial<SmokeEnv> = {}): SmokeEnv {
 }
 
 /** Gera um projeto isolado, roda os checks, limpa. */
-export async function runProjectSmoke({ full = false, env: overrides = {} }: { full?: boolean; env?: Partial<SmokeEnv> } = {}) {
-  const base = defaultEnv({ full, ...overrides });
+export async function runProjectSmoke(
+  { full = false, ai, env: overrides = {} }: { full?: boolean; ai?: string[]; env?: Partial<SmokeEnv> } = {},
+) {
+  const aiList = ai && ai.length > 0 ? ai : undefined;
+  const base = defaultEnv({ full, ...(aiList ? { ai: aiList } : {}), ...overrides });
   return withGeneratedProject(
     ({ projectDir }) => run({ checks: SMOKE_CHECKS, env: { ...base, projectDir } }),
-    { root: base.root, spawn: base.spawn }
+    { root: base.root, spawn: base.spawn, ai: base.ai },
   );
 }

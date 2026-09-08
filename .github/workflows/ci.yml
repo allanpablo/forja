@@ -55,3 +55,25 @@ jobs:
       # tier --full (npm install + build) é opt-in, pré-release.
       - name: Gate do projeto gerado
         run: node bin/forja.ts project:smoke
+
+  # SPEC-047: o caminho real do usuário — `--ai <lista>`, que escreve as instruções nativas por IA
+  # — só era exercitado à mão. Aqui roda numa matriz pequena, tier barato (memória + instruções,
+  # sem `npm install`): um PR que quebra o gerador multi-IA fica vermelho antes do merge.
+  project-smoke-ai:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        ai:
+          - claude
+          - copilot
+          - claude,copilot,gemini,codex
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22.x
+          cache: npm
+      - run: npm ci
+      - name: Smoke do projeto gerado (--ai ${{ matrix.ai }})
+        run: node bin/forja.ts project:smoke --ai ${{ matrix.ai }}

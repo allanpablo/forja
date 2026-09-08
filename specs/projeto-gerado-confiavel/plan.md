@@ -74,10 +74,18 @@ Sem `env.ai` → `status: 'skipped'`.
 
 ## 5. Decisões e alternativas
 
-**D1 — Gerar via `init-project.ts --skip-backend`, não com backend.** É o caminho real do `--ai`
-e é sem rede (o `npm install` do backend está atrás de `--skip-backend`). Rejeitado: gerar com
-backend (step04 roda `npm install` → rede + minutos × matriz); rejeitado: chamar `step02` isolado
-(acopla a um símbolo interno de `init-project.ts`).
+**D1 — REVISADO na implementação: `create-memory-nest-kit --only-memory` + `writeAiInstructions()`
+extraído para `lib/`.** `init-project.ts` **não roda em dev** (hardcoda `bin/create-memory-nest-kit.js`
+e `.mjs` em vários pontos; só funciona do pacote publicado) e trata o path como nome de projeto de
+workspace (escreve `~/forja-workspace/projects/<slug>`). Consertar tudo isso seria refator grande
+(kill-criterion). Em vez disso: a lógica de `step02CopyInstructions` vira
+`lib/multi-ai-instructions.ts` `writeAiInstructions(projectDir, aiList, { kitRoot })` (+
+`stripInstructionHeader` para o check); `init-project.ts step02` passa a **delegar** para ela; o
+smoke gera memória com `create-memory-nest-kit --only-memory` (funciona em dev, sem rede, sem tocar
+`~`) e chama `writeAiInstructions`. Ganho colateral: a escrita multi-IA vira função `lib/` testada,
+compartilhada por gerador e smoke — que é o coração de W8.
+Rejeitado: consertar os hardcodes `.js`/`.mjs` de `init-project.ts` (fora do escopo);
+gerar com backend (step04 = `npm install`).
 
 **D2 — `structure` adapta com `includeNest: !env.ai`, não um check separado.** O modo `--ai` é
 memória-only; validar estrutura NestJS ali seria um falso negativo. Rejeitado: duplicar o check.

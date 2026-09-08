@@ -1,7 +1,7 @@
 # Spec: projeto-gerado-confiavel — smoke por `--ai` no CI + coerência multi-IA
 
 - **ID**: SPEC-047
-- **Status**: approved
+- **Status**: implementing
 - **Owner**: apk
 - **Criado em**: 2026-09-08
 - **Sprint alvo**: <a definir>
@@ -115,10 +115,28 @@ quem clona.
 
 ## Evidências e estado real
 
-- AC-1 a AC-8 → tasks em `spec:tasks`.
-- **Descoberta**: `init-project.ts step02` já deriva as instruções por IA de `.gemini-instructions.md`
-  (fonte única) — W8 é adicionar o **check**, não mudar a geração.
-- **Hipótese, não medição**: o valor de §8 depende de um PR real quebrar o gerador; enquanto isso,
-  o teste de regressão que injeta a divergência é a evidência.
-- **Dependência**: independente das Ondas 1–2; branча a partir de `main`. (`project:smoke` já
-  existe — SPEC-015.)
+**Implementado em 2026-09-08** na branch `feat/projeto-gerado-smoke` (de `main`).
+Bateria: `tsc --noEmit` limpo; `node --test test/*.test.js` **478/478** (+5 em `project-smoke.test.js`);
+`forja spec:check` e `forja project:check` (100%) verdes; `ci.yml` parseia (3 jobs).
+
+| AC | Onde | Verificado |
+|---|---|---|
+| AC-1 | `lib/core/project-smoke.ts` `withGeneratedProject`/`runProjectSmoke` | `runProjectSmoke({ ai })` gera só-memória + `writeAiInstructions`; sem `ai` inalterado (teste + `forja project:smoke` roda o projeto completo) |
+| AC-2 | `scripts/project-smoke.ts` `parseAi` | `forja project:smoke --ai claude,copilot` → veredito/exit normais |
+| AC-3 | `lib/core/project-smoke.ts` check `ai-instructions` | arquivos existem, corpo idêntico (via `stripInstructionHeader`), `models.json.fallback_chain` == lista; testes de divergência reprovam |
+| AC-4 | `lib/core/project-smoke.ts` | `structure` roda `includeNest: !env.ai`; `generated`/`no-placeholders`/`json-valid`/`gate-inherited` agnósticos (todos `ok` no modo `--ai`) |
+| AC-5 | `.github/workflows/ci.yml` | job `project-smoke-ai`, `fail-fast:false`, matriz `[claude, copilot, claude,copilot,gemini,codex]`, `npm ci` + `project:smoke --ai` |
+| AC-6 | `test/project-smoke.test.js` | 5 testes: skipped sem `--ai`; ok da mesma fonte; corpo divergente reprova; `models.json` fora de sync reprova; integração `runProjectSmoke({ ai })` |
+| AC-7 | — | `forja project:smoke --ai claude,copilot` local, exit 0, tier barato |
+| AC-8 | — | bateria acima verde |
+
+- **Desvio vs. o plan (D1 revisado)**: `init-project.ts` **não roda em dev** (hardcoda
+  `bin/create-memory-nest-kit.js` e `.mjs`; trata o path como projeto de workspace). Em vez de
+  consertar, a lógica de `step02CopyInstructions` foi extraída para
+  **`lib/multi-ai-instructions.ts`** `writeAiInstructions()` (+ `stripInstructionHeader`); o
+  `step02` passou a **delegar** para ela; o smoke gera com `create-memory-nest-kit --only-memory`
+  + `writeAiInstructions`. Ganho: a escrita multi-IA virou função `lib/` testada, o coração de W8.
+- **Hipótese, não medição**: o valor de §8 depende de um PR real quebrar o gerador; o teste de
+  regressão que injeta a divergência é a evidência enquanto isso.
+- **Pendências**: revisão de Governança; handoff `review` registrado. Independente das Ondas 1–2
+  (mas o `ci.yml` e o `registry.ts` podem conflitar levemente no merge com #61 — trivial).

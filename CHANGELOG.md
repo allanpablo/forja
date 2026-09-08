@@ -4,6 +4,20 @@ Histórico consolidado das mudanças estruturais do framework. Para decisões ar
 
 ---
 
+## [Unreleased]
+
+### Adicionado
+
+- `forja project:smoke --ai <lista>` — o gate do projeto gerado passa a exercitar o caminho real
+  do `--ai` (memória + instruções nativas por IA), gerado só-memória e sem rede. (SPEC-047)
+- Check `ai-instructions` no `project:smoke`: quando `--ai` é pedido, prova que cada
+  `.ia-instructions/<ai>.md` deriva da mesma fonte (corpo byte-idêntico entre IAs, só o cabeçalho
+  muda) e que `models.json` bate com a lista. É o análogo do `agent-topology`, na saída do gerador. (SPEC-047)
+- `.github/workflows/ci.yml` — job `project-smoke-ai` em matriz (`claude` · `copilot` ·
+  `claude,copilot,gemini,codex`), tier barato, a cada PR e push. (SPEC-047)
+- `lib/multi-ai-instructions.ts` — a escrita das instruções nativas por IA vira função `lib/`
+  testada, compartilhada por `bin/init-project.ts` e pelo smoke. (SPEC-047)
+
 ## [4.0.0] — 2026-09-05 — Integrações LLM, sessões e validação
 
 - Prompts, skill de roteamento, instruções nativas e templates SDD alinhados ao contrato comum de execução e evidências.
