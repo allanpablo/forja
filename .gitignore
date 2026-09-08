@@ -81,6 +81,7 @@ apps/dashboard/.next/
 !/specs/llm-resume-validation
 !/specs/agent-instructions-v4
 !/specs/cli-intuitiva-v1
+!/specs/forja-status-caminho-feliz
 !/specs/llm-contexto-e-sessoes
 !/specs/llm-benchmark-recomendacao
 !/specs/llm-adaptador-claude

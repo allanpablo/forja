@@ -191,23 +191,33 @@ export const COMMANDS: Record<string, CommandSpec> = {
   },
 
   // --- GSD & handoffs ------------------------------------------------------
-  'gsd:plan': {
+  status: {
     domain: 'gsd',
-    desc: 'Cria runbook GSD em .context/',
-    node: 'scripts/agent-harness.ts',
-    args: ['gsd:plan'],
+    desc: 'Retrato único do estado: workspace, sprint, corrida, specs, runs, handoffs',
+    node: 'scripts/forja-status.ts',
+    args: ['status'],
+    gates: ['workspace-warn'],
+    spec: 'SPEC-044',
+    tier: 'core',
+    readonly: true,
+    json: true,
+    usage: 'forja status [--json]',
+    examples: ['forja status', 'forja status --json'],
+    next: ['next'],
   },
-  'gsd:handoff': {
+  next: {
     domain: 'gsd',
-    desc: 'Registra handoff GSD padronizado (ADR-0005)',
-    node: 'scripts/agent-harness.ts',
-    args: ['gsd:handoff'],
-  },
-  'gsd:check': {
-    domain: 'gsd',
-    desc: 'Valida gates básicos do runbook GSD',
-    node: 'scripts/agent-harness.ts',
-    args: ['gsd:check'],
+    desc: 'A próxima ação recomendada + o comando exato para executá-la',
+    node: 'scripts/forja-status.ts',
+    args: ['next'],
+    gates: ['workspace-warn'],
+    spec: 'SPEC-044',
+    tier: 'core',
+    readonly: true,
+    json: true,
+    usage: 'forja next [--json]',
+    examples: ['forja next'],
+    next: ['status'],
   },
   orchestrate: {
     domain: 'gsd',
@@ -243,6 +253,24 @@ export const COMMANDS: Record<string, CommandSpec> = {
     usage: 'forja orchestrate:advance [--slug <slug>]',
     examples: ['forja orchestrate:advance'],
     next: ['orchestrate:status'],
+  },
+  'gsd:plan': {
+    domain: 'gsd',
+    desc: 'Cria runbook GSD em .context/',
+    node: 'scripts/agent-harness.ts',
+    args: ['gsd:plan'],
+  },
+  'gsd:handoff': {
+    domain: 'gsd',
+    desc: 'Registra handoff GSD padronizado (ADR-0005)',
+    node: 'scripts/agent-harness.ts',
+    args: ['gsd:handoff'],
+  },
+  'gsd:check': {
+    domain: 'gsd',
+    desc: 'Valida gates básicos do runbook GSD',
+    node: 'scripts/agent-harness.ts',
+    args: ['gsd:check'],
   },
   'hermes:handoff': {
     domain: 'gsd',

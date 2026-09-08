@@ -45,6 +45,8 @@
     "sprint:start": "node bin/forja.ts sprint:start",
     "sprint:status": "node bin/forja.ts sprint:status",
     "sprint:complete": "node bin/forja.ts sprint:complete",
+    "status": "node bin/forja.ts status",
+    "next": "node bin/forja.ts next",
     "context:smart": "node bin/forja.ts context:smart",
     "memory:compress": "node bin/forja.ts memory:compress",
     "memory:vacuum": "node bin/forja.ts memory:vacuum",

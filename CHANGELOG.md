@@ -32,6 +32,13 @@ Histórico consolidado das mudanças estruturais do framework. Para decisões ar
   `next`, `spec`, `tier`). `forja <comando> --help` faz o mesmo inline. (SPEC-043)
 - `forja setup` — rotina de primeiro uso (`workspace:init` + `sync:universal`) atrás de
   confirmação; `--yes` para uso não-interativo; aborta sem efeito quando não há TTY. (SPEC-043)
+- `forja status` — retrato único do estado: workspace, sprint, corrida orchestrate aberta,
+  specs por status, últimos runs, handoffs em aberto. `--json` estável; cada seção degrada com
+  `indisponível: <motivo>`. (SPEC-044)
+- `forja next` — a próxima ação recomendada e o comando exato, por prioridade determinística
+  (workspace ausente → `setup`; memória crua → `sync:universal`; corrida travada → parecer +
+  `orchestrate:advance`; spec `approved` sem plan → `spec:plan`; …). `--json` →
+  `{ action, command, reason }`. (SPEC-044)
 - `suggest()` passou a casar por substring **e** distância de edição sobre o nome completo:
   `forja plan` sugere `spec:plan`. Toda mensagem de comando desconhecido termina com
   `forja help <palpite>`. (SPEC-043)
@@ -43,9 +50,14 @@ Histórico consolidado das mudanças estruturais do framework. Para decisões ar
 - `forja help` (sem argumentos) lista só os comandos do núcleo (`tier: 'core'`), agrupados por
   domínio, com rodapé para `forja help --all`. `forja help --all` preserva a saída completa
   anterior; os sufixos `(SPEC-0XX)` saíram das descrições do núcleo para o detalhe de `help <cmd>`. (SPEC-043)
+- `orchestrate` e os comandos de estado (`status`, `next`) abrem o bloco GSD no `forja help` —
+  o caminho feliz em primeiro lugar. (SPEC-044)
 - `tools:doctor` e o bloco `<framework-status>` do SessionStart agrupam os checks em três blocos
   rotulados — **Bloqueia o fluxo**, **Rotina de primeiro uso**, **Opcional (ferramentas)**. O
   exit code do gate é inalterado. Mudança aditiva. (SPEC-043)
+- `listSpecs` e `openHandoffs` saíram de `scripts/hook-session-start.ts` para
+  `lib/specs-index.ts` / `lib/handoffs-index.ts`, compartilhados com `forja status`. `listRuns`
+  novo em `lib/orchestrate.ts`. (SPEC-044)
 
 ### Notas de contrato
 
