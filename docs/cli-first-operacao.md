@@ -2,6 +2,20 @@
 
 Este framework deve ser operado primeiro por linha de comando. O dashboard web fica como artefato legado/opcional de consulta; nao e gate de entrega, sprint, handoff ou governanca.
 
+## Descoberta pela propria CLI (SPEC-043)
+
+```bash
+forja help                 # so o nucleo (~20 comandos) agrupado por dominio
+forja help --all           # todos os comandos + capabilities
+forja help spec:new        # uso, argumentos, exemplos e proximos passos de um comando
+forja <comando> --help     # o mesmo detalhe, inline
+forja setup                # rotina de primeiro uso: workspace:init + sync:universal (pede confirmacao)
+forja setup --yes          # sem confirmacao (uso nao-interativo)
+```
+
+Digitou errado? O `forja` sugere o comando mais proximo (`forja plan` aponta `spec:plan`). Faltou
+um argumento obrigatorio? O comando falha antes de rodar, imprimindo o `Uso:` — sem stack trace.
+
 ## Ciclo Diario
 
 ```bash

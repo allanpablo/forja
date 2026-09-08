@@ -4,6 +4,17 @@
 
 ---
 
+## Descoberta pela propria CLI
+
+```bash
+forja help                 # so o nucleo, agrupado por dominio
+forja help --all           # tudo
+forja help spec:new        # uso + argumentos + exemplos + proximos passos
+npm run setup              # primeiro uso: workspace:init + sync:universal (forja setup)
+```
+
+---
+
 ## Operacao CLI-First
 
 ```bash

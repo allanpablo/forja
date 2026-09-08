@@ -50,13 +50,56 @@ export const DOMAINS = {
   geracao: 'Geração de projetos',
 };
 
-export const COMMANDS = {
+export interface CommandArg {
+  readonly name: string;
+  readonly required: boolean;
+  readonly desc: string;
+}
+
+/**
+ * SPEC-043 — campos que tornam a CLI descobrível por ela mesma.
+ *
+ * `domain`/`desc` e os alvos de execução (`node`/`bin`/`capability` + `args`/`gates`) são o
+ * contrato antigo. Tudo abaixo de `usage` é **opcional e aditivo**: um comando sem nenhum desses
+ * campos continua válido e é tratado como `tier: 'advanced'`. `forja help` (curto) mostra só
+ * `tier: 'core'`; `forja help <cmd>` renderiza `usage`/`cliArgs`/`examples`/`next`/`spec`.
+ */
+export interface CommandSpec {
+  readonly domain: keyof typeof DOMAINS;
+  readonly desc: string;
+  readonly node?: string;
+  readonly bin?: string;
+  readonly capability?: string;
+  readonly args?: readonly string[];
+  readonly gates?: readonly string[];
+  /** Linha de uso, ex.: `forja spec:new <slug>`. */
+  readonly usage?: string;
+  /** Args POSICIONAIS do comando — distinto de `args` (prefixo fixo repassado ao script). */
+  readonly cliArgs?: readonly CommandArg[];
+  /** Cada exemplo começa com `forja ` e cita um comando existente. */
+  readonly examples?: readonly string[];
+  /** Comandos que costumam vir depois (nomes do registry). */
+  readonly next?: readonly string[];
+  /** SPEC/ADR de origem, ex.: `SPEC-021`. Antes ficava embutido em `desc`. */
+  readonly spec?: string;
+  readonly readonly?: boolean;
+  /** Reservado para o contrato de saída (W5). Só declarado nesta versão. */
+  readonly json?: boolean;
+  /** `core` aparece em `forja help`; ausente ou `advanced` só em `forja help --all`. */
+  readonly tier?: 'core' | 'advanced';
+}
+
+export const COMMANDS: Record<string, CommandSpec> = {
   // --- Workspace & projetos ---------------------------------------------
   'workspace:init': {
     domain: 'workspace',
     desc: 'Cria a estrutura base do workspace (~/forja-workspace)',
     node: 'scripts/agent-harness.ts',
     args: ['workspace:init'],
+    tier: 'core',
+    usage: 'forja workspace:init',
+    examples: ['forja workspace:init'],
+    next: ['project:new', 'sync:universal'],
   },
   'project:new': {
     domain: 'workspace',
@@ -64,6 +107,22 @@ export const COMMANDS = {
     node: 'scripts/agent-harness.ts',
     args: ['project:new'],
     gates: ['workspace'],
+    tier: 'core',
+    usage: 'forja project:new <nome> [-- --ai claude,copilot]',
+    cliArgs: [{ name: 'nome', required: true, desc: 'slug do projeto (kebab-case)' }],
+    examples: ['forja project:new meu-app -- --ai claude,copilot'],
+    next: ['workspace:project:check'],
+  },
+  setup: {
+    domain: 'workspace',
+    desc: 'Rotina de primeiro uso: workspace:init + sync:universal, atrás de confirmação',
+    node: 'scripts/forja-setup.ts',
+    spec: 'SPEC-043',
+    tier: 'core',
+    readonly: false,
+    usage: 'forja setup [--yes]',
+    examples: ['forja setup', 'forja setup --yes'],
+    next: ['project:new', 'spec:new'],
   },
   'project:list': {
     domain: 'workspace',
@@ -90,24 +149,45 @@ export const COMMANDS = {
     desc: 'Cria specs/<slug>/spec.md a partir do template',
     node: 'scripts/spec-cli.ts',
     args: ['new'],
+    tier: 'core',
+    usage: 'forja spec:new <slug>',
+    cliArgs: [{ name: 'slug', required: true, desc: 'identificador da feature em kebab-case' }],
+    examples: ['forja spec:new pagamentos-pix'],
+    next: ['spec:plan', 'spec:check'],
   },
   'spec:plan': {
     domain: 'sdd',
     desc: 'Deriva plan.md de uma spec',
     node: 'scripts/spec-cli.ts',
     args: ['plan'],
+    tier: 'core',
+    usage: 'forja spec:plan <slug>',
+    cliArgs: [{ name: 'slug', required: true, desc: 'feature com spec.md em approved' }],
+    examples: ['forja spec:plan pagamentos-pix'],
+    next: ['spec:tasks'],
   },
   'spec:tasks': {
     domain: 'sdd',
     desc: 'Decompõe plan.md em tasks.md',
     node: 'scripts/spec-cli.ts',
     args: ['tasks'],
+    tier: 'core',
+    usage: 'forja spec:tasks <slug>',
+    cliArgs: [{ name: 'slug', required: true, desc: 'feature com plan.md em approved' }],
+    examples: ['forja spec:tasks pagamentos-pix'],
+    next: ['hermes:handoff'],
   },
   'spec:check': {
     domain: 'sdd',
     desc: 'Valida completude da spec (gate de governança)',
     node: 'scripts/spec-cli.ts',
     args: ['check'],
+    tier: 'core',
+    readonly: true,
+    usage: 'forja spec:check [slug]',
+    cliArgs: [{ name: 'slug', required: false, desc: 'feature; omitido = valida todas' }],
+    examples: ['forja spec:check', 'forja spec:check pagamentos-pix'],
+    next: ['spec:plan'],
   },
 
   // --- GSD & handoffs ------------------------------------------------------
@@ -131,21 +211,38 @@ export const COMMANDS = {
   },
   orchestrate: {
     domain: 'gsd',
-    desc: 'Abre uma corrida: a cadeia SDD/GSD como máquina de estados guardada por gates (SPEC-021). "<objetivo>" --slug <slug>',
+    desc: 'Abre uma corrida: a cadeia SDD/GSD como máquina de estados guardada por gates',
     node: 'scripts/orchestrate.ts',
     args: ['start'],
+    spec: 'SPEC-021',
+    tier: 'core',
+    usage: 'forja orchestrate "<objetivo>" --slug <slug>',
+    cliArgs: [{ name: 'objetivo', required: true, desc: 'frase do que a corrida entrega (entre aspas)' }],
+    examples: ['forja orchestrate "checkout via pix" --slug pagamentos-pix'],
+    next: ['orchestrate:status', 'orchestrate:advance'],
   },
   'orchestrate:status': {
     domain: 'gsd',
     desc: 'O estado da corrida: etapas feitas, aberta, gates e vereditos',
     node: 'scripts/orchestrate.ts',
     args: ['status'],
+    spec: 'SPEC-021',
+    tier: 'core',
+    readonly: true,
+    usage: 'forja orchestrate:status [--slug <slug>]',
+    examples: ['forja orchestrate:status'],
+    next: ['orchestrate:advance'],
   },
   'orchestrate:advance': {
     domain: 'gsd',
     desc: 'Roda o gate da etapa aberta; verde → abre a próxima; vermelho → trava com o parecer',
     node: 'scripts/orchestrate.ts',
     args: ['advance'],
+    spec: 'SPEC-021',
+    tier: 'core',
+    usage: 'forja orchestrate:advance [--slug <slug>]',
+    examples: ['forja orchestrate:advance'],
+    next: ['orchestrate:status'],
   },
   'hermes:handoff': {
     domain: 'gsd',
@@ -297,9 +394,15 @@ export const COMMANDS = {
   },
   'engineer': {
     domain: 'code',
-    desc: 'Façade: contexto + ADRs relevantes + architecture:check + risco + fluxo recomendado (SPEC-035)',
+    desc: 'Façade: contexto + ADRs relevantes + architecture:check + risco + fluxo recomendado',
     node: 'scripts/engineer.ts',
     gates: ['workspace-warn'],
+    spec: 'SPEC-035',
+    tier: 'core',
+    usage: 'forja engineer "<objetivo>"',
+    cliArgs: [{ name: 'objetivo', required: true, desc: 'o que você quer fazer (entre aspas)' }],
+    examples: ['forja engineer "adicionar rate limit no login"'],
+    next: ['risk:assess'],
   },
   'agent:register': {
     domain: 'code',
@@ -434,12 +537,22 @@ export const COMMANDS = {
     desc: 'Reindexa a memória universal (SQLite FTS5)',
     node: 'scripts/sync-universal-memory.ts',
     gates: ['workspace-warn'],
+    tier: 'core',
+    usage: 'forja sync:universal',
+    examples: ['forja sync:universal'],
+    next: ['query:universal'],
   },
   'query:universal': {
     domain: 'memoria',
     desc: 'Busca FTS5 na memória universal',
     node: 'scripts/query-universal-memory.ts',
     gates: ['workspace-warn'],
+    tier: 'core',
+    readonly: true,
+    usage: 'forja query:universal "<termo>"',
+    cliArgs: [{ name: 'termo', required: true, desc: 'consulta FTS5 (entre aspas)' }],
+    examples: ['forja query:universal "handoff 7 campos"'],
+    next: ['context:smart'],
   },
   'memory:compress': {
     domain: 'memoria',
@@ -470,9 +583,14 @@ export const COMMANDS = {
   // --- Contexto & token economy ---------------------------------------------
   'context:smart': {
     domain: 'contexto',
-    desc: 'Gera smart-context (3 modos, ADR-0003)',
+    desc: 'Gera smart-context (3 modos: global | domain | task)',
     node: 'scripts/build-smart-context.ts',
     gates: ['workspace-warn'],
+    spec: 'ADR-0003',
+    tier: 'core',
+    usage: 'forja context:smart [--mode global|domain|task] [--domain <d>]',
+    examples: ['forja context:smart --mode task --domain pagamentos'],
+    next: ['context:budget'],
   },
   'context:budget': {
     domain: 'contexto',
@@ -592,11 +710,22 @@ export const COMMANDS = {
     domain: 'governanca',
     desc: 'Standards check do framework (pre-commit)',
     node: 'scripts/check-standards.ts',
+    tier: 'core',
+    readonly: true,
+    usage: 'forja project:check',
+    examples: ['forja project:check'],
+    next: ['check:all'],
   },
   'tools:doctor': {
     domain: 'governanca',
-    desc: 'Raio-x do núcleo (gate, exit 1) + ferramentas de processo (ADR-0023, ADR-0018)',
+    desc: 'Raio-x do núcleo (gate, exit 1) + ferramentas de processo',
     node: 'scripts/tools-doctor.ts',
+    spec: 'ADR-0023, ADR-0018',
+    tier: 'core',
+    readonly: true,
+    usage: 'forja tools:doctor',
+    examples: ['forja tools:doctor'],
+    next: ['setup'],
   },
   'demo:autonomy': {
     domain: 'governanca',

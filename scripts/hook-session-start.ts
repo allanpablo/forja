@@ -19,7 +19,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { runChecks } from '../lib/core/health.ts';
+import { runChecks, bucketFor, BUCKET_LABEL } from '../lib/core/health.ts';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -75,10 +75,16 @@ async function coreHealth() {
 
   if (problemas.length) {
     lines.push('');
-    for (const p of problemas) {
-      const icone = p.status === 'fail' ? '✖' : '⚠';
-      lines.push(`${icone} ${p.title}: ${p.detail}`);
-      if (p.fix) lines.push(`  corrigir: ${p.fix}`);
+    for (const bucket of ['blocking', 'first-run'] as const) {
+      const grp = problemas.filter((p) => bucketFor(p.id) === bucket);
+      if (!grp.length) continue;
+      lines.push(`${BUCKET_LABEL[bucket]}:`);
+      for (const p of grp) {
+        const icone = p.status === 'fail' ? '✖' : '⚠';
+        lines.push(`  ${icone} ${p.title}: ${p.detail}`);
+        if (p.fix) lines.push(`    corrigir: ${p.fix}`);
+      }
+      if (bucket === 'first-run') lines.push('    (ou rode tudo: `npm run setup`)');
     }
     lines.push('  raio-x completo: `npm run tools:doctor`');
   }
@@ -91,8 +97,8 @@ async function coreHealth() {
     lines.push('\nHandoffs em aberto:');
     for (const h of handoffs) lines.push(`  - #${h.id} ${h.from_agent} → ${h.to_agent} (${h.intent}) ${h.spec_slug || ''}`);
   }
-  lines.push('\nFluxo SDD: `npm run spec:new|plan|tasks|check`');
-  lines.push('Handoff: `node scripts/agent-router.mjs append <json>`');
+  lines.push('\nFluxo SDD: `npm run spec:new|plan|tasks|check`  ·  detalhe: `forja help <comando>`');
+  lines.push('Handoff: `npm run hermes:handoff -- \'<json ADR-0005>\'`');
   lines.push('</framework-status>');
 
   process.stdout.write(JSON.stringify({
