@@ -4,6 +4,36 @@ Histórico consolidado das mudanças estruturais do framework. Para decisões ar
 
 ---
 
+## [Unreleased] — CLI descobrível pela própria CLI (SPEC-043)
+
+### Adicionado
+
+- `forja help <comando>` — uso, argumentos posicionais, exemplos e próximos passos de cada
+  comando, a partir de campos novos e opcionais do registry (`usage`, `cliArgs`, `examples`,
+  `next`, `spec`, `tier`). `forja <comando> --help` faz o mesmo inline.
+- `forja setup` — rotina de primeiro uso (`workspace:init` + `sync:universal`) atrás de
+  confirmação; `--yes` para uso não-interativo; aborta sem efeito quando não há TTY.
+- `suggest()` passou a casar por substring **e** distância de edição sobre o nome completo:
+  `forja plan` sugere `spec:plan`. Toda mensagem de comando desconhecido termina com
+  `forja help <palpite>`.
+- Argumento posicional obrigatório em falta falha **antes** de invocar o script-filho, imprimindo
+  o `Uso:` do comando — sem stack trace.
+
+### Alterado
+
+- `forja help` (sem argumentos) lista só os comandos do núcleo (`tier: 'core'`), agrupados por
+  domínio, com rodapé para `forja help --all`. `forja help --all` preserva a saída completa
+  anterior; os sufixos `(SPEC-0XX)` saíram das descrições do núcleo para o detalhe de `help <cmd>`.
+- `tools:doctor` e o bloco `<framework-status>` do SessionStart agrupam os checks em três blocos
+  rotulados — **Bloqueia o fluxo**, **Rotina de primeiro uso**, **Opcional (ferramentas)**. O
+  exit code do gate é inalterado. Mudança aditiva.
+
+### Notas de contrato
+
+- Decidido no plan (`specs/cli-intuitiva-v1/`): o `--fix` da spec original virou o comando
+  dedicado `forja setup` — `tools:doctor` continua só diagnóstico, por desenho. O campo de args
+  posicionais no registry chama-se `cliArgs` (não `args`, que é o prefixo fixo do spawn).
+
 ## [4.0.0] — 2026-09-05 — Integrações LLM, sessões e validação
 
 - Prompts, skill de roteamento, instruções nativas e templates SDD alinhados ao contrato comum de execução e evidências.

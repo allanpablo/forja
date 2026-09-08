@@ -17,7 +17,7 @@ import path from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import Database from 'better-sqlite3';
-import { COMMANDS, DOMAINS, resolveScript } from '../lib/core/registry.ts';
+import { COMMANDS, DOMAINS, resolveScript, type CommandSpec } from '../lib/core/registry.ts';
 import { getWorkspaceInfo, getWorkspaceContextDir } from '../lib/workspace.ts';
 import {
   capabilityIdForCommand,
@@ -38,13 +38,17 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const root = path.resolve(__dirname, '..');
 const STUDIO_COMMANDS = new Set(['workspace:init', 'project:new', 'project:list', 'project:upgrade', 'workspace:project:check', 'init:project', 'demo:workspace']);
 
-function printHelp() {
+// SPEC-043: `forja help` mostra só o núcleo (`tier: 'core'`); `forja help --all` mantém a lista
+// completa de antes. O detalhe por comando vive em `printCommandHelp`.
+function printHelp(all = false) {
   console.log('Forja — core executivo (ADR-0020)');
   console.log('Uso: forja <comando> [args]\n');
-  const byDomain = new Map();
+  const byDomain = new Map<string, [string, string][]>();
+  let hidden = 0;
   for (const [name, cmd] of Object.entries(COMMANDS)) {
+    if (!all && cmd.tier !== 'core') { hidden++; continue; }
     if (!byDomain.has(cmd.domain)) byDomain.set(cmd.domain, []);
-    byDomain.get(cmd.domain).push([name, cmd.desc]);
+    byDomain.get(cmd.domain)!.push([name, cmd.desc]);
   }
   for (const [domain, label] of Object.entries(DOMAINS)) {
     const entries = byDomain.get(domain);
@@ -55,19 +59,116 @@ function printHelp() {
     }
     console.log('');
   }
-  console.log('Capabilities:');
-  console.log('  capabilities:list       Lista capabilities descobríveis');
-  console.log('  capabilities:describe   Descreve uma capability');
-  console.log('  capability:execute      Executa uma capability com input JSON');
-  console.log('  mcp:start               Inicia o transporte MCP JSON-RPC por stdio');
+  if (all) {
+    console.log('Capabilities:');
+    console.log('  capabilities:list       Lista capabilities descobríveis');
+    console.log('  capabilities:describe   Descreve uma capability');
+    console.log('  capability:execute      Executa uma capability com input JSON');
+    console.log('  mcp:start               Inicia o transporte MCP JSON-RPC por stdio');
+  } else {
+    console.log(`Detalhe de um comando: forja help <comando>`);
+    console.log(`use 'forja help --all' para os ${hidden} comandos restantes`);
+  }
   console.log('Toda execução é auditada em .context/forja-runs.jsonl (workspace, se existir).');
 }
 
-function suggest(input: any) {
-  const names = Object.keys(COMMANDS);
-  const prefix = input.split(':')[0];
-  const near = names.filter((n) => n.startsWith(prefix) || n.includes(input));
-  return near.slice(0, 5);
+// `forja help <comando>` — uso, argumentos, exemplos e próximos passos. Retorna o exit code.
+function printCommandHelp(cmdName: string): number {
+  const cmd = (COMMANDS as any)[cmdName] as CommandSpec | undefined;
+  if (!cmd) {
+    console.error(`Comando desconhecido: ${cmdName}`);
+    const near = suggest(cmdName);
+    if (near.length) console.error(`Você quis dizer: ${near.join(', ')}?`);
+    console.error("Liste tudo com: forja help --all");
+    if (near.length) console.error(`Detalhe do palpite: forja help ${near[0]}`);
+    return 1;
+  }
+  const label = (DOMAINS as any)[cmd.domain] ?? cmd.domain;
+  const tags = [`domínio: ${label}`];
+  if (cmd.spec) tags.push(`origem: ${cmd.spec}`);
+  if (cmd.readonly) tags.push('somente leitura');
+  console.log(`forja ${cmdName}`);
+  console.log(`  ${cmd.desc}`);
+  console.log(`  ${tags.join('  ·  ')}`);
+  console.log(`\nUso: ${cmd.usage ?? `forja ${cmdName}`}`);
+  if (cmd.cliArgs?.length) {
+    console.log('\nArgumentos:');
+    for (const a of cmd.cliArgs) {
+      console.log(`  ${a.name.padEnd(12)} ${(a.required ? '(obrigatório)' : '(opcional)   ')}  ${a.desc}`);
+    }
+  }
+  if (cmd.examples?.length) {
+    console.log('\nExemplos:');
+    for (const ex of cmd.examples) console.log(`  ${ex}`);
+  }
+  if (cmd.next?.length) {
+    console.log('\nProximos passos:');
+    for (const n of cmd.next) {
+      const nc = (COMMANDS as any)[n] as CommandSpec | undefined;
+      console.log(`  forja ${n}${nc ? ` — ${nc.desc}` : ''}`);
+    }
+  }
+  if (cmd.tier !== 'core') console.log("\n(comando avançado — 'forja help --all' lista todos)");
+  return 0;
+}
+
+// Distância de edição (Levenshtein). ~15 linhas, sem dependência (plan §D3).
+function levenshtein(a: string, b: string): number {
+  const m = a.length, n = b.length;
+  if (m === 0) return n;
+  if (n === 0) return m;
+  let prev = Array.from({ length: n + 1 }, (_, i) => i);
+  let curr = new Array<number>(n + 1);
+  for (let i = 1; i <= m; i++) {
+    curr[0] = i;
+    for (let j = 1; j <= n; j++) {
+      const cost = a[i - 1] === b[j - 1] ? 0 : 1;
+      curr[j] = Math.min(curr[j - 1] + 1, prev[j] + 1, prev[j - 1] + cost);
+    }
+    [prev, curr] = [curr, prev];
+  }
+  return prev[n];
+}
+
+// SPEC-043: casa por substring E distância de edição (≤ 2) sobre o nome completo e sobre o último
+// segmento — `forja plan` passa a sugerir `spec:plan`. Determinística, teto de 5.
+function suggest(input: string): string[] {
+  const q = String(input).toLowerCase();
+  const scored: { name: string; rank: number }[] = [];
+  for (const n of Object.keys(COMMANDS)) {
+    const ln = n.toLowerCase();
+    let rank: number;
+    if (ln === q) rank = 0;
+    else if (ln.includes(q) || q.includes(ln)) rank = 1;
+    else {
+      const seg = ln.includes(':') ? ln.slice(ln.lastIndexOf(':') + 1) : ln;
+      const best = Math.min(levenshtein(q, ln), levenshtein(q, seg));
+      if (best > 2) continue;
+      rank = 2 + best;
+    }
+    scored.push({ name: n, rank });
+  }
+  scored.sort((a, b) => a.rank - b.rank || a.name.localeCompare(b.name));
+  return scored.slice(0, 5).map((s) => s.name);
+}
+
+// Args posicionais obrigatórios em falta — verificado antes de qualquer spawn (AC-5).
+function missingRequiredArg(cmd: CommandSpec, rest: readonly string[]): string | null {
+  const required = (cmd.cliArgs ?? []).filter((a) => a.required);
+  if (required.length === 0) return null;
+  const positionals: string[] = [];
+  for (let i = 0; i < rest.length; i++) {
+    const tok = rest[i];
+    if (tok === '--') break;
+    if (tok.startsWith('-')) {
+      if (rest[i + 1] !== undefined && !rest[i + 1].startsWith('-')) i++;
+      continue;
+    }
+    positionals.push(tok);
+  }
+  if (positionals.length >= required.length) return null;
+  const missing = required.slice(positionals.length).map((a) => `<${a.name}>`).join(' ');
+  return `Faltou argumento obrigatório: ${missing}`;
 }
 
 // Gates transversais (ADR-0020). Retorna lista de erros bloqueantes.
@@ -281,7 +382,9 @@ function createGraphSyncComposition(): GraphSyncComposition {
 const [name, ...rest] = process.argv.slice(2);
 
 if (!name || name === 'help' || name === '--help' || name === '-h') {
-  printHelp();
+  if (rest[0] === '--all' || rest[0] === '-a') { printHelp(true); process.exit(0); }
+  if (rest[0]) process.exit(printCommandHelp(rest[0]));
+  printHelp(false);
   process.exit(0);
 }
 
@@ -304,7 +407,23 @@ if (!cmd) {
   if (near.length) {
     console.error(`Você quis dizer: ${near.join(', ')}?`);
   }
-  console.error('Liste tudo com: forja help');
+  console.error('Liste tudo com: forja help --all');
+  if (near.length) console.error(`Detalhe do palpite: forja help ${near[0]}`);
+  process.exit(1);
+}
+
+// `forja <cmd> --help` → detalhe do comando.
+if (rest.includes('--help') || rest.includes('-h')) {
+  process.exit(printCommandHelp(name));
+}
+
+// SPEC-043 (AC-5): args posicionais obrigatórios em falta falham aqui, sem spawnar o filho.
+const argError = missingRequiredArg(cmd, rest);
+if (argError) {
+  console.error(argError);
+  console.error(`Uso: ${cmd.usage ?? `forja ${name}`}`);
+  console.error(`Detalhe: forja help ${name}`);
+  audit({ ts: new Date().toISOString(), cmd: name, args: auditArgs(name, rest), exitCode: 1, durationMs: 0 });
   process.exit(1);
 }
 
