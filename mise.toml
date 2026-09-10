@@ -1,0 +1,14 @@
+[tools]
+node = "24"
+
+[tasks."status"]
+run = "git status --short --branch"
+
+[tasks."dev"]
+run = "npm run dev"
+
+[tasks."test"]
+run = "npm run test"
+
+[tasks."build"]
+run = "npm run build"
