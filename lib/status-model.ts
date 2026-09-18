@@ -138,7 +138,12 @@ export async function collectStatus(
 
   let recentRuns: Sub<RecentRun[]>;
   try {
-    const dir = wi.exists ? getWorkspaceContextDir() : path.join(repoRoot, '.context');
+    const projectDir = path.join(repoRoot, '.context');
+    const dir = fs.existsSync(path.join(projectDir, 'forja-runs.jsonl'))
+      ? projectDir
+      : wi.exists
+      ? getWorkspaceContextDir()
+      : projectDir;
     recentRuns = ok(readRecentRuns(dir, runsLimit));
   } catch (e) {
     recentRuns = unavailable(reasonOf(e));

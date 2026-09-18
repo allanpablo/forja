@@ -19,6 +19,22 @@ GitHub reusa esse bloco. O README também é reconciliado na mesma entrega — v
 
 _(preencher a cada release: diff de produto vs. a versão anterior, antes das seções técnicas)_
 
+## [4.1.2] — 2026-09-18 — Correção: status reconhece specs e indexador suporta symlinks de projetos
+
+### O que melhorou
+
+- **`forja status` e `forja next` passam a reconhecer as specs do projeto corretamente.** Quando executado a partir de um projeto consumidor (modo embedded ou via CLI), o status não mais reporta falsamente "nenhuma spec" nem lista as specs do próprio framework Forja. A raiz do repositório/projeto é resolvida dinamicamente, permitindo também consultar um projeto específico (`forja status <projeto>`).
+- **O parser de status das specs agora é flexível e tolerante.** Suporta cabeçalhos de status com ou sem negrito/bullets, remove backticks (ex.: `` `approved` ``) e reconhece termos em português (`em implementação` → `implementing`, `concluído` → `done`, `aprovado` → `approved`).
+- **Indexador da memória universal (`sync:universal`) e `project:list` passam a reconhecer vínculos simbólicos (symlinks).** Diretórios de projetos linkados via symlink em `projects/` (como em `~/forja-workspace/projects/`) deixam de ser ignorados por `Dirent.isDirectory()`, sendo totalmente descobertos, listados e indexados com seus diretórios de `specs/`, `memory/`, `docs/` e `design-md/`.
+
+### Corrigido
+
+- `scripts/forja-status.ts`, `scripts/hook-session-start.ts` e `scripts/sprint-manager.ts`: substituída a resolução estática baseada em `__dirname` por resolução dinâmica (`resolveRepoRoot` / `getWorkspaceRoot` / `process.cwd()`), eliminando o bug em que o caminho apontava para `node_modules/forjajs/dist` ou a raiz do framework (#70).
+- `lib/specs-index.ts`: regex e normalizador flexíveis para cabeçalhos de status SDD em specs (#70).
+- `lib/workspace.ts`: `listProjects()` atualizado para inspecionar `entry.isSymbolicLink()` via `fs.statSync()`, permitindo listar diretórios linkados por symlinks (#70).
+- `scripts/sync-universal-memory.ts`: `walk()` atualizado para seguir links simbólicos de diretórios, uso de `listProjects()` na varredura de projetos e inclusão de `projectPath/specs` na indexação (#70).
+
+
 ## [4.1.1] — 2026-09-08 — Disciplina de release: README + "O que melhorou" acompanham toda versão
 
 ### O que melhorou

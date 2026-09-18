@@ -15,16 +15,24 @@
  * nativo. Quem seguisse o conselho do próprio framework não consertava nada.
  */
 
+import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { runChecks, bucketFor, BUCKET_LABEL } from '../lib/core/health.ts';
 import { listSpecs } from '../lib/specs-index.ts';
 import { openHandoffs } from '../lib/handoffs-index.ts';
+import { getWorkspaceRoot, isInsideFrameworkRepo } from '../lib/workspace.ts';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-const root = path.resolve(__dirname, '..');
+const frameworkRoot = path.resolve(__dirname, '..');
+const cwd = path.resolve(process.cwd());
+const root = isInsideFrameworkRepo(cwd)
+  ? frameworkRoot
+  : (fs.existsSync(path.join(cwd, 'specs')) || fs.existsSync(path.join(cwd, 'package.json')))
+  ? cwd
+  : getWorkspaceRoot();
 
 /**
  * Nunca lança e nunca trava a sessão: o hook reporta, o `tools:doctor` é que é gate. Se a própria

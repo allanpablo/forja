@@ -7,6 +7,9 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { recommendNext, collectStatus } from '../lib/status-model.ts';
+import { normalizeStatus, listSpecs } from '../lib/specs-index.ts';
+import { listProjects } from '../lib/workspace.ts';
+import { resolveRepoRoot } from '../scripts/forja-status.ts';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const root = path.resolve(__dirname, '..');
@@ -134,3 +137,69 @@ test('recommendNext: ordem — workspace ausente vence corrida vermelha', () => 
   });
   assert.equal(r.action, 'setup');
 });
+
+// --- normalizeStatus e specs index --------------------------------------------
+
+test('normalizeStatus: reconhece variações de status, português e backticks', () => {
+  assert.equal(normalizeStatus('`approved`'), 'approved');
+  assert.equal(normalizeStatus('em implementação — incremento A'), 'implementing');
+  assert.equal(normalizeStatus('concluído'), 'done');
+  assert.equal(normalizeStatus('concluido'), 'done');
+  assert.equal(normalizeStatus('draft | review | approved'), 'draft');
+  assert.equal(normalizeStatus('aprovado'), 'approved');
+  assert.equal(normalizeStatus('revisão'), 'review');
+});
+
+test('listSpecs: reconhece spec com status formatado flexível', () => {
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'forja-specs-test-'));
+  try {
+    const s1 = path.join(tmp, 'specs', 'feat-a');
+    fs.mkdirSync(s1, { recursive: true });
+    fs.writeFileSync(path.join(s1, 'spec.md'), '# Feat A\n\nStatus: em implementação\n');
+    fs.writeFileSync(path.join(s1, 'plan.md'), '# Plan A\n\n- **Status**: `approved`\n');
+
+    const s2 = path.join(tmp, 'specs', 'feat-b');
+    fs.mkdirSync(s2, { recursive: true });
+    fs.writeFileSync(path.join(s2, 'spec.md'), '# Feat B\n\n- **Status**: concluído\n');
+
+    const specs = listSpecs(tmp);
+    assert.equal(specs.length, 2);
+    const fa = specs.find((s) => s.slug === 'feat-a');
+    assert.equal(fa?.status, 'implementing');
+    assert.equal(fa?.plan, 'approved');
+    const fb = specs.find((s) => s.slug === 'feat-b');
+    assert.equal(fb?.status, 'done');
+  } finally {
+    fs.rmSync(tmp, { recursive: true, force: true });
+  }
+});
+
+// --- listProjects com symlinks -----------------------------------------------
+
+test('listProjects: reconhece projetos apontados por vínculo simbólico', () => {
+  const tmpWs = fs.mkdtempSync(path.join(os.tmpdir(), 'forja-symlink-ws-'));
+  const tmpTarget = fs.mkdtempSync(path.join(os.tmpdir(), 'forja-symlink-target-'));
+  process.env.FORJA_WORKSPACE = tmpWs;
+  try {
+    const projectsDir = path.join(tmpWs, 'projects');
+    fs.mkdirSync(projectsDir, { recursive: true });
+    // Diretório físico
+    fs.mkdirSync(path.join(projectsDir, 'proj-real'));
+    // Vínculo simbólico para diretório
+    fs.symlinkSync(tmpTarget, path.join(projectsDir, 'proj-symlink'));
+
+    const projects = listProjects();
+    assert.ok(projects.includes('proj-real'), 'deve incluir diretório físico');
+    assert.ok(projects.includes('proj-symlink'), 'deve incluir projeto vinculado por symlink');
+  } finally {
+    delete process.env.FORJA_WORKSPACE;
+    fs.rmSync(tmpWs, { recursive: true, force: true });
+    fs.rmSync(tmpTarget, { recursive: true, force: true });
+  }
+});
+
+test('resolveRepoRoot: prioriza projeto targetArg e diretório do projeto', () => {
+  const res = resolveRepoRoot('root');
+  assert.equal(res, root);
+});
+

@@ -9,14 +9,42 @@
  * comando). O dispatch por `status`/`next` vem do `args` do registry.
  */
 
+import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { collectStatus, recommendNext, type StatusModel, type Sub } from '../lib/status-model.ts';
 import { emitOk } from '../lib/cli-output.ts';
+import { getWorkspaceRoot, isInsideFrameworkRepo, resolveProject } from '../lib/workspace.ts';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const repoRoot = path.resolve(__dirname, '..');
+const frameworkRoot = path.resolve(__dirname, '..');
+
+export function resolveRepoRoot(targetArg?: string): string {
+  if (targetArg && targetArg !== '.' && targetArg !== 'root' && !targetArg.startsWith('-')) {
+    try {
+      const projDir = resolveProject(targetArg);
+      if (fs.existsSync(projDir)) return projDir;
+    } catch {}
+    const direct = path.resolve(targetArg);
+    if (fs.existsSync(direct)) return direct;
+  }
+
+  const cwd = path.resolve(process.cwd());
+  if (isInsideFrameworkRepo(cwd)) {
+    return frameworkRoot;
+  }
+
+  if (
+    fs.existsSync(path.join(cwd, 'specs')) ||
+    fs.existsSync(path.join(cwd, 'memory')) ||
+    fs.existsSync(path.join(cwd, 'package.json'))
+  ) {
+    return cwd;
+  }
+
+  return getWorkspaceRoot();
+}
 
 function sub<T>(s: Sub<T>, render: (v: T) => string[]): string[] {
   return s.available ? render(s.value) : [`  indisponível: ${s.reason}`];
@@ -88,7 +116,11 @@ function renderStatus(m: StatusModel): string {
 const argv = process.argv.slice(2);
 const cmd = argv[0] === 'next' ? 'next' : 'status';
 const json = argv.includes('--json');
+const targetArg = argv.find(
+  (a) => a !== 'status' && a !== 'next' && a !== '--json' && !a.startsWith('-'),
+);
 
+const repoRoot = resolveRepoRoot(targetArg);
 const model = await collectStatus(repoRoot);
 
 if (cmd === 'next') {

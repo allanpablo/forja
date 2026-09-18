@@ -1,11 +1,12 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { resolveProject, initWorkspace, getWorkspaceRoot } from '../lib/workspace.ts';
+import { resolveProject, initWorkspace, getWorkspaceRoot, isInsideFrameworkRepo } from '../lib/workspace.ts';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-const root = path.resolve(__dirname, '..');
+const frameworkRoot = path.resolve(__dirname, '..');
+const cwd = path.resolve(process.cwd());
 
 const [cmd, projectArg, ...args] = process.argv.slice(2);
 
@@ -17,13 +18,21 @@ if (!cmd) {
 
 const project = projectArg || '.';
 let projectDir: any;
-if (project === '.' || project === 'root') {
-  projectDir = root;
+if (project === 'root') {
+  projectDir = frameworkRoot;
+} else if (project === '.') {
+  if (isInsideFrameworkRepo(cwd)) {
+    projectDir = frameworkRoot;
+  } else if (fs.existsSync(path.join(cwd, 'memory/40-delivery')) || fs.existsSync(path.join(cwd, 'package.json'))) {
+    projectDir = cwd;
+  } else {
+    projectDir = frameworkRoot;
+  }
 } else {
   initWorkspace();
   projectDir = resolveProject(project);
 }
-const projectLabel = projectDir === root ? 'framework-root' : project;
+const projectLabel = projectDir === frameworkRoot ? 'framework-root' : (project === '.' ? path.basename(projectDir) : project);
 
 if (!fs.existsSync(projectDir)) {
   console.error(`Projeto nao encontrado: ${project}`);
@@ -181,12 +190,12 @@ ${pending.length ? pending.map((item) => `- ${item}`).join('\n') : '- Nenhuma'}
 - Nova sprint ainda não iniciada.
 
 ## Próximo passo
-- Execute: node scripts/sprint-manager.js start ${projectDir === root ? '' : project}
+- Execute: node scripts/sprint-manager.js start ${projectDir === frameworkRoot ? '' : project}
 `;
   fs.writeFileSync(sprintFile, resetSprint, 'utf8');
 
   console.log(`Sprint encerrada para ${projectLabel}.`);
-  console.log(`Relatorio: ${path.relative(root, reportFile)}`);
+  console.log(`Relatorio: ${path.relative(projectDir, reportFile)}`);
   if (pending.length > 0) {
     console.log(`${pending.length} pendencia(s) devolvida(s) para Alta Prioridade no backlog.`);
   }

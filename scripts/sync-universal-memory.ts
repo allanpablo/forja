@@ -11,6 +11,7 @@ import {
   getProjectsDir,
   getWorkspaceSpecsDir,
   getWorkspaceProjectsMemoryDir,
+  listProjects,
 } from '../lib/workspace.ts';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -70,8 +71,19 @@ function walk(dir: any, out: string[] = []) {
   for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
     if (entry.name === 'node_modules' || entry.name === '.git' || entry.name === '.memory') continue;
     const abs = path.join(dir, entry.name);
-    if (entry.isDirectory()) walk(abs, out);
-    else if (entry.isFile() && entry.name.endsWith('.md')) out.push(abs);
+    let isDir = entry.isDirectory();
+    let isFile = entry.isFile();
+    if (entry.isSymbolicLink()) {
+      try {
+        const stat = fs.statSync(abs);
+        isDir = stat.isDirectory();
+        isFile = stat.isFile();
+      } catch {
+        continue;
+      }
+    }
+    if (isDir) walk(abs, out);
+    else if (isFile && entry.name.endsWith('.md')) out.push(abs);
   }
   return out;
 }
@@ -221,7 +233,10 @@ function syncAssetCatalog() {
 
 function syncFiles(files: any, projectId = null) {
   for (const abs of files) {
-    const rel = path.relative(root, abs);
+    let rel = path.relative(root, abs);
+    if (rel.startsWith('..')) {
+      rel = path.relative(operationRoot, abs);
+    }
     const raw = fs.readFileSync(abs, 'utf8');
     const hash = crypto.createHash('sha256').update(raw).digest('hex');
     const titleMatch = raw.match(/^#\s+(.+)$/m);
@@ -264,22 +279,23 @@ if (syncProjects && mode === 'embedded') {
     ...walk(path.join(operationRoot, 'design-md')),
   ], pid);
 } else if (syncProjects && fs.existsSync(projectsDir)) {
-  const projects = fs.readdirSync(projectsDir, { withFileTypes: true })
-    .filter(e => e.isDirectory())
-    .filter(e => !onlyProject || e.name === onlyProject);
-  if (onlyProject && projects.length === 0) {
+  const projectNames = listProjects().filter((name) => !onlyProject || name === onlyProject);
+  if (onlyProject && projectNames.length === 0) {
     log(`Projeto nao encontrado para sync: ${onlyProject}`, 'warn');
   }
-  for (const p of projects) {
-    log(`Sincronizando Projeto: ${p.name}...`, 'info');
-    const projectPath = path.join(projectsDir, p.name);
-    upsertProject.run(p.name, projectPath, now);
-    const pid = getProjectId.get(p.name).id;
+  for (const name of projectNames) {
+    log(`Sincronizando Projeto: ${name}...`, 'info');
+    const projectPath = path.join(projectsDir, name);
+    upsertProject.run(name, projectPath, now);
+    const pid = getProjectId.get(name).id;
 
     // Indexa memória, documentação, spec SDD e referências de design do projeto (somente .md)
     const projectMemFiles = walk(path.join(projectPath, 'memory'));
     const projectDocsFiles = walk(path.join(projectPath, 'docs'));
-    const projectSpecFiles = walk(path.join(getWorkspaceSpecsDir(), p.name));
+    const projectSpecFiles = [
+      ...walk(path.join(projectPath, 'specs')),
+      ...walk(path.join(getWorkspaceSpecsDir(), name)),
+    ];
     const projectDesignFiles = walk(path.join(projectPath, 'design-md'));
     syncFiles([...projectMemFiles, ...projectDocsFiles, ...projectSpecFiles, ...projectDesignFiles], pid);
   }

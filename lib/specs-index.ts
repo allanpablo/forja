@@ -18,7 +18,20 @@ export interface SpecEntry {
   readonly tasks: string | null;
 }
 
-const STATUS_RE = /-\s*\*\*Status\*\*:\s*([a-z]+)/i;
+const STATUS_LINE_RE = /(?:^|\n)[-*]?\s*\*+Status\*+:\s*([^\n\r]+)/i;
+const STATUS_ALT_RE = /(?:^|\n)Status:\s*([^\n\r]+)/i;
+
+export function normalizeStatus(raw: string): string {
+  const trimmed = raw.replace(/[`*]/g, '').trim().toLowerCase();
+  if (/^(done|conclu[íi]do|concluida|concluido|completed|finalizado)/i.test(trimmed)) return 'done';
+  if (/^(implementing|em implementa[çc][ãa]o|implementando)/i.test(trimmed)) return 'implementing';
+  if (/^(approved|aprovado|aprovada)/i.test(trimmed)) return 'approved';
+  if (/^(review|em revis[ãa]o|revis[ãa]o|revisao)/i.test(trimmed)) return 'review';
+  if (/^(draft|rascunho)/i.test(trimmed)) return 'draft';
+  if (/^(abandoned|abandonado|cancelado)/i.test(trimmed)) return 'abandoned';
+  const firstWord = trimmed.split(/[\s|—–-]+/)[0];
+  return firstWord || 'unknown';
+}
 
 function safeReadDir(p: string): string[] {
   try {
@@ -31,8 +44,9 @@ function safeReadDir(p: string): string[] {
 function statusOf(file: string): string | null {
   try {
     if (!fs.existsSync(file)) return null;
-    const m = fs.readFileSync(file, 'utf8').match(STATUS_RE);
-    return m ? m[1].toLowerCase() : 'unknown';
+    const content = fs.readFileSync(file, 'utf8');
+    const m = content.match(STATUS_LINE_RE) || content.match(STATUS_ALT_RE);
+    return m ? normalizeStatus(m[1]) : 'unknown';
   } catch {
     return null;
   }

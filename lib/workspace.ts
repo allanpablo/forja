@@ -135,7 +135,17 @@ export function listProjects() {
   if (!fs.existsSync(dir)) return [];
   return fs
     .readdirSync(dir, { withFileTypes: true })
-    .filter((entry) => entry.isDirectory())
+    .filter((entry) => {
+      if (entry.isDirectory()) return true;
+      if (entry.isSymbolicLink()) {
+        try {
+          return fs.statSync(path.join(dir, entry.name)).isDirectory();
+        } catch {
+          return false;
+        }
+      }
+      return false;
+    })
     .map((entry) => entry.name);
 }
 

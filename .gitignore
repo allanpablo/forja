@@ -106,3 +106,8 @@ apps/dashboard/.next/
 /.context/*
 !/.context/architecture/
 !/.context/architecture/constitution.json
+
+# Sessões locais e configurações de agentes
+.agents/
+.codex/
+
