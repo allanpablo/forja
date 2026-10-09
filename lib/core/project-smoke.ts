@@ -230,7 +230,7 @@ const gateInherited: Check = {
  */
 const builds: Check = {
   id: 'builds',
-  title: 'o backend gerado instala e buildar (--full)',
+  title: 'o backend gerado instala, compila, testa e passa no lint (--full)',
   severity: 'critical',
   dependsOn: 'structure',
   probe(env: SmokeEnv) {
@@ -249,7 +249,15 @@ const builds: Check = {
     if (build.code !== 0) {
       return { status: 'fail', detail: `npm run build falhou no backend gerado:\n${(build.stderr || build.stdout).slice(0, 500)}`, fix: 'o código gerado não compila — confira os templates do nest-generator' };
     }
-    return { status: 'ok', detail: 'backend gerado instala e compila', fix: null };
+    // Compilar não basta: na v5 o backend gerado compilava, mas `npm test` não achava os tipos do
+    // jest (TS 6) e o lint nunca carregou (.eslintrc sem as deps). O projeto tem que rodar o que anuncia.
+    for (const script of ['test', 'test:e2e', 'lint']) {
+      const res = env.spawn('npm', ['run', script], { cwd: backend });
+      if (res.code !== 0) {
+        return { status: 'fail', detail: `npm run ${script} falhou no backend gerado:\n${(res.stdout + res.stderr).slice(-600)}`, fix: 'confira os templates do nest-generator (testes, tsconfig, eslint.config.mjs)' };
+      }
+    }
+    return { status: 'ok', detail: 'backend gerado instala, compila, passa nos testes (unit + e2e) e no lint', fix: null };
   },
 };
 

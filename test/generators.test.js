@@ -92,14 +92,14 @@ test('ops.controller.ts gerado escapa os campos livres do dashboard (XSS)', () =
 
     assert.match(content, /function esc\(/, 'deve definir um helper de escaping no arquivo gerado');
 
-    const escaped = ['a.agent_name', 'a.status', 'a.current_task', 't.status', 't.count', 'h.from_agent', 'h.to_agent', 'h.title'];
+    const escaped = ['s.slug', 's.status', 's.title', 'h.id', 'h.from_agent', 'h.to_agent', 'h.intent', 'm.kind', 'm.count'];
     for (const field of escaped) {
       const needle = `esc(${field})`;
       assert.ok(content.includes(needle), `${field} deve ser interpolado via ${needle}`);
     }
 
     // nenhuma interpolação direta e não-escapada desses campos deve sobrar no template
-    for (const field of ['a.agent_name', 'a.current_task', 't.status', 'h.from_agent', 'h.to_agent', 'h.title']) {
+    for (const field of ['s.slug', 's.title', 'h.from_agent', 'h.to_agent', 'h.intent', 'm.kind']) {
       assert.doesNotMatch(content, new RegExp(`\\$\\{${field.replace('.', '\\.')}\\}`), `\${${field}} não deveria aparecer sem esc()`);
     }
   });
@@ -133,7 +133,7 @@ test('ops.service.ts gerado fecha o handle sqlite em onModuleDestroy, e main.ts 
     generateNestStructure(dir, 'shutdown-project', { noGitkeep: true });
     const service = fs.readFileSync(path.join(dir, 'backend/src/modules/ops/ops.service.ts'), 'utf8');
     assert.match(service, /implements OnModuleDestroy/);
-    assert.match(service, /onModuleDestroy\(\)\s*\{\s*this\.db\.close\(\);/);
+    assert.match(service, /onModuleDestroy\(\)(?::\s*void)?\s*\{\s*this\.db\??\.close\(\);/);
 
     const main = fs.readFileSync(path.join(dir, 'backend/src/main.ts'), 'utf8');
     assert.match(main, /app\.enableShutdownHooks\(\)/, 'sem isso o Nest nunca invoca onModuleDestroy em SIGINT/SIGTERM');

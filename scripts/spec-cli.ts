@@ -80,7 +80,10 @@ function fillTemplate(tpl: any, vars: any) {
     .replace(/{{FEATURE}}/g, vars.feature)
     .replace(/{{ID}}/g, vars.id)
     .replace(/{{OWNER}}/g, vars.owner || '—')
-    .replace(/{{DATE}}/g, vars.date);
+    .replace(/{{DATE}}/g, vars.date)
+    // O template lista os status possíveis; o artefato nasce `draft` (antes nascia com a lista
+    // inteira, e o índice da memória e o painel ops a exibiam como se fosse o status).
+    .replace(/^(-\s*\*\*Status\*\*:\s*)draft(\s*\|[^\n]*)$/m, '$1draft');
 }
 
 function readStatus(filePath: any) {
