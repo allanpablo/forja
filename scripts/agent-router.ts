@@ -34,10 +34,12 @@ import process from 'node:process';
 import { fileURLToPath } from 'node:url';
 import Database from 'better-sqlite3';
 import { getDbPath, ensureSchema } from './memory-schema.ts';
+import { pkgRoot, script } from '../lib/paths.ts';
+import { currentProjectName } from '../lib/workspace.ts';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-const root = path.resolve(__dirname, '..');
+const root = pkgRoot;
 ensureSchema({ silent: true });
 const dbPath = getDbPath();
 
@@ -116,6 +118,8 @@ function parsePayload(raw: any) {
 function cmdAppend(arg: any) {
   const raw = arg && arg !== '-' ? arg : readStdin();
   const h = parsePayload(raw);
+  // Carimba o projeto de origem (no payload, sem migração de schema) para o briefing filtrar.
+  if (!h.project) { const p = currentProjectName(); if (p) h.project = p; }
   const db = openDb();
   const stmt = db.prepare(`
     INSERT INTO handoffs (created_at, from_agent, to_agent, intent, context, acceptance, constraints, return_to, spec_slug, payload_json)
@@ -184,6 +188,6 @@ switch (subcmd) {
   case 'archive': cmdSetStatus(rest[0], 'archived'); break;
   case 'schema': cmdSchema(); break;
   default:
-    console.log('Uso: agent-router <append|list|show|done|in_progress|cancel|archive|schema> [args]');
+    console.log('Uso: forja agent:route <append|list|show|done|in_progress|cancel|archive|schema> [args]');
     process.exit(1);
 }

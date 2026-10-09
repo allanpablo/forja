@@ -123,7 +123,23 @@ test('recommendNext 6: spec implementing → spec:check', () => {
   assert.equal(r.command, 'forja spec:check s');
 });
 
-test('recommendNext 7: nada pendente → orchestrate', () => {
+test('recommendNext 7: handoff aberto → mostra o mais antigo', () => {
+  const handoffs = { available: true, value: [
+    { id: 9, from: 'worker', to: 'governance', intent: 'review', slug: 'pix' },
+    { id: 4, from: 'sdd-architect', to: 'worker', intent: 'implement', slug: 'pix' },
+  ] };
+  const r = recommendNext({ ...base, handoffs });
+  assert.equal(r.action, 'handoff');
+  assert.equal(r.command, 'forja agent:route show 4');
+});
+
+test('recommendNext: spec pendente vence handoff aberto', () => {
+  const handoffs = { available: true, value: [{ id: 1, from: 'a', to: 'b', intent: 'review', slug: '' }] };
+  const r = recommendNext({ ...base, handoffs, specs: { available: true, value: [spec({ status: 'approved' })] } });
+  assert.equal(r.action, 'spec:plan');
+});
+
+test('recommendNext 8: nada pendente → orchestrate', () => {
   const r = recommendNext(base);
   assert.equal(r.action, 'orchestrate');
 });

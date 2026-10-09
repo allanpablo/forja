@@ -21,14 +21,17 @@ import { fileURLToPath } from 'node:url';
 import { runChecks as run, worstStatus } from './checks.ts';
 import { resolveScript } from './registry.ts';
 import type { Check } from './checks.ts';
-import { writeAiInstructions, stripInstructionHeader, AI_LABELS } from '../multi-ai-instructions.ts';
+import { wireProject, checkProjectWiring } from '../project-wiring.ts';
+import { COMMANDS } from './registry.ts';
 // @ts-ignore — validador legado sem tipos exportados; usado só pela forma { isValid, errors }.
 import { validateProjectStructure } from '../validators/structure-validator.ts';
+
+import { pkgRoot, script } from '../paths.ts';
 
 export { worstStatus };
 
 const __filename = fileURLToPath(import.meta.url);
-const repoRoot = path.resolve(path.dirname(__filename), '..', '..');
+const repoRoot = pkgRoot;
 
 /** Placeholders do gerador: identificadores MAIÚSCULOS entre chaves duplas (`{{FEATURE}}`). */
 const PLACEHOLDER_RE = /\{\{[A-Z][A-Z0-9_]*\}\}/;
@@ -57,10 +60,11 @@ export async function withGeneratedProject<T>(
 
   try {
     // resolveScript acha .ts em dev e .js no dist — cravar .ts quebrava no pacote publicado.
-    const gen = resolveScript(root, 'bin/create-memory-nest-kit');
+    // Raiz padrão = pacote: o gerador é código (codeRoot, `dist/` publicado), não asset.
+    const gen = root === pkgRoot ? script('bin/create-memory-nest-kit') : resolveScript(root, 'bin/create-memory-nest-kit');
     // Modo --ai (SPEC-047): só a memória — `create-memory-nest-kit` roda em dev, `init-project.ts`
     // não (hardcoda `.js`) e trata o path como projeto de workspace. As instruções nativas vêm de
-    // lib/multi-ai-instructions.ts, a mesma fonte que o gerador usa. Sem rede, sem backend.
+    // lib/project-wiring.ts, a mesma conexão que o gerador faz. Sem rede, sem backend.
     const genArgs = aiMode
       ? [gen, projectDir, '--only-memory', '--force']
       : [gen, projectDir, '--force'];
@@ -68,7 +72,7 @@ export async function withGeneratedProject<T>(
     if (res.code !== 0) {
       throw new Error(`o gerador saiu com código ${res.code}:\n${(res.stderr || res.stdout).slice(0, 800)}`);
     }
-    if (aiMode) writeAiInstructions(projectDir, ai!, { kitRoot: root });
+    if (aiMode) wireProject(projectDir, { ai: ai!, codegraph: false });
     return await fn({ projectDir });
   } finally {
     fs.rmSync(dir, { recursive: true, force: true });
@@ -257,56 +261,26 @@ const builds: Check = {
  */
 const aiInstructionsCoherent: Check = {
   id: 'ai-instructions',
-  title: 'as instruções nativas por IA derivam da mesma fonte (--ai)',
+  title: 'o projeto está conectado às IAs pedidas (--ai): instruções, hooks, MCP, comandos citados',
   severity: 'critical',
   dependsOn: 'generated',
   probe(env: SmokeEnv) {
     const ai = env.ai;
     if (!Array.isArray(ai) || ai.length === 0) {
-      return { status: 'skipped', detail: 'sem --ai (o smoke completo não escreve .ia-instructions/)', fix: null };
+      return { status: 'skipped', detail: 'sem --ai (o smoke completo não conecta IAs)', fix: null };
     }
-    const dir = path.join(env.projectDir!, '.ia-instructions');
-
-    const bodies = new Map<string, string>();
-    const missing: string[] = [];
-    for (const name of ai) {
-      const file = path.join(dir, `${name}.md`);
-      const src = readText(env, file);
-      if (src == null) { missing.push(`${name}.md`); continue; }
-      bodies.set(name, stripInstructionHeader(src));
+    let checks;
+    try {
+      checks = checkProjectWiring(env.projectDir!, { commands: COMMANDS, ai });
+    } catch (e) {
+      return { status: 'fail', detail: (e as Error).message, fix: 'use IAs suportadas: claude, codex, gemini, copilot' };
     }
-    if (missing.length) {
-      return { status: 'fail', detail: `instrução ausente: ${missing.join(', ')}`, fix: 'confira writeAiInstructions / a lista --ai' };
+    // `forja-bin` depende da máquina, não do projeto gerado.
+    const failed = checks.filter((c) => c.status === 'fail' && c.id !== 'forja-bin');
+    if (failed.length) {
+      return { status: 'fail', detail: failed.map((c) => `${c.id}: ${c.detail}`).join('; '), fix: 'lib/project-wiring.ts (forja project:wire)' };
     }
-
-    const [first, ...rest] = [...bodies.entries()];
-    for (const [name, body] of rest) {
-      if (body !== first[1]) {
-        return {
-          status: 'fail',
-          detail: `o corpo de ${name}.md diverge de ${first[0]}.md — as instruções não são a mesma fonte`,
-          fix: 'toda IA parte de .gemini-instructions.md; só o cabeçalho muda (lib/multi-ai-instructions.ts)',
-        };
-      }
-    }
-
-    const modelsRaw = readText(env, path.join(dir, 'models.json'));
-    let models: any;
-    try { models = JSON.parse(modelsRaw ?? ''); }
-    catch { return { status: 'fail', detail: 'models.json ausente ou inválido', fix: 'writeAiInstructions deve gerá-lo' }; }
-    if (JSON.stringify(models.fallback_chain) !== JSON.stringify([...ai])) {
-      return { status: 'fail', detail: `models.json fallback_chain ${JSON.stringify(models.fallback_chain)} ≠ --ai ${JSON.stringify(ai)}`, fix: 'sincronize a lista' };
-    }
-    for (const name of ai) {
-      if (models.engines?.[name]?.instruction_file !== `.ia-instructions/${name}.md`) {
-        return { status: 'fail', detail: `models.json.engines.${name} sem instruction_file correto`, fix: 'writeAiInstructions' };
-      }
-      if (!(name in AI_LABELS)) {
-        return { status: 'fail', detail: `IA desconhecida na lista --ai: ${name} (conhecidas: ${Object.keys(AI_LABELS).join(', ')})`, fix: 'use uma IA suportada' };
-      }
-    }
-
-    return { status: 'ok', detail: `${ai.length} instruções coerentes (mesmo corpo, models.json em dia)`, fix: null };
+    return { status: 'ok', detail: `${ai.length} IA(s) conectada(s): ${checks.filter((c) => c.status === 'ok').map((c) => c.id).join(', ')}`, fix: null };
   },
 };
 

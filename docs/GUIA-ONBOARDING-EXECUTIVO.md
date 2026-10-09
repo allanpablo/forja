@@ -18,8 +18,7 @@ npx github:SEU_USUARIO/create-memory-nest-kit nome-do-projeto
 ```bash
 cd nome-do-projeto/backend
 npm install
-npm run memory:db:init
-npm run memory:db:sync
+forja sync:universal
 npm run start:dev
 ```
 

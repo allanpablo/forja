@@ -16,9 +16,10 @@ import path from 'node:path';
 import Database from 'better-sqlite3';
 import { fileURLToPath } from 'node:url';
 import { getDbPath, ensureSchema } from './memory-schema.ts';
+import { pkgRoot, script } from '../lib/paths.ts';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const root = path.resolve(__dirname, '..');
+const root = pkgRoot;
 
 // Configuração de defaults (pode ser sobrescrita por .memoryrc.json)
 const DEFAULT_CONFIG = {

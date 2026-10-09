@@ -2,16 +2,17 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { resolveProject, initWorkspace, getWorkspaceRoot, isInsideFrameworkRepo } from '../lib/workspace.ts';
+import { pkgRoot, script } from '../lib/paths.ts';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-const frameworkRoot = path.resolve(__dirname, '..');
+const frameworkRoot = pkgRoot;
 const cwd = path.resolve(process.cwd());
 
 const [cmd, projectArg, ...args] = process.argv.slice(2);
 
 if (!cmd) {
-  console.log('Uso: node scripts/sprint-manager.js <start|status|complete> [projeto|.|root] [args]');
+  console.log('Uso: forja sprint:<start|status|complete> [projeto|.|root] [args]');
   console.log('       . ou root = framework raiz; outro nome = projeto no workspace');
   process.exit(0);
 }

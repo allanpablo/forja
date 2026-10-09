@@ -160,16 +160,32 @@ function ensureSpecVersioned(slug: any) {
   }
 }
 
+export function nextSpecId(dir = specsDir): string {
+  let max = 0;
+  if (fs.existsSync(dir)) {
+    for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+      if (!entry.isDirectory()) continue;
+      const spec = path.join(dir, entry.name, 'spec.md');
+      const m = fs.existsSync(spec) ? fs.readFileSync(spec, 'utf8').match(/\*\*ID\*\*:\s*SPEC-(\d+)/) : null;
+      if (m) max = Math.max(max, Number(m[1]));
+    }
+  }
+  return `SPEC-${String(max + 1).padStart(3, '0')}`;
+}
+
 function cmdNew(feature: any) {
-  if (!feature) fail('uso: spec:new <feature>');
+  if (!feature) fail('uso: forja spec:new <feature>');
   const slug = slugify(feature);
   const dir = path.join(specsDir, slug);
   if (fs.existsSync(dir)) fail(`spec ${slug} já existe em ${dir}`);
+  // Maior ID existente + 1, calculado ANTES do mkdir: contar pastas depois de criá-la fazia a
+  // primeira spec de um projeto nascer SPEC-002, e remover uma spec gerava IDs repetidos.
+  const id = nextSpecId();
   fs.mkdirSync(dir, { recursive: true });
   const tpl = readTemplate('spec');
   const content = fillTemplate(tpl, {
     feature: slug,
-    id: `SPEC-${String(listFeatures().length + 1).padStart(3, '0')}`,
+    id,
     owner: process.env.USER || '—',
     date: todayISO(),
   });
@@ -180,7 +196,7 @@ function cmdNew(feature: any) {
 }
 
 function cmdNextStage(stage: any, feature: any) {
-  if (!feature) fail(`uso: spec:${stage} <feature>`);
+  if (!feature) fail(`uso: forja spec:${stage} <feature>`);
   const slug = slugify(feature);
   const dir = path.join(specsDir, slug);
   if (!fs.existsSync(dir)) fail(`feature ${slug} não existe — rode spec:new primeiro`);
@@ -249,7 +265,7 @@ function cmdCheck(feature: any) {
 }
 
 function cmdSetStatus(feature: any, stage: any, status: any) {
-  if (!feature || !stage || !status) fail('uso: spec:set-status <feature> <spec|plan|tasks> <status>');
+  if (!feature || !stage || !status) fail('uso: forja spec:set-status <feature> <spec|plan|tasks> <status>');
   if (!STAGES.includes(stage)) fail(`stage inválido: ${stage}. Use: ${STAGES.join('|')}`);
   if (!VALID_STATUSES.includes(status)) fail(`status inválido: ${status}. Use: ${VALID_STATUSES.join('|')}`);
   const slug = slugify(feature);

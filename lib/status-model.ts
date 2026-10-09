@@ -14,6 +14,7 @@ import { getWorkspaceInfo, getWorkspaceContextDir, getWorkspaceDbPath } from './
 import { listSpecs, type SpecEntry } from './specs-index.ts';
 import { readSprint, type SprintInfo } from './sprint-index.ts';
 import { openHandoffs, type OpenHandoff } from './handoffs-index.ts';
+import { currentProjectName } from './workspace.ts';
 import { listRuns, loadState } from './orchestrate.ts';
 
 export type Sub<T> =
@@ -151,7 +152,7 @@ export async function collectStatus(
 
   let handoffs: Sub<OpenHandoff[]>;
   try {
-    handoffs = ok(await openHandoffs());
+    handoffs = ok(await openHandoffs(10, currentProjectName()));
   } catch (e) {
     handoffs = unavailable(reasonOf(e));
   }
@@ -231,7 +232,18 @@ export function recommendNext(model: StatusModel): NextAction {
     }
   }
 
-  // 7 — nada pendente
+  // 7 — handoff aberto: alguém está esperando um parecer ou uma entrega. O mais antigo primeiro
+  // (a lista vem do mais recente para o mais antigo).
+  if (model.handoffs.available && model.handoffs.value.length) {
+    const oldest = model.handoffs.value[model.handoffs.value.length - 1];
+    return {
+      action: 'handoff',
+      command: `forja agent:route show ${oldest.id}`,
+      reason: `${model.handoffs.value.length} handoff(s) em aberto — o mais antigo é #${oldest.id} ${oldest.from} → ${oldest.to} (${oldest.intent})${oldest.slug ? ` em ${oldest.slug}` : ''}; feche com forja agent:route done ${oldest.id}`,
+    };
+  }
+
+  // 8 — nada pendente
   return {
     action: 'orchestrate',
     command: 'forja orchestrate "<objetivo>" --slug <slug>',

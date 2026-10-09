@@ -1,457 +1,94 @@
-# 🚀 Init Project - Guia de Uso
+# Criar um projeto — `forja project:new`
 
-Comando universal para iniciar novo projeto com agentes orquestrados e configuração automática de IAs.
-
-> **Atenção**: projetos de produto vivem no **workspace Forja** (`~/forja-workspace` por padrão), fora do repo do framework. Veja ADR-0019.
-
----
-
-## Quick Start (2 minutos)
+Cria um projeto no workspace Forja (`~/forja-workspace/projects/<nome>`) já conectado à IA que você
+usa. O gerador é `bin/init-project.ts`; a conexão vem de `lib/project-wiring.ts` (ADR-0086).
 
 ```bash
-# 1. Ir para repo root do framework Forja
-cd /home/apk/Documentos/GitHub/Projetos/2-Projeto-Agents/projects/forja
-
-# 2. Inicializar o workspace (canto fixo dos projetos)
-npm run workspace:init
-
-# 3. Criar novo projeto (setup automático completo)
-npm run project:new meu-projeto
-
-# 4. Entrar no projeto
+forja workspace:init                                   # uma vez por máquina
+forja project:new meu-projeto --ai claude,codex
 cd ~/forja-workspace/projects/meu-projeto
-
-# 5. Ver estrutura
-ls -la
-tree memory/ | head -30
-
-# 6. Carregar instruções para sua IA favorita
-cat .ia-instructions/copilot.md
-cat .ia-instructions/claude.md
-cat .ia-instructions/gemini.md
+forja project:wire --check                             # tudo conectado?
+forja status                                           # memória indexada, specs, handoffs
 ```
 
-**Resultado**: Projeto totalmente setup com:
-- ✅ Estrutura de memória hierárquica
-- ✅ Backend NestJS pronto
-- ✅ Instruções para 3 IAs (Copilot, Claude, Gemini)
-- ✅ SQLite inicializado
-- ✅ Context pack construído
-- ✅ Git configurado
+## Opções
 
----
+| Opção | Padrão | Efeito |
+|---|---|---|
+| `--ai <lista>` | `copilot,claude,gemini,codex` | IAs a conectar |
+| `--skip-backend` | — | Não gera nem instala o backend NestJS |
+| `--skip-db` | — | Não indexa a memória do projeto |
+| `--skip-git` | — | Não roda `git init` |
+| `--skip-design` | — | Não copia a biblioteca `design-md/` |
+| `--verbose` | — | Saída detalhada (ex.: erros do `npm install`) |
 
-## Sintaxe Completa
+O workspace é resolvido por: `FORJA_WORKSPACE` → `workspaceRoot` em `~/.forjarc.json` →
+`~/forja-workspace`.
 
-```bash
-# Via harness (recomendado — resolve workspace automaticamente)
-npm run project:new <project-name> [opções]
+## O que acontece, em ordem
 
-# Via binário direto (ainda válido, mas sempre cria no workspace)
-node bin/init-project.js <project-name> [opções]
-```
+1. **git init** e `.gitignore` inicial.
+2. **Memória e agentes** (`create-memory-nest-kit`): `memory/` hierárquica (00-global a
+   90-decisions), `agents/`, `prompts/`, `skills/`, `specs/` e o backend NestJS (exceto com
+   `--skip-backend`).
+3. **design-md/**: biblioteca de referências de design.
+4. **Conexão com a IA**:
+   - `AGENTS.md` com o bloco do Forja (lido por Codex, Copilot agent e Gemini).
+   - `CLAUDE.md` e `GEMINI.md` importando o `AGENTS.md`; `.github/copilot-instructions.md`.
+   - `.claude/settings.json`: hooks `forja hook:session-start` (briefing da sessão) e
+     `forja hook:user-prompt` (anexa a spec citada), mais a permissão `Bash(forja *)`.
+   - `.claude/agents/`: orchestrator, product, sdd-architect, context-engineer, governance, marketing.
+   - `.mcp.json`: servidor `forja mcp:start` (e `codegraph`, se instalado).
+   - `.forja/models.json`: cadeia de fallback entre IAs.
+   - `memory/sqlite/` e `.context/` no `.gitignore`.
+5. **npm install** do backend.
+6. **Indexação da memória** (`forja sync:universal` no projeto).
+7. **Context pack** em `.context/context-pack.md`.
+8. **Ficha** do projeto em `<workspace>/memory/30-projects/<nome>.md`.
 
-### Opções
+No fim aparece um resumo. Falha essencial (ex.: a conexão não verificou) faz o comando sair com
+**exit 1** e listar cada pendência. Falha recuperável (ex.: `npm install` sem rede) aparece como
+pendência, com o comando para refazer.
 
-| Flag | Padrão | O quê |
-|------|--------|-------|
-| `--ai <list>` | copilot,claude,gemini,codex | IAs para configurar (comma-separated) |
-| `--skip-backend` | false | Pula geração do backend NestJS |
-| `--skip-db` | false | Pula inicialização do SQLite |
-| `--skip-git` | false | Pula inicialização do Git |
-| `--skip-design` | false | Pula cópia da biblioteca design-md |
-| `--interactive` | false | Modo interativo (perguntas) |
-| `--verbose` | false | Output detalhado |
+## O que a IA encontra ao abrir o projeto
 
-### Workspace
+- **Claude Code**: lê o `CLAUDE.md` → `AGENTS.md`; o hook de sessão injeta specs ativas, handoffs
+  do projeto e a saúde do núcleo; ao citar uma spec no prompt, o hook anexa spec, plan e tasks.
+- **Codex / Copilot / Gemini**: leem o `AGENTS.md` (o Gemini via `GEMINI.md`, o Copilot via
+  `.github/copilot-instructions.md`).
+- **Qualquer IA com MCP**: as capacidades do Forja como ferramentas (`forja mcp:start`).
 
-O caminho do workspace é resolvido por prioridade:
+Hooks e MCP chamam o binário `forja`. Instale-o globalmente (`npm i -g forjajs`). Sem ele, a sessão
+abre normalmente e o `project:wire --check` avisa.
 
-1. Variável de ambiente `FORJA_WORKSPACE`
-2. Campo `workspaceRoot` em `~/.forjarc.json`
-3. Padrão: `~/forja-workspace`
+## Seu conteúdo é preservado
 
----
+Em `AGENTS.md`, `CLAUDE.md`, `GEMINI.md` e no arquivo do Copilot, o Forja só reescreve o trecho entre
+`<!-- forja:begin -->` e `<!-- forja:end -->`. Um sub-agent em `.claude/agents/` que você editar e do
+qual remover a marca `<!-- forja:managed -->` não é mais tocado. Hooks e servidores MCP seus em
+`.claude/settings.json`/`.mcp.json` são mantidos; o Forja só acrescenta os dele.
 
-## Exemplos de Uso
-
-### 1. Setup Completo (Recomendado)
-```bash
-npm run project:new meu-projeto
-```
-Resultado:
-- Projeto em `~/forja-workspace/projects/meu-projeto/`
-- Estrutura memória + backend NestJS
-- IAs: Copilot, Claude, Gemini, Codex
-- Git inicializado
-- DB setup
-
-### 2. Só com Copilot e Claude
-```bash
-npm run project:new meu-projeto -- --ai copilot,claude
-```
-Resultado:
-- Instruções apenas para Copilot e Claude
-- Resto completo
-
-### 3. Só Memória (Sem Backend)
-```bash
-npm run project:new meu-projeto -- --skip-backend
-```
-Resultado:
-- Estrutura memória + agentes + skills
-- SEM backend NestJS
-- SEM npm install
-- Útil para projetos frontend-only
-
-### 4. Backend sem DB
-```bash
-npm run project:new meu-projeto -- --skip-db
-```
-Resultado:
-- Projeto completo
-- SQLite NÃO inicializado
-- Útil se quer setupar BD depois
-
-### 5. Setup Verbose (Debug)
-```bash
-npm run project:new meu-projeto -- --verbose
-```
-Resultado:
-- Mostra todos os comandos executados
-- Útil para troubleshooting
-
-### 6. Modo Interativo (Perguntas)
-```bash
-npm run project:new -- --interactive
-```
-Resultado:
-- Pergunta nome do projeto
-- Pergunta quais IAs configurar
-- Pergunta se quer backend
-- Etc
-
----
-
-## O que o Comando Faz (Step-by-Step)
-
-### 1️⃣ Git Init
-- Cria `.git` se não existir
-- Cria `.gitignore` básico
-
-### 2️⃣ Generate Structure
-- Roda `bin/create-memory-nest-kit.js`
-- Cria `memory/`, `agents/`, `skills/`, `prompts/`
-- Cria `backend/` (se não --skip-backend)
-- Cria scripts úteis
-
-### 3️⃣ Copy Instructions
-- Copia `.github/copilot-instructions.md`
-- Copia `CLAUDE.md`
-- Copia `.gemini-instructions.md`
-- Coloca em `.ia-instructions/README.md`
-
-### 4️⃣ Install Backend
-- Roda `npm install` no backend
-- Instala: NestJS, Jest, Prettier, ESLint, etc
-- Toma alguns minutos na primeira vez
-
-### 5️⃣ Init Memory DB
-- Roda `npm run memory:db:init`
-- Cria `.memory/sqlite/context.db`
-- Setup schema SQLite
-
-### 6️⃣ Build Context Pack
-- Roda `node scripts/build-context-pack.mjs`
-- Cria `.context/context-pack.md`
-- Resumo compacto para IA ler
-
-### 7️⃣ Show Next Steps
-- Exibe checklist de próximos passos
-- Mostra comandos importantes
-
----
-
-## Estrutura Criada
-
-Após `npm run project:new meu-projeto`, o projeto é criado em `~/forja-workspace/projects/meu-projeto/`:
-
-```
-~/forja-workspace/projects/meu-projeto/
-├─ .git/                          # Git repository
-├─ .gitignore
-├─ .ia-instructions/              # Instruções por IA
-│  ├─ README.md
-│  ├─ copilot.md
-│  ├─ claude.md
-│  └─ gemini.md
-├─ .context/
-│  └─ context-pack.md             # Resumo compacto
-├─ .memory/
-│  └─ sqlite/
-│     └─ context.db               # SQLite DB
-├─ memory/                         # Estrutura hierárquica
-│  ├─ 00-global/
-│  ├─ 10-product/
-│  ├─ 20-architecture/
-│  ├─ 30-domains/
-│  ├─ 40-delivery/
-│  ├─ 50-orchestration/
-│  ├─ 60-runs/
-│  ├─ 70-summaries/
-│  ├─ 80-data/
-│  └─ 90-decisions/
-├─ agents/                        # Especificação de agentes
-│  ├─ orchestrator.md
-│  ├─ backend-nest.md
-│  ├─ frontend.md
-│  ├─ dba.md
-│  ├─ security.md
-│  ├─ reviewer.md
-│  └─ README.md
-├─ skills/                        # Skills operacionais
-│  ├─ triage-task/
-│  ├─ context-compaction/
-│  ├─ handoff/
-│  └─ nest-api/
-├─ prompts/                       # Templates de prompts
-│  ├─ project-prompt-base.md
-│  ├─ multi-agent-orchestrator.md
-│  └─ worker-task-template.md
-├─ scripts/
-│  ├─ build-context-pack.mjs      # Compactar contexto
-│  └─ append-handoff.mjs          # Criar handoff
-├─ docs/                          # Documentação adicional
-├─ backend/                       # NestJS (se não --skip-backend)
-│  ├─ src/
-│  ├─ test/
-│  ├─ scripts/
-│  │  ├─ memory-db-init.mjs
-│  │  ├─ memory-db-sync.mjs
-│  │  ├─ memory-db-query.mjs
-│  │  └─ memory-db-schema.sql
-│  ├─ package.json
-│  ├─ tsconfig.json
-│  └─ nest-cli.json
-├─ README.md
-└─ AGENTS.md
-```
-
----
-
-## Workflow Após Init
-
-### Copilot / Claude / Gemini Setup
-
-```bash
-# 1. Ver instruções
-cat ~/forja-workspace/projects/meu-projeto/.ia-instructions/copilot.md
-
-# 2. Copiar para IA assistant
-# - Abra seu editor com Copilot/Claude
-# - New chat
-# - Paste conteúdo do arquivo
-# - Pronto! IA entende seu projeto
-
-# 3. Pedir para IA:
-# "Implemente endpoint GET /users/:id com validação de UUID"
-# "Crie teste para criar novo usuário"
-# etc
-```
-
-### Desenvolvimento Local
-
-```bash
-cd ~/forja-workspace/projects/meu-projeto
-
-# Ver estrutura de memória
-tree memory/ -L 2
-
-# Carregar contexto para IA
-cat .context/context-pack.md | head -100
-
-# Iniciar backend em dev
-cd backend && npm run start:dev
-
-# Rodar testes
-cd backend && npm test
-
-# Sincronizar BD (após mudanças grandes)
-cd backend && npm run memory:db:sync
-
-# Consultar contexto
-cd backend && npm run memory:db:query -- "search" "auth" 10
-```
-
-### Registrar Handoff (Quando Passar para Outro Agente)
+## Projeto existente ou gerado antes da v5
 
 ```bash
 cd meu-projeto
-
-# Criar handoff estruturado
-node scripts/append-handoff.mjs orchestrator backend-nest "Implementar módulo de autenticação com JWT"
-
-# Resultado: novo arquivo em memory/50-orchestration/handoffs/
+forja project:upgrade              # dry-run: peças de scaffold novas + conexão a refazer
+forja project:upgrade --apply      # aplica (aditivo; só traz backend se o projeto já tem um)
+forja project:wire --check
 ```
 
-### Atualizar Documentação
+Num repositório que nunca foi Forja, comece por `forja project:wire --ai claude,codex` e depois rode
+o `project:upgrade --apply`.
 
-```bash
-# Após mudanças importantes
-vim memory/20-architecture/backend.md
-vim memory/30-domains/auth/rules.md
+## Problemas comuns
 
-# Sincronizar DB
-cd backend && npm run memory:db:sync
-```
+| Sintoma | Causa | Correção |
+|---|---|---|
+| `Workspace não encontrado` | workspace não criado | `forja workspace:init` (ou `forja setup`) |
+| `Projeto ja existe no workspace` | nome em uso | escolha outro nome ou use `project:upgrade` dentro dele |
+| `npm install do backend falhou` | sem rede/registry | `cd backend && npm install` depois |
+| Briefing não aparece no Claude Code | `forja` fora do PATH | `npm i -g forjajs`; confira com `forja project:wire --check` |
+| `project:wire --check` com FAIL | arquivo de conexão ausente/alterado | `forja project:wire` |
 
----
-
-## Troubleshooting
-
-### "Node not found"
-```bash
-# Instalar Node.js >= 18
-curl -fsSL https://fnm.io/install | bash
-fnm install 18
-fnm use 18
-node --version
-```
-
-### "npm install falha"
-```bash
-# Limpar cache
-npm cache clean --force
-
-# Atualizar npm
-npm install -g npm@latest
-
-# Tentar novamente
-node bin/init-project.js meu-projeto --verbose
-```
-
-### "Git conflicts"
-```bash
-# Se projeto já existe com Git
-node bin/init-project.js meu-projeto --force --skip-git
-```
-
-### "BD não inicializa"
-```bash
-# Manual
-cd meu-projeto/backend
-npm run memory:db:init
-npm run memory:db:sync
-```
-
-### "Backend não compila"
-```bash
-# Debug detalhado
-cd meu-projeto/backend
-npm run build -- --verbose
-npm run lint
-npm test
-```
-
----
-
-## Integração com CI/CD
-
-### GitHub Actions
-
-```yaml
-# .github/workflows/init-new-project.yml
-name: Create New Project
-on:
-  workflow_dispatch:
-    inputs:
-      project_name:
-        description: "Nome do projeto"
-        required: true
-
-jobs:
-  init:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v3
-      - uses: actions/setup-node@v3
-        with:
-          node-version: "18"
-      
-      - name: Init project
-        run: |
-          node bin/init-project.js ${{ github.event.inputs.project_name }} \
-            --ai copilot,claude,gemini
-      
-      - name: Commit and push
-        run: |
-          git config user.email "bot@example.com"
-          git config user.name "Bot"
-          git add .
-          git commit -m "feat: init project ${{ github.event.inputs.project_name }}"
-          git push
-```
-
----
-
-## Próximas Features Planejadas
-
-- [ ] --ai-config: arquivo YAML com config por IA
-- [ ] --template: escolher template (web, api, fullstack)
-- [ ] --preset: preset de IAs (solo, team, enterprise)
-- [ ] --github-org: criar repo automático
-- [ ] --docker: Dockerfile pronto
-- [ ] --k8s: deployment manifests
-
----
-
-## Sumário de Comandos Frequentes
-
-```bash
-# Inicializar workspace (uma vez)
-npm run workspace:init
-
-# Criar novo projeto (tudo automático)
-npm run project:new meu-projeto
-
-# Variantes
-npm run project:new meu-projeto -- --skip-backend
-npm run project:new meu-projeto -- --ai claude,copilot
-npm run project:new meu-projeto -- --verbose
-
-# Dentro do projeto
-cd ~/forja-workspace/projects/meu-projeto
-
-# Ver instruções para IA
-cat .ia-instructions/copilot.md
-
-# Ver contexto resumido
-cat .context/context-pack.md | head -50
-
-# Rodar backend
-cd backend && npm run start:dev
-
-# Sincronizar memória
-cd backend && npm run memory:db:sync
-
-# Criar handoff
-node scripts/append-handoff.mjs orchestrator backend-nest "tarefa"
-
-# Query contexto
-cd backend && npm run memory:db:query -- "search" "auth" 10
-```
-
----
-
-## Help Rápido
-
-```bash
-node bin/init-project.js --help
-```
-
----
-
-**Criado**: 2026-04-21  
-**Status**: 🟢 Pronto para Uso  
-**Próximo**: Implementar em `bin/init-project.js` (já feito!)
-
+Veja também: [`processo-projeto.md`](processo-projeto.md) (criar × atualizar) e a
+[ADR-0086](../memory/90-decisions/0086-projeto-conectado-e-jornada-como-gate.md).

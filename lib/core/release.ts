@@ -28,11 +28,13 @@ import { runChecks as run, worstStatus, stripTemplateLiterals } from './checks.t
 
 import type { Check } from './checks.ts';
 import { COMMANDS, resolveScript } from './registry.ts';
+import { pkgRoot } from '../paths.ts';
+import { runJourney } from './journey.ts';
 
 export { worstStatus };
 
 const __filename = fileURLToPath(import.meta.url);
-const repoRoot = path.resolve(path.dirname(__filename), '..', '..');
+const repoRoot = pkgRoot;
 
 /** Assinaturas de tarball quebrado. Exit code não serve — ver `smokeCommands`. */
 const LOADER_ERRORS = /ERR_MODULE_NOT_FOUND|ERR_DLOPEN_FAILED|Cannot find module|ERR_PACKAGE_PATH_NOT_EXPORTED/;
@@ -564,6 +566,32 @@ const consumerProjectSurfaces: Check = {
   },
 };
 
+/**
+ * A jornada inteira, no pacote instalado (ADR-0086): workspace → project:new → dentro do projeto,
+ * project:wire, memória, context:smart, specs, gates, hooks e MCP — cada passo conferido pelo efeito.
+ * Os checks acima provam peças; este prova que elas se encaixam como o usuário as usa.
+ */
+const consumerJourney: Check = {
+  id: 'consumer-journey',
+  title: 'a jornada do usuário funciona no pacote instalado (projeto nasce conectado à IA)',
+  severity: 'critical',
+  dependsOn: 'install',
+  probe(env: any) {
+    const pkg = JSON.parse(env.fs.readFileSync(path.join(env.pkgDir, 'package.json'), 'utf8'));
+    const binRel = typeof pkg.bin === 'string' ? pkg.bin : pkg.bin?.forja;
+    const steps = runJourney({ bin: path.join(env.pkgDir, binRel), pkgDir: env.pkgDir, version: pkg.version, baseDir: fs.mkdtempSync(path.join(env.installDir, 'journey-')) });
+    const failed = steps.filter((s) => !s.ok);
+    if (failed.length) {
+      return {
+        status: 'fail',
+        detail: failed.map((s) => `${s.id}: ${s.detail}`).join('; '),
+        fix: 'rode `node --test test/journey.test.js` no fonte; se passar lá, o tarball difere (files[], dist/, assets)',
+      };
+    }
+    return { status: 'ok', detail: `${steps.length} passos da jornada ok no pacote instalado`, fix: null };
+  },
+};
+
 /** @type {import('./checks.ts').Check[]} */
 export const RELEASE_CHECKS = [
   treeClean,
@@ -573,6 +601,7 @@ export const RELEASE_CHECKS = [
   consumerSpecNew,
   consumerProjectCheck,
   consumerProjectSurfaces,
+  consumerJourney,
   importsResolve,
   depsDeclared,
   depsUnused,

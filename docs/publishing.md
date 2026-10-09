@@ -55,3 +55,8 @@ node_modules, bancos e contextos privados não devem entrar no tarball.
 
 A versão 4.0.0 altera costUsd desconhecido de zero para null no JSON de llm:run. As opções de
 retomada, schema e checks são explícitas. Exemplos em [LLM Fit Loop](llm-fit-loop.md).
+
+A versão 5.0.0 exige Node ≥ 22, troca `.ia-instructions/` por instruções nativas e conexão via
+`project:wire`, e remove `init:project` e os aliases `ops:*`. Projetos anteriores migram com
+`forja project:upgrade --apply`. O `release:check` passa a percorrer a jornada inteira do usuário
+no pacote instalado (check `consumer-journey`, ADR-0086).

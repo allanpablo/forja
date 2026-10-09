@@ -13,14 +13,18 @@ import {
   getWorkspaceProjectsMemoryDir,
   listProjects,
 } from '../lib/workspace.ts';
+import { pkgRoot, script } from '../lib/paths.ts';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-const root = path.resolve(__dirname, '..');
+const root = pkgRoot;
 
 initWorkspace();
 const mode = getForjaMode();
 const operationRoot = getWorkspaceRoot();
+// Fonte do conteúdo indexado: no modo embedded é o PROJETO, nunca o pacote. Ler specs/, boilerplates/
+// e design-md/ de `root` (o pacote) vazava as specs do framework para a memória do produto.
+const contentRoot = mode === 'embedded' ? operationRoot : root;
 const dbPath = getDbPath();
 const args = process.argv.slice(2);
 const projectArgIndex = args.indexOf('--project');
@@ -99,7 +103,7 @@ const upsertProject = db.prepare('INSERT INTO projects (name, path, created_at) 
 // Sem ele restaria `lastInsertRowid`, que num upsert-que-atualizou guarda o id do
 // último INSERT da conexão — um id alheio, e o FTS acabava indexando o conteúdo de
 // um documento sob o node_id de outro (ADR-0021).
-const upsertNode = db.prepare('INSERT INTO memory_nodes (project_id, path, kind, title, content, content_hash, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?) ON CONFLICT(path) DO UPDATE SET title=excluded.title, content=excluded.content, content_hash=excluded.content_hash, updated_at=excluded.updated_at RETURNING id');
+const upsertNode = db.prepare('INSERT INTO memory_nodes (project_id, path, kind, title, content, content_hash, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?) ON CONFLICT(path) DO UPDATE SET project_id=excluded.project_id, kind=excluded.kind, title=excluded.title, content=excluded.content, content_hash=excluded.content_hash, updated_at=excluded.updated_at RETURNING id');
 const getProjectId = db.prepare('SELECT id FROM projects WHERE name = ?');
 const deleteFts = db.prepare('DELETE FROM search_idx WHERE node_id = ?');
 const insertFts = db.prepare('INSERT INTO search_idx (node_id, title, content) VALUES (?, ?, ?)');
@@ -154,7 +158,7 @@ function extractSection(content: any, heading: any, maxChars = 1200) {
 }
 
 function summarizeReadme(relPath: any) {
-  const full = path.join(root, relPath);
+  const full = path.join(contentRoot, relPath);
   if (!fs.existsSync(full)) return null;
   const content = fs.readFileSync(full, 'utf8');
   return content.split('\n')
@@ -166,7 +170,7 @@ function summarizeReadme(relPath: any) {
 }
 
 function readJson(relPath: any) {
-  const full = path.join(root, relPath);
+  const full = path.join(contentRoot, relPath);
   if (!fs.existsSync(full)) return null;
   try {
     return JSON.parse(fs.readFileSync(full, 'utf8'));
@@ -176,14 +180,14 @@ function readJson(relPath: any) {
 }
 
 function syncSpecSummaries() {
-  const specsDir = path.join(root, 'specs');
+  const specsDir = path.join(contentRoot, 'specs');
   if (!fs.existsSync(specsDir)) return;
   let count = 0;
   for (const entry of fs.readdirSync(specsDir, { withFileTypes: true })) {
     if (!entry.isDirectory() || entry.name.startsWith('_')) continue;
     const slug = entry.name;
     const rel = path.join('specs', slug, 'spec.md');
-    const full = path.join(root, rel);
+    const full = path.join(contentRoot, rel);
     if (!fs.existsSync(full)) continue;
     const content = fs.readFileSync(full, 'utf8');
     const title = firstHeading(content, slug);
@@ -201,7 +205,7 @@ function syncSpecSummaries() {
 
 function syncAssetCatalog() {
   const assets: { type: string; name: string; path: string; summary: string; tags: any }[] = [];
-  const boilerRoot = path.join(root, 'boilerplates');
+  const boilerRoot = path.join(contentRoot, 'boilerplates');
   if (fs.existsSync(boilerRoot)) {
     for (const entry of fs.readdirSync(boilerRoot, { withFileTypes: true })) {
       if (!entry.isDirectory()) continue;
@@ -213,7 +217,7 @@ function syncAssetCatalog() {
       assets.push({ type: 'boilerplate', name: entry.name, path: rel, summary, tags });
     }
   }
-  const designRoot = path.join(root, 'design-md');
+  const designRoot = path.join(contentRoot, 'design-md');
   if (fs.existsSync(designRoot)) {
     for (const entry of fs.readdirSync(designRoot, { withFileTypes: true })) {
       if (!entry.isDirectory()) continue;
@@ -233,7 +237,7 @@ function syncAssetCatalog() {
 
 function syncFiles(files: any, projectId = null) {
   for (const abs of files) {
-    let rel = path.relative(root, abs);
+    let rel = path.relative(contentRoot, abs);
     if (rel.startsWith('..')) {
       rel = path.relative(operationRoot, abs);
     }
@@ -256,10 +260,12 @@ function syncFiles(files: any, projectId = null) {
 // 1. Sincronizar Memória/Docs/Prompts Globais
 if (syncGlobal) {
   log('Sincronizando Memória Global...', 'info');
-  const globalFiles = [
-    ...walk(path.join(mode === 'embedded' ? operationRoot : root, 'memory')),
-    ...walk(path.join(mode === 'embedded' ? operationRoot : root, 'docs')),
-    ...walk(path.join(mode === 'embedded' ? operationRoot : root, 'prompts')),
+  // Embedded: memória/docs/prompts SÃO do projeto — indexados no passo 2 com o project_id. Indexá-los
+  // aqui também (como globais, project_id NULL) fazia o modo domain/task do context:smart não achar nada.
+  const globalFiles = mode === 'embedded' ? [] : [
+    ...walk(path.join(contentRoot, 'memory')),
+    ...walk(path.join(contentRoot, 'docs')),
+    ...walk(path.join(contentRoot, 'prompts')),
   ];
   syncFiles(globalFiles);
   syncSpecSummaries();
@@ -275,6 +281,7 @@ if (syncProjects && mode === 'embedded') {
   syncFiles([
     ...walk(path.join(operationRoot, 'memory')),
     ...walk(path.join(operationRoot, 'docs')),
+    ...walk(path.join(operationRoot, 'prompts')),
     ...walk(path.join(operationRoot, 'specs')),
     ...walk(path.join(operationRoot, 'design-md')),
   ], pid);

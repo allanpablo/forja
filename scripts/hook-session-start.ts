@@ -22,11 +22,12 @@ import { fileURLToPath } from 'node:url';
 import { runChecks, bucketFor, BUCKET_LABEL } from '../lib/core/health.ts';
 import { listSpecs } from '../lib/specs-index.ts';
 import { openHandoffs } from '../lib/handoffs-index.ts';
-import { getWorkspaceRoot, isInsideFrameworkRepo } from '../lib/workspace.ts';
+import { getWorkspaceRoot, isInsideFrameworkRepo, currentProjectName } from '../lib/workspace.ts';
+import { pkgRoot, script } from '../lib/paths.ts';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-const frameworkRoot = path.resolve(__dirname, '..');
+const frameworkRoot = pkgRoot;
 const cwd = path.resolve(process.cwd());
 const root = isInsideFrameworkRepo(cwd)
   ? frameworkRoot
@@ -49,7 +50,7 @@ async function coreHealth() {
   const health = await coreHealth();
   const problemas = health.filter((c) => c.status === 'fail' || c.status === 'warn');
   const memoriaOk = !health.some((c) => c.status === 'fail');
-  const handoffs = memoriaOk ? await openHandoffs() : [];
+  const handoffs = memoriaOk ? await openHandoffs(10, currentProjectName(root)) : [];
 
   const lines = ['<framework-status>'];
   lines.push(`Framework: forja (SDD + orquestração)`);
@@ -65,9 +66,9 @@ async function coreHealth() {
         lines.push(`  ${icone} ${p.title}: ${p.detail}`);
         if (p.fix) lines.push(`    corrigir: ${p.fix}`);
       }
-      if (bucket === 'first-run') lines.push('    (ou rode tudo: `npm run setup`)');
+      if (bucket === 'first-run') lines.push('    (ou rode tudo: `forja setup`)');
     }
-    lines.push('  raio-x completo: `npm run tools:doctor`');
+    lines.push('  raio-x completo: `forja tools:doctor`');
   }
 
   if (specs.length) {
@@ -78,8 +79,8 @@ async function coreHealth() {
     lines.push('\nHandoffs em aberto:');
     for (const h of handoffs) lines.push(`  - #${h.id} ${h.from} → ${h.to} (${h.intent}) ${h.slug || ''}`);
   }
-  lines.push('\nFluxo SDD: `npm run spec:new|plan|tasks|check`  ·  detalhe: `forja help <comando>`');
-  lines.push('Handoff: `npm run hermes:handoff -- \'<json ADR-0005>\'`');
+  lines.push('\nFluxo SDD: `forja spec:new|spec:plan|spec:tasks|spec:check <slug>`  ·  próximo passo: `forja next`');
+  lines.push('Handoff: `forja hermes:handoff \'<json ADR-0005>\'`');
   lines.push('</framework-status>');
 
   process.stdout.write(JSON.stringify({

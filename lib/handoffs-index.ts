@@ -14,17 +14,21 @@ export interface OpenHandoff {
   readonly slug: string;
 }
 
-/** Handoffs `status='open'`, mais recentes primeiro (até `limit`). Nunca lança — `[]` em qualquer falha. */
-export async function openHandoffs(limit = 10): Promise<OpenHandoff[]> {
+/**
+ * Handoffs `status='open'`, mais recentes primeiro (até `limit`). Nunca lança — `[]` em qualquer falha.
+ * Com `project`, só os carimbados com esse projeto (payload `project`, gravado pelo agent:route).
+ */
+export async function openHandoffs(limit = 10, project: string | null = null): Promise<OpenHandoff[]> {
   try {
     const { getWorkspaceDbPath } = await import('./workspace.ts');
     const { default: Database } = await import('better-sqlite3');
     const db = new Database(getWorkspaceDbPath(), { readonly: true });
     const rows = db
       .prepare(
-        `SELECT id, from_agent, to_agent, intent, spec_slug FROM handoffs WHERE status='open' ORDER BY id DESC LIMIT ?`,
+        `SELECT id, from_agent, to_agent, intent, spec_slug FROM handoffs WHERE status='open'
+         ${project ? "AND json_extract(payload_json, '$.project') = ?" : ''} ORDER BY id DESC LIMIT ?`,
       )
-      .all(limit) as {
+      .all(...(project ? [project, limit] : [limit])) as {
       id: number;
       from_agent: string;
       to_agent: string;

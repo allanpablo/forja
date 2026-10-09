@@ -23,6 +23,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import os from 'node:os';
 import { fileURLToPath } from 'node:url';
+import { pkgRoot } from './paths.ts';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -56,7 +57,7 @@ export function getForjaMode(): ForjaMode {
   if (process.env.FORJA_MODE === 'embedded' || process.env.FORJA_MODE === 'studio') return process.env.FORJA_MODE;
   if (process.env.FORJA_WORKSPACE) return 'studio';
   const cwd = path.resolve(process.cwd());
-  const frameworkRoot = path.resolve(__dirname, '..');
+  const frameworkRoot = pkgRoot;
   if (cwd !== frameworkRoot && !cwd.startsWith(`${frameworkRoot}${path.sep}`) && fs.existsSync(path.join(cwd, 'package.json'))) return 'embedded';
   return 'studio';
 }
@@ -235,7 +236,7 @@ Fichas de projetos gerados pelo Forja. Cada arquivo representa um produto ativo 
 }
 
 export function isInsideFrameworkRepo(filePath: any) {
-  const frameworkRoot = path.resolve(__dirname, '..');
+  const frameworkRoot = pkgRoot;
   const resolved = path.resolve(filePath);
   return resolved === frameworkRoot || resolved.startsWith(frameworkRoot + path.sep);
 }
@@ -246,4 +247,19 @@ export function assertOutsideFrameworkRepo(filePath: any, operation = 'operacao'
       `${operation} não pode ser executada dentro do repositório do framework Forja. Use o workspace externo (~/forja-workspace).`
     );
   }
+}
+
+/**
+ * Nome do projeto em que o comando roda: `forja` no repo do framework, o próprio projeto no modo
+ * embedded, o projeto do workspace que contém o cwd no studio; `null` fora de qualquer projeto.
+ * Usado para carimbar e filtrar handoffs — antes, um handoff de produto aparecia no briefing do
+ * framework (e vice-versa), porque todos caíam no mesmo banco sem dono.
+ */
+export function currentProjectName(cwd = process.cwd()): string | null {
+  const resolved = path.resolve(cwd);
+  if (isInsideFrameworkRepo(resolved)) return 'forja';
+  if (getForjaMode() === 'embedded') return path.basename(getWorkspaceRoot());
+  const rel = path.relative(getProjectsDir(), resolved);
+  if (!rel || rel.startsWith('..') || path.isAbsolute(rel)) return null;
+  return rel.split(path.sep)[0] || null;
 }

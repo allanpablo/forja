@@ -17,14 +17,14 @@ flowchart TD
     D(["💡 Demanda"]) --> Q{"Projeto já<br/>existe?"}
 
     %% ── Ramo A: NOVO ──
-    Q -- "Não" --> A1["A1· Gerar scaffold<br/>npm run init:project &lt;nome&gt; --ai claude,copilot"]
+    Q -- "Não" --> A1["A1· Gerar scaffold<br/>forja project:new &lt;nome&gt; -- --ai claude,copilot"]
     A1 --> A2["A2· Escolher boilerplate<br/>api-rest · saas · ecommerce · microservices · monorepo"]
     A2 --> A3["A3· (opcional) harness<br/>desenha o time de agentes do domínio"]
     A3 --> C0
 
     %% ── Ramo B: EXISTENTE ──
     Q -- "Sim" --> B0{"Já tem<br/>memory/?"}
-    B0 -- "Não" --> B1["B1· Overlay de memória<br/>init:project detecta backend → --only-memory"]
+    B0 -- "Não" --> B1["B1· Conectar + memória<br/>project:wire + project:upgrade --apply"]
     B0 -- "Sim" --> B2["B2· Indexar código<br/>codegraph init (entender o que existe)"]
     B1 --> B2
     B2 --> C0
@@ -43,12 +43,12 @@ flowchart TD
 ```
 💡 Demanda
    │
-   ├─ projeto NÃO existe ─► A1 init:project <nome> --ai …
+   ├─ projeto NÃO existe ─► A1 forja project:new <nome> -- --ai …
    │                        A2 escolher boilerplate
    │                        A3 (opc.) harness desenha o time ─┐
    │                                                          │
    └─ projeto JÁ existe ──► tem memory/?                      │
-                            ├─ não ► B1 overlay --only-memory │
+                            ├─ não ► B1 wire + upgrade        │
                             └─ sim ─┘                         │
                                     B2 codegraph init ────────┤
                                                               ▼
@@ -61,10 +61,11 @@ flowchart TD
 
 ## Ramo A — Criar projeto novo
 
-O gerador (`bin/init-project.js`) roda 8 passos: git-init → estrutura agentes+memória
-→ design-lib → instruções multi-IA → install-backend → init memória SQLite →
-context-pack → next-steps. Cada projeto nasce com `memory/`, `.ia-instructions/`
-(claude/copilot/gemini/codex) e seu próprio banco de memória.
+O gerador (`bin/init-project.ts`, via `forja project:new`) roda: git-init → estrutura
+agentes+memória → design-lib → conexão com a IA (`AGENTS.md`/`CLAUDE.md`/`GEMINI.md`/Copilot,
+hooks, sub-agents, MCP — ADR-0086) → install-backend → indexação da memória → context-pack →
+resumo. Se algo essencial falhar, o comando sai com exit 1 e lista as pendências. Confira a
+conexão a qualquer momento com `forja project:wire --check`.
 
 Projetos de produto vivem no **workspace Forja** (`~/forja-workspace/projects/<nome>`
 por padrão), fora do repo do framework. Veja ADR-0019.
@@ -91,9 +92,11 @@ npm run spec:new -- <slug>
 ## Ramo B — Atualizar projeto existente
 
 ```bash
-# B1. projeto sem memória ainda? sobrepõe só a camada de memória/agentes
-#     (init:project detecta backend e aplica --only-memory automaticamente)
-npm run init:project <nome>        # apontando para o projeto existente
+# B1. dentro do repositório existente: liga a IA ao Forja e traz a camada de memória/agentes
+#     (aditivo: não instala backend e não sobrescreve arquivos do projeto)
+forja project:wire --ai claude,codex
+forja project:upgrade --apply
+forja sync:universal
 
 # B2. indexar o código atual ANTES de mexer (entender sem ler arquivo a arquivo)
 codegraph init                     # ou: npm run code:index

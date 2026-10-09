@@ -14,28 +14,8 @@
  *   - workspace-warn  avisa se o workspace não existir, mas segue
  */
 
-import fs from 'node:fs';
-import path from 'node:path';
-
-/**
- * Resolve o `node:` de um comando para o arquivo real, **agnóstico de extensão** (SPEC-012 D2).
- * Tenta `.ts → .js → .mjs`: em dev acha a fonte `.ts`; no pacote publicado, o `.js` sob `dist/`.
- * Desacopla o registry do runtime — a entrada pode manter `.mjs` que este resolver ainda acha o
- * `.ts` renomeado. Sem isto, renomear um script quebraria o dispatch.
- *
- * @param {string} root  Raiz onde os scripts vivem (repo em dev, `dist/` no publicado).
- * @param {string} node  Caminho do registry, com ou sem extensão.
- * @returns {string}     Caminho absoluto do arquivo que existe (ou o candidato original, que falha visível).
- */
-export function resolveScript(root: any, node: any) {
-  const direct = path.join(root, node);
-  if (fs.existsSync(direct)) return direct;
-  const base = direct.replace(/\.(mjs|cjs|js|ts)$/, '');
-  for (const ext of ['.ts', '.js', '.mjs']) {
-    if (fs.existsSync(base + ext)) return base + ext;
-  }
-  return direct;
-}
+// Resolução de script agnóstica de extensão (SPEC-012 D2) — vive em lib/paths.ts (ADR-0086).
+export { resolveScript } from '../paths.ts';
 
 export const DOMAINS = {
   workspace: 'Workspace & projetos',
@@ -47,7 +27,6 @@ export const DOMAINS = {
   contexto: 'Contexto & token economy',
   llm: 'LLMs & execução supervisionada',
   governanca: 'Governança & qualidade',
-  geracao: 'Geração de projetos',
 };
 
 export interface CommandArg {
@@ -771,6 +750,29 @@ export const COMMANDS: Record<string, CommandSpec> = {
     examples: ['forja tools:doctor', 'forja tools:doctor --json'],
     next: ['setup'],
   },
+  'project:wire': {
+    domain: 'workspace',
+    desc: 'Conecta o projeto à inteligência do Forja: instruções nativas, hooks, sub-agents e MCP',
+    node: 'scripts/project-wire.ts',
+    spec: 'ADR-0086',
+    usage: 'forja project:wire [--check] [--ai claude,codex,gemini,copilot] [--json]',
+    examples: ['forja project:wire', 'forja project:wire --check'],
+    next: ['status'],
+  },
+  'hook:session-start': {
+    domain: 'governanca',
+    desc: 'Hook SessionStart: briefing de specs, handoffs e saúde do núcleo para a IA',
+    node: 'scripts/hook-session-start.ts',
+    spec: 'ADR-0086',
+    readonly: true,
+  },
+  'hook:user-prompt': {
+    domain: 'governanca',
+    desc: 'Hook UserPromptSubmit: injeta o contexto da spec citada no prompt',
+    node: 'scripts/hook-user-prompt.ts',
+    spec: 'ADR-0086',
+    readonly: true,
+  },
   'demo:autonomy': {
     domain: 'governanca',
     desc: 'Executa a prova offline de autonomia supervisionada com Git worktree real',
@@ -822,9 +824,4 @@ export const COMMANDS: Record<string, CommandSpec> = {
   },
 
   // --- Geração ----------------------------------------------------------------------
-  'init:project': {
-    domain: 'geracao',
-    desc: 'Gera projeto direto num path (prefira project:new)',
-    node: 'bin/init-project.ts',
-  },
 };

@@ -26,9 +26,8 @@ function createNestTemplates(projectName: any) {
     "test": "jest",
     "test:watch": "jest --watch",
     "test:cov": "jest --coverage",
-    "memory:db:init": "node scripts/memory-db-init.mjs",
-    "memory:db:sync": "node scripts/memory-db-sync.mjs",
-    "memory:db:query": "node scripts/memory-db-query.mjs",
+    "memory:db:sync": "cd .. && forja sync:universal",
+    "memory:db:query": "cd .. && forja query:universal",
     "memory:watch": "node ../scripts/memory-watcher.mjs"
   },
   "jest": {
@@ -386,86 +385,6 @@ describe('AppController (e2e)', () => {
 }
 
 /**
- * Templates dos scripts de banco de dados (estáticos)
- */
-const databaseScriptTemplates = {
-  'backend/scripts/memory-db-schema.sql': `PRAGMA journal_mode = WAL;
-PRAGMA foreign_keys = ON;
-
-CREATE TABLE IF NOT EXISTS documents (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
-  path TEXT NOT NULL UNIQUE,
-  kind TEXT NOT NULL,
-  title TEXT,
-  content_hash TEXT NOT NULL,
-  content TEXT NOT NULL,
-  updated_at TEXT NOT NULL
-);
-
-CREATE TABLE IF NOT EXISTS document_chunks (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
-  document_id INTEGER NOT NULL,
-  chunk_index INTEGER NOT NULL,
-  content TEXT NOT NULL,
-  token_estimate INTEGER NOT NULL DEFAULT 0,
-  FOREIGN KEY(document_id) REFERENCES documents(id) ON DELETE CASCADE
-);
-
-CREATE UNIQUE INDEX IF NOT EXISTS idx_document_chunks_unique
-ON document_chunks (document_id, chunk_index);
-
-CREATE TABLE IF NOT EXISTS handoffs (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
-  file_path TEXT NOT NULL UNIQUE,
-  from_agent TEXT,
-  to_agent TEXT,
-  title TEXT,
-  created_at TEXT NOT NULL,
-  status TEXT NOT NULL DEFAULT 'open'
-);
-
-CREATE TABLE IF NOT EXISTS adrs (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
-  adr_code TEXT NOT NULL UNIQUE,
-  title TEXT NOT NULL,
-  file_path TEXT NOT NULL UNIQUE,
-  status TEXT NOT NULL DEFAULT 'accepted',
-  updated_at TEXT NOT NULL
-);
-
-CREATE TABLE IF NOT EXISTS summaries (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
-  scope TEXT NOT NULL,
-  scope_key TEXT NOT NULL,
-  file_path TEXT NOT NULL UNIQUE,
-  summary TEXT NOT NULL,
-  updated_at TEXT NOT NULL
-);
-
-CREATE UNIQUE INDEX IF NOT EXISTS idx_summaries_scope
-ON summaries (scope, scope_key);
-
-CREATE TABLE IF NOT EXISTS tasks (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
-  task_key TEXT NOT NULL UNIQUE,
-  title TEXT NOT NULL,
-  status TEXT NOT NULL DEFAULT 'open',
-  owner_agent TEXT,
-  source_file TEXT NOT NULL,
-  updated_at TEXT NOT NULL
-);
-
-CREATE TABLE IF NOT EXISTS agent_sessions (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
-  agent_name TEXT NOT NULL UNIQUE,
-  status TEXT NOT NULL DEFAULT 'IDLE',
-  current_task TEXT,
-  updated_at TEXT NOT NULL
-);
-`,
-};
-
-/**
  * Gera estrutura completa do NestJS backend
  * @param {string} baseDir - Diretório base
  * @param {string} projectName - Nome do projeto
@@ -473,7 +392,9 @@ CREATE TABLE IF NOT EXISTS agent_sessions (
  */
 export function generateNestStructure(baseDir: any, projectName: any, options = {}) {
   const dynamicTemplates = createNestTemplates(projectName);
-  const allTemplates = { ...dynamicTemplates, ...databaseScriptTemplates };
+  // A memória do projeto é a universal do Forja (forja sync:universal); o banco paralelo do backend
+  // (memory-db-*.mjs) nunca foi gerado e seus scripts apontavam para o vazio — removido na v5.
+  const allTemplates = { ...dynamicTemplates };
 
   // Escrever todos os arquivos
   for (const [relativePath, content] of Object.entries(allTemplates)) {

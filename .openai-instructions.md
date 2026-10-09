@@ -16,7 +16,7 @@ A Forja transforma IA de codificação em uma **equipe de engenharia com process
 ## Onde você está?
 
 - **No repositório do framework** (tem `bin/forja.ts` na raiz): você está no **motor**. Ele não contém aplicações — gera e governa projetos que vivem fora dele.
-- **Num projeto gerado** (este arquivo está em `.ia-instructions/`): você está num **produto do workspace**. A memória local do projeto vive em `memory/`, o harness em `scripts/agent-harness.ts`, e o processo (spec → plan → tasks → check) vale igual.
+- **Num projeto gerado**: as instruções dele estão no `AGENTS.md` do projeto (bloco `forja:begin/end`, lido nativamente pelas IAs; `CLAUDE.md`/`GEMINI.md` o importam). Lá os comandos são `forja <comando>` e a conexão se confere com `forja project:wire --check`.
 
 ## O core `forja` (ADR-0020)
 

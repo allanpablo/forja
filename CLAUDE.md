@@ -13,8 +13,8 @@ Framework macro de orquestração multiagente + CLI scaffold para gerar projetos
 
 | Bin | Quando usar |
 |---|---|
-| `bin/init-project.js` (npm: `init:project`) | CLI principal pública. Gera projeto completo com configs multi-IA (Claude/Copilot/Gemini/Codex) |
-| `bin/create-memory-nest-kit.js` | Orquestrador modular que delega para `lib/generators/`. Usado internamente por `init-project.js` |
+| `bin/init-project.ts` (via `forja project:new`) | Gerador de projeto do workspace: scaffold + conexão com a IA (`lib/project-wiring.ts`, ADR-0086) |
+| `bin/create-memory-nest-kit.ts` | Orquestrador modular que delega para `lib/generators/`. Usado internamente por `init-project.ts` e `project:upgrade` |
 
 Monolito antigo (1486 LOC) preservado em `docs/archive/legacy-bin/` para referência histórica.
 
@@ -51,6 +51,7 @@ node bin/forja.ts <comando>     # qualquer comando do registry
 
 # Gerar novo projeto (no workspace, com ficha automática)
 npm run project:new meu-projeto -- --ai copilot,claude
+node bin/forja.ts project:wire --check   # dentro de um projeto: IA, hooks e MCP conectados
 
 # Sprint
 npm run sprint:start

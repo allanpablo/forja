@@ -60,9 +60,9 @@ Permitir trabalho em larga escala sem depender de janela unica gigantesca.
 
 ## 🔄 Protocolo de Recuperacao (Engine Switch)
 Se houver esgotamento de cota ou necessidade de mudar de IA:
-1. Localize o arquivo \`.ia-instructions/models.json\`.
+1. Localize o arquivo \`.forja/models.json\`.
 2. Identifique o proximo motor na \`fallback_chain\`.
-3. Carregue as instrucoes do novo motor.
+3. O novo motor le as mesmas instrucoes (\`AGENTS.md\`; o arquivo nativo dele esta em \`instruction_file\`).
 4. Forneca o conteúdo de \`.context/context-pack.md\` + o ultimo arquivo em \`memory/50-orchestration/handoffs/\`.
 5. O novo motor assumira o trabalho a partir do ponto exato da ultima entrega.
 
@@ -319,15 +319,26 @@ Armazenar indice operacional da documentacao para busca e continuidade de contex
 `,
 
   // === DECISIONS (90-decisions) ===
-  'memory/90-decisions/ADR-0001-template.md': `# ADR-0001: Titulo da Decisao
+  // Mesmo formato do template do framework: com Status/Data o adr:list e o grafo reconhecem a ADR.
+  // Nome com `_` (não `ADR-0001-…`) para o template não ser contado como uma decisão real.
+  'memory/90-decisions/_template.md': `# ADR-XXXX: <título curto>
+
+- **Status**: proposed | accepted | superseded by ADR-YYYY | deprecated
+- **Data**: YYYY-MM-DD
+- **Autor(es)**: <nome>
+- **Tags**: <ex: security, api, dados>
 
 ## Contexto
+<O que motivou esta decisão? Qual o problema? Quais restrições existem?>
 
-## Decisao
-
-## Consequencias
+## Decisão
+<O que foi decidido, no imperativo.>
 
 ## Alternativas consideradas
+- **Opção A**: <descrição> — rejeitada porque <razão>
+
+## Consequências
+<Ganhos, custos e o que passa a ser obrigatório.>
 `,
 };
 
@@ -824,7 +835,7 @@ watchDirs.forEach(dir => {
       if (timeout) clearTimeout(timeout);
       timeout = setTimeout(() => {
         console.log('🔄 Mudança detectada em: ' + filename + '. Sincronizando SQLite...');
-        exec('npm run memory:db:sync', { cwd: path.join(root, 'backend') }, (err, stdout) => {
+        exec('forja sync:universal', { cwd: root }, (err, stdout) => {
           if (err) console.error('❌ Erro no sync: ' + err.message);
           else console.log('✅ SQLite sincronizado.');
         });

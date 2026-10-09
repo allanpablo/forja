@@ -15,12 +15,17 @@
  * Diagnostica e prescreve; não conserta. Rodar `npm rebuild` sem consentimento é a classe de
  * risco oposta à que este comando existe para fechar.
  *
- * Uso: node scripts/tools-doctor.mjs
+ * Uso: forja tools:doctor
  */
 
 import { spawnSync } from 'node:child_process';
 
+import fs from 'node:fs';
+import path from 'node:path';
 import { runChecks, worstStatus, bucketFor, BUCKET_LABEL } from '../lib/core/health.ts';
+import { COMMANDS } from '../lib/core/registry.ts';
+import { checkProjectWiring } from '../lib/project-wiring.ts';
+import { isInsideFrameworkRepo } from '../lib/workspace.ts';
 
 const TOOLS = [
   {
@@ -28,7 +33,7 @@ const TOOLS = [
     probe: ['codegraph', ['--version']],
     role: 'Code intelligence: chamadores, blast radius, mapa de impacto (ADR-0017).',
     install: 'npm i -g @codegraph/cli',
-    gate: 'npm run code:check / code:impact',
+    gate: 'forja code:check / code:impact',
   },
   {
     name: 'gitleaks',
@@ -109,12 +114,29 @@ function printTools() {
   console.log('Ferramentas ausentes apenas desativam seus gates — o fluxo nunca trava por elas.\n');
 }
 
+/** Num projeto (fora do repo do framework): a IA, os hooks e o MCP estão ligados a ele? */
+function printProject(): 'ok' | 'warn' | 'fail' | null {
+  const cwd = process.cwd();
+  if (isInsideFrameworkRepo(cwd) || !fs.existsSync(path.join(cwd, 'AGENTS.md'))) return null;
+  console.log('Projeto — a IA enxerga o Forja aqui? (forja project:wire --check)\n');
+  const checks = checkProjectWiring(cwd, { commands: COMMANDS });
+  for (const c of checks) console.log(`${(TAG as any)[c.status]} ${c.id.padEnd(13)} ${c.detail}`);
+  console.log('');
+  return checks.some((c) => c.status === 'fail') ? 'fail' : checks.some((c) => c.status === 'warn') ? 'warn' : 'ok';
+}
+
 async function main() {
   console.log('\nForja doctor\n');
 
   const core = await runChecks();
   printCore(core);
+  const project = printProject();
   printTools();
+
+  if (project === 'fail') {
+    console.log('Projeto desconectado da IA — corrija com: forja project:wire');
+    process.exit(1);
+  }
 
   // Só o núcleo decide o exit code. Ferramenta ausente nunca reprova — o contrato do ADR-0018
   // é preservado à risca.

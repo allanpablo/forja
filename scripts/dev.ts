@@ -19,10 +19,11 @@ import path from 'node:path';
 import { spawn, spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { getDbPath, ensureSchema } from './memory-schema.ts';
+import { pkgRoot, script } from '../lib/paths.ts';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-const root = path.resolve(__dirname, '..');
+const root = pkgRoot;
 
 const COMMANDS = {
   'context:build': {
@@ -139,7 +140,7 @@ function runScript(scriptPath: any, args: string[] = []) {
 
 function harnessCommand(command: any) {
   return async function runHarness(args: string[] = []) {
-    await runScript(path.join(root, 'scripts', 'agent-harness.mjs'), [command, ...args]);
+    await runScript(script('scripts/agent-harness'), [command, ...args]);
   };
 }
 
@@ -188,7 +189,7 @@ async function memoryVacuum() {
   console.log('Running memory vacuum...');
 
   try {
-    await runScript(path.join(root, 'scripts', 'compress-memory.mjs'));
+    await runScript(script('scripts/compress-memory'));
     console.log('Memory vacuum complete');
   } catch (e) {
     console.error('Error:', e.message);
@@ -260,7 +261,7 @@ async function projectHealth() {
 
   // 3. Check key files
   console.log('\nChecking key files...');
-  const keyFiles = ['bin/create-memory-nest-kit.js', 'lib/context-builder.js'];
+  const keyFiles = ['bin/create-memory-nest-kit.ts', 'lib/context-builder.ts'];
 
   for (const file of keyFiles) {
     const exists = fs.existsSync(path.join(root, file));
@@ -300,7 +301,7 @@ async function projectInit([projectName, ...flags]: string[] = []) {
   console.log(`Initializing project: ${projectName}...\n`);
 
   try {
-    await runScript(path.join(root, 'bin', 'create-memory-nest-kit.js'), [
+    await runScript(script('bin/create-memory-nest-kit'), [
       projectName,
       ...flags,
     ]);

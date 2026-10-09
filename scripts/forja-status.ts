@@ -16,9 +16,10 @@ import { fileURLToPath } from 'node:url';
 import { collectStatus, recommendNext, type StatusModel, type Sub } from '../lib/status-model.ts';
 import { emitOk } from '../lib/cli-output.ts';
 import { getWorkspaceRoot, isInsideFrameworkRepo, resolveProject } from '../lib/workspace.ts';
+import { pkgRoot, script } from '../lib/paths.ts';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const frameworkRoot = path.resolve(__dirname, '..');
+const frameworkRoot = pkgRoot;
 
 export function resolveRepoRoot(targetArg?: string): string {
   if (targetArg && targetArg !== '.' && targetArg !== 'root' && !targetArg.startsWith('-')) {

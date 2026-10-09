@@ -1,15 +1,10 @@
 #!/usr/bin/env node
 /**
- * init-project.js
- * 
- * Comando universal para inicializar novo projeto com agentes orquestrados.
- * Puxa configuração de Copilot, Claude, Gemini, Codex e outros.
- * 
- * Uso:
- *   node bin/init-project.js meu-projeto
- *   node bin/init-project.js meu-projeto --ai copilot,claude,gemini
- *   node bin/init-project.js meu-projeto --skip-backend
- *   node bin/init-project.js --interactive
+ * bin/init-project.ts — gerador de projeto do workspace, chamado por `forja project:new`.
+ *
+ * Gera memória + agentes (create-memory-nest-kit), backend NestJS opcional, design-md, e conecta o
+ * projeto à inteligência do Forja (lib/project-wiring.ts). Termina com exit 1 se algo essencial
+ * falhou — o resumo final lista cada pendência.
  */
 
 import fs from 'node:fs';
@@ -17,7 +12,8 @@ import path from 'node:path';
 import process from 'node:process';
 import { execSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
-import { writeAiInstructions } from '../lib/multi-ai-instructions.ts';
+import { wireProject, checkProjectWiring } from '../lib/project-wiring.ts';
+import { COMMANDS } from '../lib/core/registry.ts';
 import {
   getWorkspaceRoot,
   getProjectsDir,
@@ -26,26 +22,26 @@ import {
   getWorkspaceProjectsMemoryDir,
   assertOutsideFrameworkRepo,
 } from '../lib/workspace.ts';
+import { pkgRoot, script } from '../lib/paths.ts';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-const kitRoot = path.resolve(__dirname, '..');
+// kitRoot = assets do pacote (design-md, templates, instruções); o gerador é código → script().
+const kitRoot = pkgRoot;
+const memoryKit = script('bin/create-memory-nest-kit');
 
 // ============================================================================
 // CONFIGURAÇÃO
 // ============================================================================
 
 const DEFAULT_AI_AGENTS = ['copilot', 'claude', 'gemini', 'codex'];
-// Conteúdo canônico único (ADR-0020): toda IA recebe a mesma explicação da estrutura Forja; só o
-// cabeçalho muda. A escrita vive em lib/multi-ai-instructions.ts (SPEC-047) e é compartilhada com
-// o project:smoke. CLAUDE.md do framework NÃO é copiado — ele descreve o motor, não o gerado.
+// IAs suportadas e a conexão de cada uma: lib/project-wiring.ts (ADR-0086).
 
 const SETUP_CHECKLIST = [
   '00-git-init',
   '01-generate-structure',
   '01b-copy-design-library',
-  '01c-emit-harness',
-  '02-copy-instructions',
+  '02-wire-intelligence',
   '03-install-backend',
   '04-init-memory-db',
   '05-build-context-pack',
@@ -56,6 +52,14 @@ const SETUP_CHECKLIST = [
 // ============================================================================
 // HELPERS
 // ============================================================================
+
+// Pendências do setup: `warn` aparece no resumo final; `fail` faz o processo sair com 1. Antes, todo
+// problema virava um log e o setup terminava com "Tudo pronto!" e exit 0 mesmo sem instruções de IA.
+const ISSUES: { level: 'warn' | 'fail'; msg: string }[] = [];
+function issue(level: 'warn' | 'fail', msg: string) {
+  ISSUES.push({ level, msg });
+  log(msg, level === 'fail' ? 'error' : 'warn');
+}
 
 function log(msg: any, level = 'info') {
   const prefix = {
@@ -95,19 +99,6 @@ function ensureDir(dir: any) {
   }
 }
 
-function copyFile(src: any, dest: any) {
-  const content = fs.readFileSync(src, 'utf-8');
-  fs.writeFileSync(dest, content, 'utf-8');
-}
-
-function copyFileIfExists(src: any, dest: any) {
-  if (fs.existsSync(src)) {
-    copyFile(src, dest);
-    return true;
-  }
-  return false;
-}
-
 function copyDir(src: any, dest: any) {
   ensureDir(dest);
   const entries = fs.readdirSync(src, { withFileTypes: true });
@@ -131,7 +122,6 @@ function copyDir(src: any, dest: any) {
 function parseArgs() {
   const args = process.argv.slice(2);
   const opts = {
-    interactive: args.includes('--interactive'),
     skipBackend: args.includes('--skip-backend'),
     skipDb: args.includes('--skip-db'),
     skipGit: args.includes('--skip-git'),
@@ -196,8 +186,8 @@ async function step01GenerateStructure(projectDir: any, opts: any) {
   const onlyMemory = hasBackend ? '--only-memory' : '';
 
   const cmd = opts.skipBackend 
-    ? `node "${path.join(kitRoot, 'bin/create-memory-nest-kit.js')}" "${projectDir}" --only-memory --force`
-    : `node "${path.join(kitRoot, 'bin/create-memory-nest-kit.js')}" "${projectDir}" ${onlyMemory} --force`;
+    ? `node "${memoryKit}" "${projectDir}" --only-memory --force`
+    : `node "${memoryKit}" "${projectDir}" ${onlyMemory} --force`;
 
   try {
     execCmd(cmd);
@@ -240,7 +230,7 @@ async function step01bCopyDesignLibrary(projectDir: any, opts: any) {
   const destDesignDir = path.join(projectDir, 'design-md');
 
   if (!fs.existsSync(srcDesignDir)) {
-    log('Biblioteca de design não encontrada no kit root', 'warn');
+    issue('fail', `Biblioteca de design não encontrada em ${srcDesignDir}`);
     return;
   }
 
@@ -250,75 +240,21 @@ async function step01bCopyDesignLibrary(projectDir: any, opts: any) {
     copyDir(srcDesignDir, destDesignDir);
     log('Biblioteca design-md copiada para o projeto', 'success');
   } catch (err) {
-    log('Erro ao copiar biblioteca de design', 'error');
-    if (opts.verbose) console.error(err);
+    issue('fail', `Erro ao copiar biblioteca de design: ${err.message}`);
   }
 }
 
-// Camada de code intelligence + ferramentas de processo (ADR-0017, ADR-0018).
-// Cada projeto gerado herda codegraph (MCP) + scripts code:* + tools:doctor,
-// de forma auto-contida (so dependem do binario codegraph, opcional).
-const HARNESS_SCRIPTS = {
-  'code:index': 'codegraph init',
-  'code:sync': 'codegraph sync',
-  'code:status': 'codegraph status',
-  'code:query': 'codegraph query',
-  'code:check': 'node scripts/code-intel.mjs check',
-  'code:impact': 'node scripts/code-intel.mjs impact',
-  'tools:doctor': 'node scripts/tools-doctor.mjs',
-};
-
-async function step01cEmitHarness(projectDir: any, opts: any) {
-  log('Emitindo harness de code intelligence (codegraph + tools)...', 'step');
-
-  // 1. .mcp.json (codegraph) — aditivo, nao sobrescreve config existente
-  const mcpDest = path.join(projectDir, '.mcp.json');
-  const mcpSrc = path.join(kitRoot, 'lib/templates/harness/mcp.json');
-  if (!fs.existsSync(mcpDest)) {
-    copyFileIfExists(mcpSrc, mcpDest);
+// Liga o projeto à inteligência do Forja (ADR-0086): AGENTS.md/CLAUDE.md/GEMINI.md nativos, hooks,
+// sub-agents, MCP e scripts que chamam o `forja`. A mesma função serve ao `project:wire` e ao
+// `project:upgrade`; a verificação em seguida é a mesma do `project:wire --check`.
+async function step02WireIntelligence(projectDir: any, opts: any) {
+  log('Conectando o projeto à inteligência do Forja...', 'step');
+  const changes = wireProject(projectDir, { ai: opts.ai });
+  log(`${changes.filter((c) => c.action !== 'unchanged').length} arquivo(s) de conexão escritos (IAs: ${opts.ai.join(', ')})`, 'success');
+  for (const c of checkProjectWiring(projectDir, { commands: COMMANDS, ai: opts.ai })) {
+    if (c.status === 'fail') issue('fail', `conexão ${c.id}: ${c.detail}`);
+    else if (c.status === 'warn') issue('warn', `conexão ${c.id}: ${c.detail}`);
   }
-
-  // 2. scripts auto-contidos
-  const scriptsDir = path.join(projectDir, 'scripts');
-  ensureDir(scriptsDir);
-  copyFileIfExists(
-    path.join(kitRoot, 'lib/templates/harness/code-intel.mjs'),
-    path.join(scriptsDir, 'code-intel.mjs'),
-  );
-  copyFileIfExists(
-    path.join(kitRoot, 'scripts/tools-doctor.mjs'),
-    path.join(scriptsDir, 'tools-doctor.mjs'),
-  );
-
-  // 3. merge dos scripts no package.json (cria minimo se ausente)
-  const pkgPath = path.join(projectDir, 'package.json');
-  let pkg;
-  if (fs.existsSync(pkgPath)) {
-    try {
-      pkg = JSON.parse(fs.readFileSync(pkgPath, 'utf8'));
-    } catch {
-      log('package.json ilegivel; harness scripts nao injetados', 'warn');
-      return;
-    }
-  } else {
-    pkg = { name: path.basename(projectDir), version: '0.1.0', type: 'module', scripts: {} };
-  }
-  pkg.scripts = pkg.scripts || {};
-  for (const [key, value] of Object.entries(HARNESS_SCRIPTS)) {
-    if (!pkg.scripts[key]) pkg.scripts[key] = value;
-  }
-  fs.writeFileSync(pkgPath, `${JSON.stringify(pkg, null, 2)}\n`, 'utf8');
-
-  log('Harness emitido: .mcp.json + code:* + tools:doctor', 'success');
-}
-
-async function step02CopyInstructions(projectDir: any, opts: any) {
-  log('Copiando instruções para IAs...', 'step');
-  // A lógica vive em lib/multi-ai-instructions.ts (SPEC-047) — compartilhada com o project:smoke.
-  const { written, skipped } = writeAiInstructions(projectDir, opts.ai, { kitRoot });
-  for (const ai of written) log(`${String(ai).toUpperCase()}: ✓`, 'success');
-  for (const ai of skipped) log(`${String(ai).toUpperCase()}: não encontrado`, 'warn');
-  log(`${written.length} instruções copiadas para .ia-instructions/`, 'success');
 }
 
 async function step03InstallBackend(projectDir: any, opts: any) {
@@ -339,35 +275,25 @@ async function step03InstallBackend(projectDir: any, opts: any) {
     execCmd(`cd "${backendDir}" && npm install --quiet`, { quiet: true });
     log('npm install concluído', 'success');
   } catch (err) {
-    log('Erro ao rodar npm install', 'error');
-    if (!opts.verbose) {
-      log('Use --verbose para mais detalhes', 'warn');
-    }
-    // Não falha o setup inteiro
+    // Não derruba o setup (rede/registry podem estar fora), mas aparece no resumo.
+    issue('warn', `npm install do backend falhou — rode depois: cd backend && npm install${opts.verbose ? '' : ' (detalhes: --verbose)'}`);
   }
 }
 
+// O projeto nasce indexado: `forja status` diz "memória indexada: sim" e `context:smart` já responde.
 async function step04InitMemoryDb(projectDir: any, opts: any) {
-  if (opts.skipDb || opts.skipBackend) {
-    log('Skipping DB init', 'warn');
+  if (opts.skipDb) {
+    log('Indexação da memória pulada (--skip-db)', 'warn');
     return;
   }
-
-  const backendDir = path.join(projectDir, 'backend');
-  const scriptPath = path.join(backendDir, 'scripts/memory-db-init.mjs');
-
-  if (!fs.existsSync(scriptPath)) {
-    log('Script de init DB não encontrado', 'warn');
-    return;
-  }
-
-  log('Inicializando banco de dados SQLite...', 'step');
-
+  log('Indexando a memória do projeto (forja sync:universal)...', 'step');
+  const env: NodeJS.ProcessEnv = { ...process.env, FORJA_MODE: 'embedded' };
+  delete env.FORJA_WORKSPACE;
   try {
-    execCmd(`cd "${backendDir}" && npm run memory:db:init 2>/dev/null`, { quiet: true, ignoreError: true });
-    log('SQLite inicializado em .memory/sqlite/context.db', 'success');
+    execSync(`node "${script('scripts/sync-universal-memory')}"`, { cwd: projectDir, env, stdio: opts.verbose ? 'inherit' : 'pipe' });
+    log('Memória indexada em memory/sqlite/universal.db', 'success');
   } catch (err) {
-    log('Erro ao inicializar DB', 'warn');
+    issue('warn', `Indexação da memória falhou — rode depois: forja sync:universal (${String(err.message).split('\n')[0]})`);
   }
 }
 
@@ -409,54 +335,26 @@ async function step06UniversalMemorySync(projectDir: any, opts: any) {
 
 async function step07ShowNextSteps(projectDir: any, opts: any) {
   const relPath = path.relative(process.cwd(), projectDir) || '.';
+  const fails = ISSUES.filter((i) => i.level === 'fail');
+  const warns = ISSUES.filter((i) => i.level === 'warn');
 
-  logSection('✨ SETUP COMPLETO!');
+  logSection(fails.length ? '❌ SETUP INCOMPLETO' : warns.length ? '⚠️  SETUP CONCLUÍDO COM PENDÊNCIAS' : '✨ SETUP COMPLETO!');
+  console.log(`📁 Projeto: ${relPath}\n`);
 
-  console.log(`📁 Projeto criado em: ${relPath}\n`);
-
-  console.log('📚 Próximos Passos:\n');
-
-  console.log(`  1. Entrar no projeto:`);
-  console.log(`     cd ${relPath}\n`);
-
-  console.log(`  2. Ver estrutura de memória:`);
-  console.log(`     ls -la memory/\n`);
-
-  console.log(`  3. Carregar instruções para IA:`);
-  console.log(`     cat .ia-instructions/copilot.md`);
-  console.log(`     cat .ia-instructions/claude.md\n`);
-
-  if (!opts.skipBackend) {
-    console.log(`  4. Iniciar backend em dev mode:`);
-    console.log(`     cd backend && npm run start:dev\n`);
-
-    console.log(`  5. Rodar testes:`);
-    console.log(`     cd backend && npm test\n`);
+  if (ISSUES.length) {
+    console.log('Pendências:');
+    for (const i of ISSUES) console.log(`  ${i.level === 'fail' ? '✗' : '!'} ${i.msg}`);
+    console.log('');
   }
 
-  console.log(`  6. Atualizar documentação em memory/\n`);
-
-  console.log(`  7. Sincronizar contexto com BD:`);
-  console.log(`     cd backend && npm run memory:db:sync\n`);
-
-  console.log(`  8. Limpar memória antiga (Vacuum):`);
-  console.log(`     node scripts/memory-vacuum.mjs\n`);
-
-  console.log(`  9. Consultar contexto:`);
-  console.log(`     cd backend && npm run memory:db:query -- "search" "auth" 10\n`);
-
-  console.log('📖 Recursos:');
-  console.log(`  • Documentação: cat memory/README.md`);
-  console.log(`  • Agentes: cat AGENTS.md`);
-  console.log(`  • Decisões: cat memory/90-decisions/ADR-*.md\n`);
-
-  console.log('🤖 Instruções para IAs:');
-  for (const ai of opts.ai) {
-    const aiFile = path.join(relPath, `.ia-instructions/${ai}.md`);
-    console.log(`  • ${ai.toUpperCase()}: .ia-instructions/${ai}.md`);
-  }
-
-  console.log('\n🚀 Tudo pronto! Comece a codificar!\n');
+  console.log('Próximos passos:\n');
+  console.log(`  cd ${relPath}`);
+  console.log('  forja status                  # estado do projeto');
+  console.log('  forja project:wire --check    # IA, hooks e MCP conectados');
+  console.log('  forja spec:new <feature>      # primeira feature');
+  if (!opts.skipBackend) console.log('  cd backend && npm run start:dev');
+  console.log('');
+  console.log(`IAs conectadas: ${opts.ai.join(', ')} — instruções em AGENTS.md${opts.ai.includes('claude') ? ' e CLAUDE.md' : ''}.`);
 }
 
 // ============================================================================
@@ -466,50 +364,30 @@ async function step07ShowNextSteps(projectDir: any, opts: any) {
 async function main() {
   const { projectName, projectPath, opts } = parseArgs();
 
-  if (!projectName && !opts.interactive) {
+  if (!projectName) {
     console.log(`
-init-project v0.6.0 (Workspace separado)
+Uso: forja project:new <nome> [-- opções]
 
-Cria projetos de produto no workspace Forja (padrão: ~/forja-workspace/projects).
-O repositório do framework permanece isolado.
-
-Uso: node bin/init-project.js <project-name> [opções]
+Cria um projeto no workspace Forja (padrão: ~/forja-workspace/projects) já conectado à IA.
 
 Opções:
-  --ai <list>           IAs para configurar (padrão: copilot,claude,gemini,codex)
-  --skip-backend        Pula instalação do backend NestJS
-  --skip-db             Pula inicialização do SQLite
-  --skip-git            Pula inicialização do Git
-  --skip-design         Pula cópia da biblioteca design-md
-  --interactive         Modo interativo
-  --verbose             Output detalhado
+  --ai <lista>          IAs a conectar (padrão: copilot,claude,gemini,codex)
+  --skip-backend        Não gera nem instala o backend NestJS
+  --skip-db             Não indexa a memória do projeto
+  --skip-git            Não inicializa o Git
+  --skip-design         Não copia a biblioteca design-md
+  --verbose             Saída detalhada
 
-Workspace:
-  O caminho é resolvido por prioridade:
-    1. Variável de ambiente FORJA_WORKSPACE
-    2. Campo workspaceRoot em ~/.forjarc.json
-    3. Padrão: ~/forja-workspace
+Workspace: FORJA_WORKSPACE → workspaceRoot em ~/.forjarc.json → ~/forja-workspace
 
 Exemplos:
-  node bin/init-project.js meu-projeto
-  node bin/init-project.js meu-projeto --ai copilot,claude
-  node bin/init-project.js meu-projeto --skip-backend
-  node bin/init-project.js --interactive
+  forja project:new meu-app
+  forja project:new meu-app -- --ai claude,codex --skip-backend
     `);
-    process.exit(0);
+    process.exit(projectName === undefined && process.argv.length > 2 ? 1 : 0);
   }
 
-  let target = projectName;
-
-  // Interactive mode
-  if (opts.interactive || !projectName) {
-    logSection('🎯 Modo Interativo');
-
-    // Simular input (em produção, usar package como prompt ou readline)
-    target = projectName || 'meu-projeto';
-    log(`Projeto: ${target}`, 'info');
-    log(`IAs: ${opts.ai.join(', ')}`, 'info');
-  }
+  const target = projectName;
 
   // Garante workspace pronto
   initWorkspace();
@@ -527,8 +405,7 @@ Exemplos:
       if (step === '00-git-init') await step00GitInit(projectDir, opts);
       else if (step === '01-generate-structure') await step01GenerateStructure(projectDir, opts);
       else if (step === '01b-copy-design-library') await step01bCopyDesignLibrary(projectDir, opts);
-      else if (step === '01c-emit-harness') await step01cEmitHarness(projectDir, opts);
-      else if (step === '02-copy-instructions') await step02CopyInstructions(projectDir, opts);
+      else if (step === '02-wire-intelligence') await step02WireIntelligence(projectDir, opts);
       else if (step === '03-install-backend') await step03InstallBackend(projectDir, opts);
       else if (step === '04-init-memory-db') await step04InitMemoryDb(projectDir, opts);
       else if (step === '05-build-context-pack') await step05BuildContextPack(projectDir, opts);
@@ -536,8 +413,9 @@ Exemplos:
       else if (step === '07-show-next-steps') await step07ShowNextSteps(projectDir, opts);
     }
 
-    log('Init completo!', 'done');
-    process.exit(0);
+    const failed = ISSUES.some((i) => i.level === 'fail');
+    log(failed ? 'Init terminou com falhas.' : 'Init completo!', failed ? 'error' : 'done');
+    process.exit(failed ? 1 : 0);
   } catch (err) {
     console.error('\n❌ Erro durante setup:', err.message);
     process.exit(1);

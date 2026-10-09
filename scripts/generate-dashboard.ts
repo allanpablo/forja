@@ -3,10 +3,12 @@ import path from 'node:path';
 import Database from 'better-sqlite3';
 import { fileURLToPath } from 'node:url';
 import { getDbPath, ensureSchema } from './memory-schema.ts';
+import { getWorkspaceRoot } from '../lib/workspace.ts';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-const root = path.resolve(__dirname, '..');
+// Destino = workspace (studio) ou o próprio projeto (embedded) — nunca o pacote do Forja.
+const root = getWorkspaceRoot();
 ensureSchema({ silent: true });
 const dbPath = getDbPath();
 
@@ -34,7 +36,7 @@ function generate() {
       WHERE project_id = ?
     `).get(p.id);
 
-    md += `| **${p.name}** | ${stats.adrs} | ${stats.summaries} | ${stats.total} | ${stats.last_update.split('T')[0]} |\n`;
+    md += `| **${p.name}** | ${stats.adrs} | ${stats.summaries} | ${stats.total} | ${stats.last_update ? String(stats.last_update).split('T')[0] : '—'} |\n`;
   }
 
   md += `\n## 🧠 Lições Globais Recentes\n\n`;
@@ -48,7 +50,7 @@ function generate() {
   }
 
   fs.writeFileSync(path.join(root, 'DASHBOARD-PROGRESSO.md'), md, 'utf8');
-  console.log('✅ Dashboard atualizado: DASHBOARD-PROGRESSO.md');
+  console.log(`✅ Dashboard atualizado: ${path.join(root, 'DASHBOARD-PROGRESSO.md')}`);
   db.close();
 }
 

@@ -56,11 +56,11 @@ npm run project:new meu-projeto -- --ai claude,copilot
 npm run project:new meu-projeto -- --skip-backend
 npm run project:new meu-projeto -- --verbose
 
-# Via binário direto (sempre cria no workspace)
-node bin/init-project.js meu-projeto
+# Dentro do projeto: conferir a conexão com a IA
+forja project:wire --check
 
 # Ajuda
-node bin/init-project.js --help
+forja help project:new
 ```
 
 ---
@@ -142,28 +142,20 @@ node scripts/build-context-pack.mjs
 # Cria: .context/context-pack.md
 ```
 
-### Inicializar SQLite
+### Indexar a memória
 
 ```bash
-cd backend
-npm run memory:db:init
-# Cria: .memory/sqlite/context.db
-```
-
-### Sincronizar memória
-
-```bash
-cd backend
-npm run memory:db:sync
-# Atualiza índices do markdown
+forja sync:universal
+# Indexa memory/, docs/, prompts/ e specs/ em memory/sqlite/universal.db (FTS5)
 ```
 
 ### Consultar
 
 ```bash
-cd backend
-npm run memory:db:query -- "auth"
-# Busca "auth" em toda memória
+forja query:universal "auth"
+# Busca "auth" em toda a memória do projeto
+forja context:smart --mode task --task "auth"
+# Pack mínimo da tarefa em .context/smart-context.md
 ```
 
 ### Watcher automático
@@ -370,7 +362,7 @@ logger.error('Auth failed', error);             // Erro
 
 ```bash
 # Quick start
-node bin/init-project.js meu-app && cd meu-app/backend && npm i && npm run start:dev
+forja project:new meu-app && cd ~/forja-workspace/projects/meu-app/backend && npm run start:dev
 
 # Test all
 npm test && npm run test:e2e && npm run lint
@@ -382,7 +374,7 @@ rm -rf dist/ node_modules/ && npm i && npm run build
 npm run lint && npm test && npm run build
 
 # Memory sync all
-node scripts/build-context-pack.mjs && npm run memory:db:sync
+node scripts/build-context-pack.mjs && forja sync:universal
 
 # Find TODOs
 grep -r "TODO\|FIXME" src/
@@ -394,10 +386,10 @@ grep -r "TODO\|FIXME" src/
 
 ```bash
 # 1. Gerar (1 min)
-node bin/init-project.js meu-app --force
+forja project:new meu-app
 
-# 2. Instalar (3 min)
-cd meu-app/backend && npm i
+# 2. Entrar no backend (o project:new já instala as dependências)
+cd ~/forja-workspace/projects/meu-app/backend
 
 # 3. Rodar (1 min)
 npm run start:dev

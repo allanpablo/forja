@@ -29,7 +29,7 @@ Use `FORJA_MODE=embedded` para forçar esse comportamento em um diretório sem `
 
 O studio administra vários projetos num workspace externo. Os comandos de catálogo entram nesse modo
 automaticamente: `workspace:init`, `project:new`, `project:list`, `project:upgrade`,
-`workspace:project:check`, `init:project` e `demo:workspace`.
+`workspace:project:check` e `demo:workspace`.
 
 ```bash
 forja workspace:init

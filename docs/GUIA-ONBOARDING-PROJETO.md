@@ -83,9 +83,8 @@ Checagem esperada:
 Ainda dentro de `backend/`:
 
 ```bash
-npm run memory:db:init
-npm run memory:db:sync
-npm run memory:db:query -- "search" "contexto" 10
+forja sync:universal
+forja query:universal "contexto" 10
 ```
 
 O que isso faz:
@@ -224,12 +223,12 @@ Próximos passos:
 1. Sincronizar memória:
 ```bash
 cd backend
-npm run memory:db:sync
+forja sync:universal
 ```
 
 2. Buscar contexto da tarefa:
 ```bash
-npm run memory:db:query -- "search" "tema da tarefa" 10
+forja query:universal "tema da tarefa" 10
 ```
 
 3. Executar step
@@ -242,7 +241,7 @@ npm run memory:db:query -- "search" "tema da tarefa" 10
   - Evitar: aplicar seção 7 (questionamento obrigatório).
 
 - Erro: esquecer atualização de memória.
-  - Evitar: sempre rodar `memory:db:sync` após mudanças relevantes.
+  - Evitar: sempre rodar `forja sync:universal` após mudanças relevantes.
 
 - Erro: deploy sem rollback claro.
   - Evitar: incluir rollback como item obrigatório no DoD.
@@ -259,12 +258,11 @@ npx github:SEU_USUARIO/create-memory-nest-kit nome-do-projeto
 # setup inicial
 cd nome-do-projeto/backend
 npm install
-npm run memory:db:init
-npm run memory:db:sync
+forja sync:universal
 npm run start:dev
 
 # consultar contexto
-npm run memory:db:query -- "search" "auth" 10
+forja query:universal "auth" 10
 
 # registrar handoff (na raiz do projeto)
 cd ..

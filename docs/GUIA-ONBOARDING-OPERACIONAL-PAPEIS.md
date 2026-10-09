@@ -16,7 +16,7 @@ Implementar com qualidade, manter contexto atualizado e reduzir retrabalho.
 - Rodar sync da memória operacional:
 ```bash
 cd backend
-npm run memory:db:sync
+forja sync:universal
 ```
 
 ### Critério de Pronto (DEV)
@@ -99,15 +99,14 @@ Se qualquer item for “não”: refinar step antes da execução.
 ```bash
 cd backend
 npm install
-npm run memory:db:init
-npm run memory:db:sync
+forja sync:universal
 ```
 
 ### Consulta de contexto
 ```bash
-npm run memory:db:query -- "search" "auth" 10
-npm run memory:db:query -- handoffs 10
-npm run memory:db:query -- adrs 20
+forja query:universal "auth" 10
+forja agent:route list
+forja adr:list
 ```
 
 ### Registrar handoff
