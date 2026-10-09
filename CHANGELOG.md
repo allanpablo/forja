@@ -19,6 +19,89 @@ GitHub reusa esse bloco. O README também é reconciliado na mesma entrega — v
 
 _(preencher a cada release: diff de produto vs. a versão anterior, antes das seções técnicas)_
 
+## [5.0.0] — 2026-10-09 — Projeto conectado à IA e a jornada do usuário como gate
+
+### O que melhorou
+
+- **O projeto já nasce conectado à sua IA.** `forja project:new` escreve as instruções nos arquivos
+  que cada IA lê sozinha (`AGENTS.md`, `CLAUDE.md`, `GEMINI.md`, `.github/copilot-instructions.md`),
+  configura os hooks do Claude Code (cada sessão abre com specs, handoffs e saúde do projeto; citar
+  uma spec no prompt anexa spec, plan e tasks), instala seis sub-agents por papel e registra o
+  servidor MCP do Forja. Antes, as instruções iam para uma pasta que nenhuma IA lê e mandavam rodar
+  comandos que não existiam no projeto.
+- **`project:new` funciona instalado e no checkout, e não mente mais.** No pacote publicado o projeto
+  saía sem instruções, sem design-md e com scripts apontando para arquivos ausentes, e mesmo assim
+  terminava com "Tudo pronto!". No checkout, nem rodava. Agora sai completo, com a memória já
+  indexada, e quando algo essencial falha o comando sai com exit 1 e lista as pendências.
+- **A inteligência funciona dentro do projeto.** `context:smart --mode task` passa a achar o que a
+  tarefa pede (o modo task nunca tinha funcionado). A memória do projeto deixa de receber as specs do
+  framework. `code:impact` analisa o código do projeto, não o do Forja. Handoffs ficam com o projeto
+  de origem, e `forja next` passa a apontar o handoff mais antigo em aberto.
+- **Um comando para conectar e conferir:** `forja project:wire` (e `--check`) liga ou verifica
+  instruções, hooks, sub-agents, MCP e `.gitignore`. Também confere que todo comando citado à IA
+  existe e que todo script do `package.json` aponta para um arquivo real. O `tools:doctor` mostra o
+  mesmo quadro quando roda num projeto.
+- **Adotar o Forja num repositório que já existe:** `forja project:wire` seguido de
+  `forja project:upgrade --apply`, sem instalar backend nem sobrescrever arquivos.
+- **Projetos antigos se religam com um comando:** `forja project:upgrade --apply` migra projetos
+  gerados antes da v5. Antes, o upgrade instalava um backend NestJS inteiro em quem não tinha.
+- **Nenhuma versão sai com essa desconexão de novo.** A jornada inteira do usuário (workspace →
+  projeto → memória, contexto, specs, gates, hooks, MCP, handoff) roda no `npm test` e no
+  `release:check` contra o pacote instalado, e reprova se qualquer comando escrever dentro do pacote.
+- **Repositório mais limpo:** sai o dashboard congelado (`dashboard/`), PNGs soltos, aliases
+  duplicados e branches antigas. O dashboard opcional é o `apps/dashboard`
+  (`npm run dashboard:api` + `npm run dashboard:dev`).
+
+### Mudança de contrato (breaking)
+
+- **Node ≥ 22** (`engines`).
+- Projetos novos não recebem `.ia-instructions/`; a cadeia de fallback entre IAs vai para
+  `.forja/models.json`. O backend gerado perde `memory:db:init`; `memory:db:sync`/`query` chamam o
+  `forja`. Migração: `forja project:upgrade --apply` dentro do projeto.
+- Comandos removidos: `init:project` (use `project:new`) e os aliases npm `ops:plan`,
+  `ops:handoff`, `ops:check`, `ops:sprint` (use `gsd:*` e `sprint:status`). A flag `--interactive`
+  do gerador, que só simulava um modo interativo, saiu.
+- `dashboard/` removido (ADR-0087).
+- Hooks e MCP de um projeto chamam o binário `forja`: instale com `npm i -g forjajs`.
+
+### Adicionado
+
+- `lib/paths.ts`: `pkgRoot`/`codeRoot`/`script()` — raízes resolvidas num lugar só; `test/paths.test.js`
+  vigia a classe "raiz via `__dirname`" e "extensão cravada em spawn" (ADR-0086).
+- `lib/project-wiring.ts`, `templates/project/` e os comandos `project:wire`,
+  `hook:session-start` e `hook:user-prompt`.
+- `lib/core/journey.ts` + `test/journey.test.js` + check `consumer-journey` no `release:check`;
+  `test/project-adoption.test.js`.
+- `currentProjectName()` (`lib/workspace.ts`) e carimbo `project` nos handoffs.
+- `npm run dashboard:api` (API do `apps/server` compilada).
+
+### Corrigido
+
+- Vinte scripts que no pacote instalado resolviam a raiz em `dist/` (`setup`, `project:new`,
+  `project:upgrade`, gates de drift/arquitetura, health, release etc.).
+- `lib/core/model-pricing.json` não chegava ao pacote: preços passam a ser lidos da raiz do pacote.
+- `sync:universal` no modo embedded indexava specs/boilerplates do framework e gravava os nós do
+  projeto como globais; `ContextBuilder` lançava em todo modo task (`MATCH` dentro de `OR`) e
+  quebrava com termos como `pix-qr` (agora `ftsQuery`).
+- `query:universal` saía 0 em erro e quebrava com hífen/dois-pontos.
+- `project:check` sem argumento tratava qualquer projeto como o repo do framework (64% num
+  projeto recém-gerado).
+- `spec:new` numerava a primeira spec como SPEC-002 (contava a pasta recém-criada).
+- `hermes:handoff`/`gsd:handoff` e `code:*` rodavam no diretório do pacote;
+  `project:dashboard`, `memory:extract` e a auditoria sem workspace gravavam dentro do pacote.
+- MCP anunciava a versão `2.0.3` fixa; agora a do pacote.
+- Template de ADR do projeto ganhou Status/Data (antes `adr:list` mostrava "status desconhecido").
+- `demo:workspace` gera um projeto conectado e indexado, e a instrução de uso aponta para a CLI.
+- Mensagens de uso citam `forja <comando>`, não scripts internos.
+
+### Notas
+
+- ADRs: [0086](memory/90-decisions/0086-projeto-conectado-e-jornada-como-gate.md),
+  [0087](memory/90-decisions/0087-remover-dashboard-legado.md) (supersede a 0022).
+- Handoffs #1–#13 do framework (SPEC-030, 043–050, todos entregues na 4.1.x) foram arquivados.
+- Próximo passo registrado: `project:new --template <boilerplate>` (os boilerplates hoje são
+  arquiteturas de referência no catálogo).
+
 ## [4.1.2] — 2026-09-18 — Correção: status reconhece specs e indexador suporta symlinks de projetos
 
 ### O que melhorou
