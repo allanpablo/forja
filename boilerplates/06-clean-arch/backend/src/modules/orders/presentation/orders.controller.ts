@@ -1,7 +1,7 @@
 import { BadRequestException, Body, Controller, Param, Post } from '@nestjs/common';
-import { PlaceOrderUseCase } from '../application/place-order.usecase';
-import { ShipOrderUseCase } from '../application/ship-order.usecase';
-import { PlaceOrderHttpDto } from './orders.http.dto';
+import { PlaceOrderUseCase } from '../application/place-order.usecase.js';
+import { ShipOrderUseCase } from '../application/ship-order.usecase.js';
+import { PlaceOrderHttpDto } from './orders.http.dto.js';
 
 /**
  * O controller é FINO. Ele traduz HTTP↔use-case e converte falha de domínio em erro HTTP — nada

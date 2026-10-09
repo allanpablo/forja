@@ -141,13 +141,18 @@ function cmdList(args: any) {
   const filters: string[] = [];
   const params: any[] = [];
   if (args.includes('--open')) filters.push("status = 'open'");
+  // --project <nome> filtra pelo carimbo; --mine = o projeto do cwd (ou o framework).
+  const projIdx = args.indexOf('--project');
+  const project = projIdx >= 0 ? args[projIdx + 1] : args.includes('--mine') ? currentProjectName() : null;
+  if ((projIdx >= 0 || args.includes('--mine')) && !project) fail('--mine fora de um projeto: rode dentro dele ou use --project <nome>');
+  if (project) { filters.push("json_extract(payload_json, '$.project') = ?"); params.push(project); }
   const toIdx = args.indexOf('--to');
   if (toIdx >= 0 && args[toIdx + 1]) { filters.push('to_agent = ?'); params.push(args[toIdx + 1]); }
   const where = filters.length ? `WHERE ${filters.join(' AND ')}` : '';
-  const rows = db.prepare(`SELECT id, created_at, from_agent, to_agent, intent, status, spec_slug FROM handoffs ${where} ORDER BY id DESC LIMIT 50`).all(...params);
+  const rows = db.prepare(`SELECT id, created_at, from_agent, to_agent, intent, status, spec_slug, json_extract(payload_json, '$.project') AS project FROM handoffs ${where} ORDER BY id DESC LIMIT 50`).all(...params);
   if (!rows.length) { console.log('(sem handoffs)'); db.close(); return; }
   for (const r of rows) {
-    console.log(`#${r.id} [${r.status}] ${r.from_agent} → ${r.to_agent} (${r.intent}) ${r.spec_slug || ''} — ${r.created_at}`);
+    console.log(`#${r.id} [${r.status}] ${r.project ? `{${r.project}} ` : '{sem projeto} '}${r.from_agent} → ${r.to_agent} (${r.intent}) ${r.spec_slug || ''} — ${r.created_at}`);
   }
   db.close();
 }
@@ -188,6 +193,6 @@ switch (subcmd) {
   case 'archive': cmdSetStatus(rest[0], 'archived'); break;
   case 'schema': cmdSchema(); break;
   default:
-    console.log('Uso: forja agent:route <append|list|show|done|in_progress|cancel|archive|schema> [args]');
+    console.log('Uso: forja agent:route <append|list [--open] [--mine|--project <nome>] [--to <papel>]|show|done|in_progress|cancel|archive|schema> [args]');
     process.exit(1);
 }

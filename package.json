@@ -127,7 +127,7 @@
   "license": "MIT",
   "dependencies": {
     "ajv": "^8.20.0",
-    "better-sqlite3": "^12.11.1"
+    "better-sqlite3": "^13.0.3"
   },
   "allowScripts": {
     "better-sqlite3@12.11.1": true
@@ -136,24 +136,27 @@
     "next": {
       "postcss": "^8.5.25",
       "sharp": "^0.35.3"
+    },
+    "@nestjs/swagger": {
+      "typescript": "$typescript"
     }
   },
   "devDependencies": {
-    "@nestjs/common": "^11.1.28",
-    "@nestjs/core": "^11.1.28",
-    "@nestjs/platform-express": "^11.1.28",
-    "@nestjs/swagger": "^11.4.5",
-    "@tanstack/react-query": "^5.90.5",
+    "@nestjs/common": "^12.1.2",
+    "@nestjs/core": "^12.1.2",
+    "@nestjs/platform-express": "^12.1.2",
+    "@nestjs/swagger": "^12.0.2",
+    "@tanstack/react-query": "^5.104.1",
     "@types/express": "^5.0.6",
-    "@types/node": "^26.1.1",
-    "@types/react": "^19.2.2",
-    "@types/react-dom": "^19.2.2",
-    "next": "^16.2.12",
-    "react": "^19.2.0",
-    "react-dom": "^19.2.0",
+    "@types/node": "^26.6.4",
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
+    "next": "^16.4.0",
+    "react": "^19.3.0",
+    "react-dom": "^19.3.0",
     "reflect-metadata": "^0.2.2",
     "rxjs": "^7.8.2",
-    "tsx": "^4.23.1",
-    "typescript": "^5.9.3"
+    "tsx": "^4.23.15",
+    "typescript": "^7.0.2"
   }
 }

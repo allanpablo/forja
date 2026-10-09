@@ -1,6 +1,6 @@
 import { Inject, Injectable } from '@nestjs/common';
-import { ORDER_REPOSITORY, OrderRepository } from '../domain/order.repository';
-import { Result } from '../../../shared/result';
+import { ORDER_REPOSITORY, type OrderRepository } from '../domain/order.repository.js';
+import { Result } from '../../../shared/result.js';
 
 export interface ShipOrderInput {
   orderId: string;

@@ -14,6 +14,7 @@ import { execSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { wireProject, checkProjectWiring } from '../lib/project-wiring.ts';
 import { COMMANDS } from '../lib/core/registry.ts';
+import { resolveTemplate, applyTemplate, type TemplateInfo } from '../lib/templates.ts';
 import {
   getWorkspaceRoot,
   getProjectsDir,
@@ -40,6 +41,7 @@ const DEFAULT_AI_AGENTS = ['copilot', 'claude', 'gemini', 'codex'];
 const SETUP_CHECKLIST = [
   '00-git-init',
   '01-generate-structure',
+  '01t-apply-template',
   '01b-copy-design-library',
   '02-wire-intelligence',
   '03-install-backend',
@@ -128,7 +130,17 @@ function parseArgs() {
     skipDesign: args.includes('--skip-design'),
     ai: DEFAULT_AI_AGENTS,
     verbose: args.includes('--verbose'),
+    template: null as TemplateInfo | null,
   };
+
+  // --template <boilerplate>: resolvido antes de criar qualquer arquivo — template inexistente ou
+  // não validado falha aqui, sem deixar um projeto pela metade.
+  const tplIdx = args.indexOf('--template');
+  if (tplIdx >= 0) {
+    const name = args[tplIdx + 1];
+    if (!name || name.startsWith('--')) { console.error('--template exige um nome (veja: forja project:templates)'); process.exit(1); }
+    try { opts.template = resolveTemplate(name); } catch (e) { console.error(`❌ ${(e as Error).message}`); process.exit(1); }
+  }
 
   // Parse --ai flag
   const aiIdx = args.findIndex(a => a === '--ai');
@@ -136,8 +148,9 @@ function parseArgs() {
     opts.ai = args[aiIdx + 1].split(',').map(s => s.trim());
   }
 
-  // Project name (primeiro arg sem --)
-  const projectName = args.find(a => !a.startsWith('--'));
+  // Project name (primeiro arg que não é flag nem valor de flag)
+  const flagValues = new Set(['--ai', '--template'].filter((f) => args.includes(f)).map((f) => args[args.indexOf(f) + 1]));
+  const projectName = args.find(a => !a.startsWith('--') && !flagValues.has(a));
 
   // Projetos de produto vivem obrigatoriamente no workspace externo.
   // init-project nao aceita mais path customizado para evitar poluicao do repo do framework.
@@ -183,7 +196,8 @@ async function step01GenerateStructure(projectDir: any, opts: any) {
 
   // Verifica se já existe código (ex: backend) para decidir se usa --only-memory
   const hasBackend = fs.existsSync(path.join(projectDir, 'backend')) || fs.existsSync(path.join(projectDir, 'package.json'));
-  const onlyMemory = hasBackend ? '--only-memory' : '';
+  // Com template, o backend vem do boilerplate: o gerador entrega só memória e agentes.
+  const onlyMemory = hasBackend || opts.template ? '--only-memory' : '';
 
   const cmd = opts.skipBackend 
     ? `node "${memoryKit}" "${projectDir}" --only-memory --force`
@@ -218,6 +232,17 @@ function addScalingLayers(projectDir: any) {
     }
   }
   log('Camadas de Growth e Scaling adicionadas', 'success');
+}
+
+async function step01tApplyTemplate(projectDir: any, opts: any) {
+  if (!opts.template) return;
+  log(`Aplicando o template ${opts.template.name}...`, 'step');
+  try {
+    const copied = applyTemplate(projectDir, opts.template);
+    log(`${copied.length} arquivo(s) do template aplicados (código e memória do boilerplate prevalecem)`, 'success');
+  } catch (err) {
+    issue('fail', `Falha ao aplicar o template ${opts.template.name}: ${err.message}`);
+  }
 }
 
 async function step01bCopyDesignLibrary(projectDir: any, opts: any) {
@@ -372,6 +397,7 @@ Cria um projeto no workspace Forja (padrão: ~/forja-workspace/projects) já con
 
 Opções:
   --ai <lista>          IAs a conectar (padrão: copilot,claude,gemini,codex)
+  --template <nome>     Parte de um boilerplate validado (veja: forja project:templates)
   --skip-backend        Não gera nem instala o backend NestJS
   --skip-db             Não indexa a memória do projeto
   --skip-git            Não inicializa o Git
@@ -383,6 +409,7 @@ Workspace: FORJA_WORKSPACE → workspaceRoot em ~/.forjarc.json → ~/forja-work
 Exemplos:
   forja project:new meu-app
   forja project:new meu-app -- --ai claude,codex --skip-backend
+  forja project:new pedidos -- --template clean-arch
     `);
     process.exit(projectName === undefined && process.argv.length > 2 ? 1 : 0);
   }
@@ -404,6 +431,7 @@ Exemplos:
     for (const step of SETUP_CHECKLIST) {
       if (step === '00-git-init') await step00GitInit(projectDir, opts);
       else if (step === '01-generate-structure') await step01GenerateStructure(projectDir, opts);
+      else if (step === '01t-apply-template') await step01tApplyTemplate(projectDir, opts);
       else if (step === '01b-copy-design-library') await step01bCopyDesignLibrary(projectDir, opts);
       else if (step === '02-wire-intelligence') await step02WireIntelligence(projectDir, opts);
       else if (step === '03-install-backend') await step03InstallBackend(projectDir, opts);

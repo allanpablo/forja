@@ -6,10 +6,10 @@
   "path": "boilerplates/06-clean-arch",
   "readme": "boilerplates/06-clean-arch/README.md",
   "stack": [
-    "NestJS",
-    "TypeScript",
+    "NestJS 12",
     "TypeORM",
-    "Postgres"
+    "Postgres",
+    "Vitest"
   ],
   "useCases": [
     "Domínio com regra de negócio",
@@ -21,7 +21,7 @@
     "npm install",
     "npm run start:dev",
     "npm test",
-    "npm run test:e2e"
+    "npm run lint"
   ],
   "gates": [
     "npm test",
@@ -39,5 +39,6 @@
       "dist",
       "coverage"
     ]
-  }
+  },
+  "template": true
 }

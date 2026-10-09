@@ -47,3 +47,32 @@ export async function openHandoffs(limit = 10, project: string | null = null): P
     return [];
   }
 }
+
+export interface OrphanHandoff {
+  readonly id: number;
+  readonly project: string | null;
+  readonly reason: 'sem-projeto' | 'projeto-inexistente';
+}
+
+/**
+ * Handoffs abertos que ninguém vai ver: sem carimbo de projeto (pré-v5) ou carimbados com um
+ * projeto que não existe mais no workspace. Foi assim que um handoff de produto apagado ficou meses
+ * aparecendo no briefing do framework. Nunca lança.
+ */
+export async function orphanHandoffs(knownProjects: readonly string[]): Promise<OrphanHandoff[]> {
+  try {
+    const { getWorkspaceDbPath } = await import('./workspace.ts');
+    const { default: Database } = await import('better-sqlite3');
+    const db = new Database(getWorkspaceDbPath(), { readonly: true });
+    const rows = db
+      .prepare(`SELECT id, json_extract(payload_json, '$.project') AS project FROM handoffs WHERE status IN ('open','in_progress') ORDER BY id`)
+      .all() as { id: number; project: string | null }[];
+    db.close();
+    const known = new Set(['forja', ...knownProjects]);
+    return rows
+      .filter((r) => !r.project || !known.has(r.project))
+      .map((r) => ({ id: r.id, project: r.project, reason: r.project ? 'projeto-inexistente' : 'sem-projeto' }));
+  } catch {
+    return [];
+  }
+}

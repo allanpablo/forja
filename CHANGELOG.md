@@ -44,7 +44,23 @@ _(preencher a cada release: diff de produto vs. a versão anterior, antes das se
 - **Adotar o Forja num repositório que já existe:** `forja project:wire` seguido de
   `forja project:upgrade --apply`, sem instalar backend nem sobrescrever arquivos.
 - **Projetos antigos se religam com um comando:** `forja project:upgrade --apply` migra projetos
-  gerados antes da v5. Antes, o upgrade instalava um backend NestJS inteiro em quem não tinha.
+  gerados antes da v5, e `forja project:upgrade --all` faz o relatório (e com `--apply`, a migração)
+  do workspace inteiro. Antes, o upgrade instalava um backend NestJS inteiro em quem não tinha.
+- **O MCP do Forja chega a todas as IAs:** além do Claude Code, o projeto registra o servidor `forja`
+  no Codex (`.codex/config.toml`), no Gemini CLI (`.gemini/settings.json`) e no Copilot do VS Code
+  (`.vscode/mcp.json`).
+- **Projeto a partir de um template que funciona:** `forja project:new pedidos --template clean-arch`
+  parte de um boilerplate com instalação, build, testes e lint provados no CI. Boilerplates ainda não
+  validados ficam como referência, e o `--template` os recusa dizendo por quê
+  (`forja project:templates` mostra qual é qual).
+- **O backend gerado roda o que anuncia:** segue o padrão do NestJS 12 (ESM, Vitest, oxlint). Antes,
+  compilava, mas `npm test` não carregava, o lint nunca tinha rodado e o painel `/api/ops` lia um banco
+  que não existia. Agora ele mostra as specs, os handoffs em aberto e a memória do projeto.
+- **Handoffs com dono:** `forja agent:route list --mine` lista os handoffs do projeto em que você está,
+  cada um com o projeto de origem, e o `tools:doctor` avisa quando sobra um handoff órfão.
+- **Dependências em dia e sem vulnerabilidades:** NestJS 12, TypeScript 7, better-sqlite3 13 (que traz
+  o binário pronto e não depende de script de instalação, bloqueado por padrão no npm 11), Next 16.4 e
+  React 19.3. O `npm audit` sai zerado.
 - **Nenhuma versão sai com essa desconexão de novo.** A jornada inteira do usuário (workspace →
   projeto → memória, contexto, specs, gates, hooks, MCP, handoff) roda no `npm test` e no
   `release:check` contra o pacote instalado, e reprova se qualquer comando escrever dentro do pacote.
@@ -62,6 +78,8 @@ _(preencher a cada release: diff de produto vs. a versão anterior, antes das se
   `ops:handoff`, `ops:check`, `ops:sprint` (use `gsd:*` e `sprint:status`). A flag `--interactive`
   do gerador, que só simulava um modo interativo, saiu.
 - `dashboard/` removido (ADR-0087).
+- Backend gerado em ESM (`"type": "module"`, imports com `.js`), Vitest no lugar do Jest e oxlint no
+  lugar do ESLint. Projetos existentes não são migrados.
 - Hooks e MCP de um projeto chamam o binário `forja`: instale com `npm i -g forjajs`.
 
 ### Adicionado
@@ -74,6 +92,12 @@ _(preencher a cada release: diff de produto vs. a versão anterior, antes das se
   `test/project-adoption.test.js`.
 - `currentProjectName()` (`lib/workspace.ts`) e carimbo `project` nos handoffs.
 - `npm run dashboard:api` (API do `apps/server` compilada).
+- `lib/templates.ts`, `forja project:templates`, `project:new --template` e
+  `project:smoke --template`. Novo job de CI `project-smoke-full` (padrão + cada template), coberto por
+  `test/templates.test.js` (ADR-0088).
+- `project:upgrade --all [--apply] [--json]`; `agent:route list --project/--mine`; check
+  `handoff-orphans` no doctor; check `mcp-ias` no `project:wire`.
+- `project:smoke --full` roda `test`, `test:e2e` e `lint` além do build.
 
 ### Corrigido
 
@@ -97,10 +121,12 @@ _(preencher a cada release: diff de produto vs. a versão anterior, antes das se
 ### Notas
 
 - ADRs: [0086](memory/90-decisions/0086-projeto-conectado-e-jornada-como-gate.md),
-  [0087](memory/90-decisions/0087-remover-dashboard-legado.md) (supersede a 0022).
-- Handoffs #1–#13 do framework (SPEC-030, 043–050, todos entregues na 4.1.x) foram arquivados.
-- Próximo passo registrado: `project:new --template <boilerplate>` (os boilerplates hoje são
-  arquiteturas de referência no catálogo).
+  [0087](memory/90-decisions/0087-remover-dashboard-legado.md) (supersede a 0022),
+  [0088](memory/90-decisions/0088-templates-validados.md).
+- Handoffs #1–#14 arquivados: #1–#13 eram do framework (SPEC-030, 043–050, entregues na 4.1.x); o #14
+  era de um projeto que não existe mais no workspace.
+- Próximos templates: 02-saas e 03-ecommerce (exigem refazer a camada de dados), 04 e 05 (topologia
+  própria). Entram quando passarem no `project-smoke-full`.
 
 ## [4.1.2] — 2026-09-18 — Correção: status reconhece specs e indexador suporta symlinks de projetos
 

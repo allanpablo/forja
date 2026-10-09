@@ -37,3 +37,33 @@ test('adoção: repo existente fica conectado, sem backend novo e com o índice 
     fs.rmSync(base, { recursive: true, force: true });
   }
 });
+
+test('project:upgrade --all: dry-run não toca nada; --apply religa cada projeto Forja do workspace', { timeout: 180_000 }, () => {
+  const base = fs.mkdtempSync(path.join(os.tmpdir(), 'forja-upall-'));
+  const ws = path.join(base, 'ws');
+  const env = { ...process.env, HOME: base, FORJA_WORKSPACE: ws };
+  for (const k of Object.keys(env)) if (k.startsWith('npm_')) delete env[k];
+  const run = (cwd, ...args) => spawnSync(process.execPath, [bin, ...args], { cwd, env, encoding: 'utf8' });
+  try {
+    fs.mkdirSync(path.join(ws, 'projects', 'antigo'), { recursive: true });
+    fs.mkdirSync(path.join(ws, 'projects', 'alheio'), { recursive: true });
+    fs.writeFileSync(path.join(ws, 'projects', 'antigo', 'AGENTS.md'), '# AGENTS\n\nnotas do time\n');
+    assert.equal(run(base, 'workspace:init').status, 0);
+
+    const dry = run(base, 'project:upgrade', '--all', '--json');
+    assert.equal(dry.status, 0, dry.stderr);
+    const byName = Object.fromEntries(JSON.parse(dry.stdout).map((r) => [r.name, r.status]));
+    assert.deepEqual(byName, { alheio: 'nao-forja', antigo: 'pendente' });
+    assert.ok(!fs.existsSync(path.join(ws, 'projects', 'antigo', '.mcp.json')), 'dry-run não escreve');
+
+    const applied = run(base, 'project:upgrade', '--all', '--apply');
+    assert.equal(applied.status, 0, applied.stderr);
+    const agents = fs.readFileSync(path.join(ws, 'projects', 'antigo', 'AGENTS.md'), 'utf8');
+    assert.match(agents, /forja:begin/);
+    assert.match(agents, /notas do time/, 'conteúdo do usuário preservado');
+    assert.equal(run(path.join(ws, 'projects', 'antigo'), 'project:wire', '--check').status, 0);
+    assert.ok(!fs.existsSync(path.join(ws, 'projects', 'alheio', 'AGENTS.md')), 'projeto alheio intocado');
+  } finally {
+    fs.rmSync(base, { recursive: true, force: true });
+  }
+});

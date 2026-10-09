@@ -98,9 +98,15 @@ process followed?", the answer is a file, not a promise.
 - **Projects born connected to your AI** — `project:new` scaffolds a full project (memory, agents,
   a NestJS backend as the default boilerplate) and wires it to the AI you use: native instructions
   (`AGENTS.md`, `CLAUDE.md`, `GEMINI.md`, Copilot), Claude Code hooks that open every session with the
-  project state and attach the spec you mention, six role sub-agents, and the Forja MCP server. The
+  project state and attach the spec you mention, six role sub-agents, and the Forja MCP server in
+  Claude, Codex, Gemini and Copilot (VS Code). The
   memory is indexed from the first minute. `project:wire --check` proves it; `project:upgrade --apply`
-  re-wires older projects without touching the user's code (ADR-0086).
+  re-wires older projects without touching the user's code — or the whole workspace with `--all`
+  (ADR-0086). The NestJS backend follows the official NestJS 12 layout (ESM, Vitest, oxlint) and its
+  `/api/ops` page shows the project's specs, open handoffs and indexed memory.
+- **Validated templates** — `project:new <name> --template clean-arch` starts from a boilerplate whose
+  install, build, tests and lint are proven in CI; `project:templates` lists what is a template and
+  what is reference architecture (ADR-0088).
 - **The user journey is a gate** — `npm test` and `release:check` run the whole journey (workspace →
   project → memory, context, specs, hooks, MCP, handoffs inside the project) against the source and
   against the installed tarball, and fail if any command writes into the package itself.
@@ -152,6 +158,7 @@ forja sync:universal                   # index the memory
 
 ```bash
 forja project:upgrade --apply          # inside the project: new scaffold pieces + re-wire (pre-v5 projects)
+forja project:upgrade --all            # every workspace project: dry-run report (--apply to apply)
 forja project:wire --check
 forja code:context <domain> --code
 forja memory:audit
@@ -248,7 +255,8 @@ forja help [<command>|--all]               # the core, or one command's usage/ar
 forja workspace:init                       # create ~/forja-workspace
 forja project:new <name> --ai claude,copilot  # create a project in the workspace, wired to the AI
 forja project:wire [--check]               # (inside a project) connect/verify instructions, hooks, MCP
-forja project:upgrade --apply              # (inside a project) bring new scaffold + re-wire
+forja project:upgrade --apply              # (inside a project) bring new scaffold + re-wire; --all for the workspace
+forja project:templates                    # validated templates (project:new --template) vs reference
 forja project:list                         # list workspace projects
 forja workspace:project:check <name>       # validate standards in a workspace project
 
@@ -259,6 +267,7 @@ forja spec:new <slug>                      # also: spec:plan · spec:tasks · sp
 forja sprint:start                         # also: sprint:status · sprint:complete
 forja gsd:plan <slug>                      # GSD runbook in .context/
 forja gsd:handoff <intent> <slug>          # role-to-role handoff (ADR-0005)
+forja agent:route list --open --mine       # open handoffs of this project (each one stamped with its project)
 forja gsd:check <slug>                     # baseline runbook gates
 forja orchestrate "<goal>" --slug <s>      # the default path: the whole SDD/GSD chain as a gated state machine (SPEC-021)
 forja orchestrate:status <slug>            # the machine state: stages, gates, verdicts
@@ -381,10 +390,11 @@ my-project/
     settings.json        # hooks: forja hook:session-start / hook:user-prompt
     agents/              # orchestrator, product, sdd-architect, context-engineer, governance, marketing
   .mcp.json              # forja MCP server (+ codegraph when installed)
+  .codex/config.toml     # forja MCP for Codex · .gemini/settings.json (Gemini) · .vscode/mcp.json (Copilot)
   .forja/models.json     # AI fallback chain (engine switch)
   memory/                # hierarchical memory, indexed in memory/sqlite/ (git-ignored)
   specs/                 # spec → plan → tasks
-  backend/               # NestJS (unless --skip-backend)
+  backend/               # NestJS 12, ESM + Vitest + oxlint (unless --skip-backend; or the --template's)
 ```
 
 The Forja-managed part of each instruction file lives between `<!-- forja:begin -->` and

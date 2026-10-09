@@ -16,6 +16,7 @@ forja status                                           # memória indexada, spec
 | Opção | Padrão | Efeito |
 |---|---|---|
 | `--ai <lista>` | `copilot,claude,gemini,codex` | IAs a conectar |
+| `--template <nome>` | — | Parte de um template validado (`forja project:templates`) |
 | `--skip-backend` | — | Não gera nem instala o backend NestJS |
 | `--skip-db` | — | Não indexa a memória do projeto |
 | `--skip-git` | — | Não roda `git init` |
@@ -30,7 +31,9 @@ O workspace é resolvido por: `FORJA_WORKSPACE` → `workspaceRoot` em `~/.forja
 1. **git init** e `.gitignore` inicial.
 2. **Memória e agentes** (`create-memory-nest-kit`): `memory/` hierárquica (00-global a
    90-decisions), `agents/`, `prompts/`, `skills/`, `specs/` e o backend NestJS (exceto com
-   `--skip-backend`).
+   `--skip-backend`). O backend segue o `nest new` do NestJS 12: ESM, Vitest, oxlint; a página
+   `/api/ops` mostra specs, handoffs e a memória indexada do projeto.
+   - Com `--template`, o backend e a memória específica vêm do boilerplate (ADR-0088).
 3. **design-md/**: biblioteca de referências de design.
 4. **Conexão com a IA**:
    - `AGENTS.md` com o bloco do Forja (lido por Codex, Copilot agent e Gemini).
@@ -38,7 +41,8 @@ O workspace é resolvido por: `FORJA_WORKSPACE` → `workspaceRoot` em `~/.forja
    - `.claude/settings.json`: hooks `forja hook:session-start` (briefing da sessão) e
      `forja hook:user-prompt` (anexa a spec citada), mais a permissão `Bash(forja *)`.
    - `.claude/agents/`: orchestrator, product, sdd-architect, context-engineer, governance, marketing.
-   - `.mcp.json`: servidor `forja mcp:start` (e `codegraph`, se instalado).
+   - `.mcp.json`: servidor `forja mcp:start` (e `codegraph`, se instalado); o mesmo servidor em
+     `.codex/config.toml` (Codex), `.gemini/settings.json` (Gemini) e `.vscode/mcp.json` (Copilot).
    - `.forja/models.json`: cadeia de fallback entre IAs.
    - `memory/sqlite/` e `.context/` no `.gitignore`.
 5. **npm install** do backend.
@@ -76,6 +80,9 @@ forja project:upgrade              # dry-run: peças de scaffold novas + conexã
 forja project:upgrade --apply      # aplica (aditivo; só traz backend se o projeto já tem um)
 forja project:wire --check
 ```
+
+Para o workspace inteiro: `forja project:upgrade --all` (relatório por projeto) e depois
+`--all --apply`.
 
 Num repositório que nunca foi Forja, comece por `forja project:wire --ai claude,codex` e depois rode
 o `project:upgrade --apply`.

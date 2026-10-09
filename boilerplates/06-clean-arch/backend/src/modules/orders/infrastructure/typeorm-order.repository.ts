@@ -1,11 +1,11 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { Order, OrderLine } from '../domain/order.entity';
-import { Money } from '../domain/money.vo';
-import { OrderStatus, OrderStatusValue } from '../domain/order-status.vo';
-import { OrderRepository } from '../domain/order.repository';
-import { OrderOrmEntity } from './order.orm-entity';
+import { Order, OrderLine } from '../domain/order.entity.js';
+import { Money } from '../domain/money.vo.js';
+import { OrderStatus, OrderStatusValue } from '../domain/order-status.vo.js';
+import { OrderRepository } from '../domain/order.repository.js';
+import { OrderOrmEntity } from './order.orm-entity.js';
 
 /**
  * O ADAPTER: implementa a porta `OrderRepository` do domínio usando TypeORM. É o único lugar que

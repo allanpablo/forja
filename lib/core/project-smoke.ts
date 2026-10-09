@@ -22,6 +22,7 @@ import { runChecks as run, worstStatus } from './checks.ts';
 import { resolveScript } from './registry.ts';
 import type { Check } from './checks.ts';
 import { wireProject, checkProjectWiring } from '../project-wiring.ts';
+import { resolveTemplate, applyTemplate } from '../templates.ts';
 import { COMMANDS } from './registry.ts';
 // @ts-ignore — validador legado sem tipos exportados; usado só pela forma { isValid, errors }.
 import { validateProjectStructure } from '../validators/structure-validator.ts';
@@ -43,6 +44,8 @@ interface SmokeEnv {
   full: boolean;
   /** SPEC-047: lista de IAs. Presente ⇒ gera só-memória + instruções nativas; ativa `ai-instructions`. */
   ai?: readonly string[];
+  /** ADR-0088: projeto gerado a partir de um template (backend vem do boilerplate). */
+  template?: string;
   spawn: (cmd: string, args: string[], opts?: any) => { stdout: string; stderr: string; code: number };
 }
 
@@ -52,7 +55,7 @@ interface SmokeEnv {
  */
 export async function withGeneratedProject<T>(
   fn: (ctx: { projectDir: string }) => Promise<T> | T,
-  { root = repoRoot, spawn, ai }: { root?: string; spawn: SmokeEnv['spawn']; ai?: readonly string[] }
+  { root = repoRoot, spawn, ai, template }: { root?: string; spawn: SmokeEnv['spawn']; ai?: readonly string[]; template?: string }
 ): Promise<T> {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'forja-smoke-'));
   const projectDir = path.join(dir, 'smoke-proj');
@@ -62,16 +65,17 @@ export async function withGeneratedProject<T>(
     // resolveScript acha .ts em dev e .js no dist — cravar .ts quebrava no pacote publicado.
     // Raiz padrão = pacote: o gerador é código (codeRoot, `dist/` publicado), não asset.
     const gen = root === pkgRoot ? script('bin/create-memory-nest-kit') : resolveScript(root, 'bin/create-memory-nest-kit');
-    // Modo --ai (SPEC-047): só a memória — `create-memory-nest-kit` roda em dev, `init-project.ts`
-    // não (hardcoda `.js`) e trata o path como projeto de workspace. As instruções nativas vêm de
-    // lib/project-wiring.ts, a mesma conexão que o gerador faz. Sem rede, sem backend.
-    const genArgs = aiMode
+    // Modo --ai (SPEC-047): só a memória + a conexão de lib/project-wiring.ts, a mesma que o
+    // gerador faz. Com --template, o backend vem do boilerplate (mesmo caminho do project:new).
+    const tpl = template ? resolveTemplate(template) : null;
+    const genArgs = aiMode || tpl
       ? [gen, projectDir, '--only-memory', '--force']
       : [gen, projectDir, '--force'];
     const res = spawn(process.execPath, genArgs, { cwd: dir });
     if (res.code !== 0) {
       throw new Error(`o gerador saiu com código ${res.code}:\n${(res.stderr || res.stdout).slice(0, 800)}`);
     }
+    if (tpl) applyTemplate(projectDir, tpl);
     if (aiMode) wireProject(projectDir, { ai: ai!, codegraph: false });
     return await fn({ projectDir });
   } finally {
@@ -192,8 +196,15 @@ const structure: Check = {
   dependsOn: 'generated',
   probe(env: SmokeEnv) {
     // Modo --ai (SPEC-047) é só-memória — não há backend NestJS para validar.
-    const includeNest = !(Array.isArray(env.ai) && env.ai.length > 0);
+    // Com template, o backend é do boilerplate: valida memória + um backend mínimo, não o layout do
+    // NestJS padrão do gerador.
+    const includeNest = !(Array.isArray(env.ai) && env.ai.length > 0) && !env.template;
     const report = validateProjectStructure(env.projectDir!, { includeNest });
+    if (env.template) {
+      for (const rel of ['backend/package.json', 'backend/src']) {
+        if (!env.fs.existsSync(path.join(env.projectDir!, rel))) { report.isValid = false; report.errors.push(`template sem ${rel}`); }
+      }
+    }
     if (!report.isValid) {
       return {
         status: 'fail',
@@ -230,7 +241,7 @@ const gateInherited: Check = {
  */
 const builds: Check = {
   id: 'builds',
-  title: 'o backend gerado instala e buildar (--full)',
+  title: 'o backend gerado instala, compila, testa e passa no lint (--full)',
   severity: 'critical',
   dependsOn: 'structure',
   probe(env: SmokeEnv) {
@@ -249,7 +260,19 @@ const builds: Check = {
     if (build.code !== 0) {
       return { status: 'fail', detail: `npm run build falhou no backend gerado:\n${(build.stderr || build.stdout).slice(0, 500)}`, fix: 'o código gerado não compila — confira os templates do nest-generator' };
     }
-    return { status: 'ok', detail: 'backend gerado instala e compila', fix: null };
+    // Compilar não basta: na v5 o backend gerado compilava, mas `npm test` não achava os tipos do
+    // jest (TS 6) e o lint nunca carregou (.eslintrc sem as deps). O projeto tem que rodar o que anuncia.
+    // test é obrigatório; test:e2e e lint, quando o projeto os declara (um template pode não ter e2e).
+    let scripts: Record<string, string> = {};
+    try { scripts = JSON.parse(env.fs.readFileSync(path.join(backend, 'package.json'), 'utf8')).scripts ?? {}; } catch { /* json-valid já reporta */ }
+    const ran = ['test', 'test:e2e', 'lint'].filter((name) => name === 'test' || name in scripts);
+    for (const script of ran) {
+      const res = env.spawn('npm', ['run', script], { cwd: backend });
+      if (res.code !== 0) {
+        return { status: 'fail', detail: `npm run ${script} falhou no backend gerado:\n${(res.stdout + res.stderr).slice(-600)}`, fix: 'confira os templates do nest-generator (testes, tsconfig, eslint.config.mjs)' };
+      }
+    }
+    return { status: 'ok', detail: `backend gerado instala, compila e passa em: ${ran.join(', ')}`, fix: null };
   },
 };
 
@@ -310,12 +333,12 @@ export function defaultEnv(overrides: Partial<SmokeEnv> = {}): SmokeEnv {
 
 /** Gera um projeto isolado, roda os checks, limpa. */
 export async function runProjectSmoke(
-  { full = false, ai, env: overrides = {} }: { full?: boolean; ai?: string[]; env?: Partial<SmokeEnv> } = {},
+  { full = false, ai, template, env: overrides = {} }: { full?: boolean; ai?: string[]; template?: string; env?: Partial<SmokeEnv> } = {},
 ) {
   const aiList = ai && ai.length > 0 ? ai : undefined;
-  const base = defaultEnv({ full, ...(aiList ? { ai: aiList } : {}), ...overrides });
+  const base = defaultEnv({ full, ...(aiList ? { ai: aiList } : {}), ...(template ? { template } : {}), ...overrides });
   return withGeneratedProject(
     ({ projectDir }) => run({ checks: SMOKE_CHECKS, env: { ...base, projectDir } }),
-    { root: base.root, spawn: base.spawn, ai: base.ai },
+    { root: base.root, spawn: base.spawn, ai: base.ai, template },
   );
 }

@@ -648,6 +648,29 @@ const agentTopology: Check = {
 };
 
 /** @type {Check[]} */
+/** Handoffs abertos sem dono visível (sem projeto, ou de projeto que não existe mais). Higiene: avisa. */
+const handoffOrphans: Check = {
+  id: 'handoff-orphans',
+  title: 'todo handoff aberto pertence a um projeto existente',
+  severity: 'warn',
+  scope: 'runtime',
+  async probe(env: any) {
+    const info = env.workspace.info();
+    if (!info.exists) return { status: 'skipped', detail: 'sem workspace', fix: null };
+    const { orphanHandoffs } = await import('../handoffs-index.ts');
+    const { listProjects, getForjaMode, getWorkspaceRoot } = await import('../workspace.ts');
+    const known = getForjaMode() === 'embedded' ? [path.basename(getWorkspaceRoot())] : listProjects();
+    const orphans = await orphanHandoffs(known);
+    if (!orphans.length) return { status: 'ok', detail: 'nenhum handoff órfão', fix: null };
+    const ids = orphans.map((o) => `#${o.id}${o.project ? ` (${o.project})` : ''}`).join(', ');
+    return {
+      status: 'warn',
+      detail: `${orphans.length} handoff(s) aberto(s) sem projeto existente: ${ids}`,
+      fix: `revise com forja agent:route show <id> e feche com forja agent:route archive <id>`,
+    };
+  },
+};
+
 export const CHECKS = [
   nativeAbi,
   memoryDb,
@@ -661,6 +684,7 @@ export const CHECKS = [
   docsLinks,
   adrRefs,
   agentTopology,
+  handoffOrphans,
 ];
 
 /**

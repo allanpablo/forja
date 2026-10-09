@@ -87,7 +87,7 @@ export const COMMANDS: Record<string, CommandSpec> = {
     args: ['project:new'],
     gates: ['workspace'],
     tier: 'core',
-    usage: 'forja project:new <nome> [-- --ai claude,copilot]',
+    usage: 'forja project:new <nome> [-- --ai claude,copilot] [--template <nome>]',
     cliArgs: [{ name: 'nome', required: true, desc: 'slug do projeto (kebab-case)' }],
     examples: ['forja project:new meu-app -- --ai claude,copilot'],
     next: ['workspace:project:check'],
@@ -111,8 +111,12 @@ export const COMMANDS: Record<string, CommandSpec> = {
   },
   'project:upgrade': {
     domain: 'workspace',
-    desc: 'Traz peças novas de scaffold para um projeto gerado — aditivo (SPEC-018). --apply para copiar',
+    desc: 'Traz peças novas de scaffold e religa a IA num projeto (ou --all) — aditivo; --apply aplica',
     node: 'scripts/project-upgrade.ts',
+    spec: 'SPEC-018, ADR-0086',
+    usage: 'forja project:upgrade [--apply] [--project <path> | --all] [--json]',
+    examples: ['forja project:upgrade', 'forja project:upgrade --all', 'forja project:upgrade --all --apply'],
+    next: ['project:wire'],
   },
   'workspace:project:check': {
     domain: 'workspace',
@@ -750,6 +754,16 @@ export const COMMANDS: Record<string, CommandSpec> = {
     examples: ['forja tools:doctor', 'forja tools:doctor --json'],
     next: ['setup'],
   },
+  'project:templates': {
+    domain: 'workspace',
+    desc: 'Lista os boilerplates: quais são templates validados (project:new --template) e quais são referência',
+    node: 'scripts/project-templates.ts',
+    spec: 'ADR-0088',
+    readonly: true,
+    usage: 'forja project:templates [--json]',
+    examples: ['forja project:templates'],
+    next: ['project:new'],
+  },
   'project:wire': {
     domain: 'workspace',
     desc: 'Conecta o projeto à inteligência do Forja: instruções nativas, hooks, sub-agents e MCP',
@@ -794,7 +808,7 @@ export const COMMANDS: Record<string, CommandSpec> = {
     node: 'scripts/project-smoke.ts',
     spec: 'SPEC-015, SPEC-047',
     readonly: true,
-    usage: 'forja project:smoke [--full] [--ai claude,copilot,gemini,codex]',
+    usage: 'forja project:smoke [--full] [--ai claude,copilot,gemini,codex] [--template <nome>]',
     examples: ['forja project:smoke', 'forja project:smoke --ai claude,copilot'],
   },
   'check:all': {

@@ -1,4 +1,4 @@
-import { Order } from './order.entity';
+import { Order } from './order.entity.js';
 
 /**
  * OrderRepository — a **PORTA** (Clean Architecture / Hexagonal). É uma `interface` no domínio: o

@@ -39,9 +39,11 @@ agregado, orquestração no use-case, persistência na infra). Arquitetura como 
 ## Rodando
 
 ```bash
-npm install
-npm run start:dev            # sobe o Nest (precisa de DATABASE_URL Postgres)
-npm test                     # roda os testes de domínio — sem Postgres, sem Nest
+forja project:new pedidos --template clean-arch   # cria o projeto a partir deste template
+cd ~/forja-workspace/projects/pedidos/backend
+npm run start:dev            # sobe o Nest 12 (ESM; precisa de DATABASE_URL Postgres)
+npm test                     # Vitest: testes de domínio — sem Postgres, sem Nest
+npm run lint                 # oxlint
 ```
 
 O `npm test` prova a premissa: a invariante do domínio (`test/orders/place-order.spec.ts`) roda
