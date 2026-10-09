@@ -111,8 +111,12 @@ export const COMMANDS: Record<string, CommandSpec> = {
   },
   'project:upgrade': {
     domain: 'workspace',
-    desc: 'Traz peças novas de scaffold para um projeto gerado — aditivo (SPEC-018). --apply para copiar',
+    desc: 'Traz peças novas de scaffold e religa a IA num projeto (ou --all) — aditivo; --apply aplica',
     node: 'scripts/project-upgrade.ts',
+    spec: 'SPEC-018, ADR-0086',
+    usage: 'forja project:upgrade [--apply] [--project <path> | --all] [--json]',
+    examples: ['forja project:upgrade', 'forja project:upgrade --all', 'forja project:upgrade --all --apply'],
+    next: ['project:wire'],
   },
   'workspace:project:check': {
     domain: 'workspace',

@@ -33,6 +33,8 @@ export const INSTRUCTION_FILE: Readonly<Record<string, string>> = {
   copilot: '.github/copilot-instructions.md',
 };
 
+const CODEX_MCP = '# Forja — servidor MCP (forja project:wire)\n[mcp_servers.forja]\ncommand = "forja"\nargs = ["mcp:start"]\n';
+
 const GITIGNORE = ['memory/sqlite/', '.context/'];
 
 export const ROLES = ['orchestrator', 'product', 'sdd-architect', 'context-engineer', 'governance', 'marketing'] as const;
@@ -206,6 +208,29 @@ export function wireProject(dir: string, opts: WireOptions = {}): WireChange[] {
   else if (mcp.mcpServers.codegraph && !hasBinary('codegraph')) delete mcp.mcpServers.codegraph;
   writeJson(dir, '.mcp.json', mcp, changes);
 
+  // O mesmo servidor nas outras IAs, cada uma na config de projeto que ela lê sozinha.
+  if (ai.includes('codex')) {
+    const rel = path.join('.codex', 'config.toml');
+    const toml = readOrNull(path.join(dir, rel)) ?? '';
+    if (!/^\[mcp_servers\.forja\]/m.test(toml)) {
+      write(dir, rel, `${toml}${toml && !toml.endsWith('\n') ? '\n' : ''}${toml ? '\n' : ''}${CODEX_MCP}`, changes);
+    } else changes.push({ file: rel, action: 'unchanged' });
+  }
+  if (ai.includes('gemini')) {
+    const rel = path.join('.gemini', 'settings.json');
+    const gem = readJson(path.join(dir, rel)) ?? {};
+    gem.mcpServers ??= {};
+    gem.mcpServers.forja ??= { command: 'forja', args: ['mcp:start'] };
+    writeJson(dir, rel, gem, changes);
+  }
+  if (ai.includes('copilot')) {
+    const rel = path.join('.vscode', 'mcp.json');
+    const vs = readJson(path.join(dir, rel)) ?? {};
+    vs.servers ??= {};
+    vs.servers.forja ??= { type: 'stdio', command: 'forja', args: ['mcp:start'] };
+    writeJson(dir, rel, vs, changes);
+  }
+
   const pkgPath = path.join(dir, 'package.json');
   const pkg = readJson(pkgPath) ?? { name: path.basename(dir), version: '0.1.0', private: true, type: 'module' };
   pkg.scripts ??= {};
@@ -307,6 +332,15 @@ export function checkProjectWiring(dir: string, { commands, ai }: { commands: Re
     else if (mcp.mcpServers.codegraph && !hasBinary('codegraph')) add('mcp', 'warn', 'codegraph registrado no .mcp.json mas ausente do PATH');
     else add('mcp', 'ok', `servidores: ${Object.keys(mcp.mcpServers).join(', ')}`);
   }
+
+  // MCP nas outras IAs conectadas.
+  const mcpGaps: string[] = [];
+  if (wiredAi.includes('codex') && !/^\[mcp_servers\.forja\]/m.test(readOrNull(path.join(dir, '.codex', 'config.toml')) ?? '')) mcpGaps.push('.codex/config.toml');
+  const jsonHas = (rel: string, pick: (j: any) => any) => { try { return Boolean(pick(readJson(path.join(dir, rel)))); } catch { return false; } };
+  if (wiredAi.includes('gemini') && !jsonHas(path.join('.gemini', 'settings.json'), (j) => j?.mcpServers?.forja)) mcpGaps.push('.gemini/settings.json');
+  if (wiredAi.includes('copilot') && !jsonHas(path.join('.vscode', 'mcp.json'), (j) => j?.servers?.forja)) mcpGaps.push('.vscode/mcp.json');
+  const others = wiredAi.filter((a) => a !== 'claude');
+  if (others.length) add('mcp-ias', mcpGaps.length ? 'fail' : 'ok', mcpGaps.length ? `servidor forja ausente em: ${mcpGaps.join(', ')}` : `servidor forja também em: ${others.join(', ')}`);
 
   // Todo comando citado ao usuário/IA precisa existir — é o que impede instrução que não funciona.
   const cited = new Map<string, string>();

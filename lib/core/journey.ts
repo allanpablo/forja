@@ -139,7 +139,10 @@ export function runJourney(opts: JourneyOptions): JourneyStep[] {
     let hid = 0;
     try { hid = JSON.parse(r.stdout.trim().split('\n').pop() ?? '').id; } catch { /* reportado abaixo */ }
     const next = forja(['next'], proj);
-    add('hermes:handoff', r.code === 0 && hid > 0 && next.out.includes(`agent:route show ${hid}`), hid ? `#${hid} → next: ${firstLine(next.out)}` : firstLine(r.out));
+    const mine = forja(['agent:route', 'list', '--mine'], proj);
+    const listed = mine.out.includes(`#${hid} [open] {jornada}`);
+    add('hermes:handoff', r.code === 0 && hid > 0 && next.out.includes(`agent:route show ${hid}`) && listed,
+      hid ? `#${hid} → next: ${firstLine(next.out)}${listed ? '' : ` · list --mine: ${firstLine(mine.out)}`}` : firstLine(r.out));
 
     // Comandos que escreviam no pacote quando rodados num projeto (v4): agora gravam no projeto.
     r = forja(['project:dashboard'], proj);
