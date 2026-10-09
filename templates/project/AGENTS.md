@@ -70,4 +70,6 @@ eles são sub-agents em `.claude/agents/`. Um handoff tem 7 campos: `from`, `to`
 
 ```bash
 forja hermes:handoff '<json com os 7 campos>'
+forja agent:route list --open --mine           # handoffs em aberto deste projeto
+forja agent:route done <id>                    # fecha um handoff entregue
 ```

@@ -1,5 +1,5 @@
-import { Order } from '../../src/modules/orders/domain/order.entity';
-import { Money } from '../../src/modules/orders/domain/money.vo';
+import { Order } from '../../src/modules/orders/domain/order.entity.js';
+import { Money } from '../../src/modules/orders/domain/money.vo.js';
 
 /**
  * A prova concreta do isolamento (AC-8): estes testes exercem a **regra de negócio** instanciando

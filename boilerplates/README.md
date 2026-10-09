@@ -1,13 +1,14 @@
 # 🏗️ Boilerplates - Casos de Uso Profissionais
 
-Arquiteturas de referência que acompanham o Forja. Elas **não são geradas por um comando**: o
-`forja project:new` cria o projeto (memória, agentes, backend NestJS e conexão com a IA), e cada
-boilerplate serve de modelo para a IA e para o time adaptarem. Os boilerplates estão indexados no
-catálogo: `forja catalog:assets` gera `.context/asset-catalog.md`, e `forja query:universal "<stack>"`
-os encontra.
+Arquiteturas que acompanham o Forja. Há dois tipos:
 
-> Geração direta a partir de um boilerplate (`--template`) está no roadmap; até lá, use-os como
-> referência.
+- **Templates validados** — `forja project:new <nome> --template <template>` cria o projeto a partir
+  deles. "Validado" é uma promessa cobrada no CI: o backend instala, compila, passa nos testes e no
+  lint (`forja project:smoke --full --template <template>`).
+- **Referência** — arquiteturas para a IA e o time consultarem e adaptarem; ainda sem essa validação.
+
+`forja project:templates` mostra qual é qual. Todos estão indexados no catálogo
+(`forja catalog:assets`, `forja query:universal "<stack>"`).
 
 Cada boilerplate é um projeto completo com:
 - ✅ Estrutura hierárquica de memória
@@ -130,7 +131,7 @@ forja project:new meu-projeto   # e use boilerplates/05-monorepo-starter/ como a
 **Para**: Produtos com regra de negócio de verdade — DDD por camadas, sem cerimônia
 
 ```bash
-forja project:new meu-projeto   # e use boilerplates/06-clean-arch/ como arquitetura de referência
+forja project:new meu-projeto --template clean-arch   # template validado (NestJS 12, Vitest)
 ```
 
 **Inclui**:
@@ -150,8 +151,8 @@ forja project:new meu-projeto   # e use boilerplates/06-clean-arch/ como arquite
 
 ### 1. Criar o projeto e escolher a referência
 ```bash
-forja project:new meu-api
-forja catalog:assets            # lista os boilerplates (.context/asset-catalog.md)
+forja project:templates         # templates validados × referências
+forja project:new meu-api --template clean-arch
 ```
 
 ### 2. Setup

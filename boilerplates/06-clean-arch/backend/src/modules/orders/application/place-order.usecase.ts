@@ -1,9 +1,9 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { randomUUID } from 'node:crypto';
-import { Order, OrderLine } from '../domain/order.entity';
-import { Money } from '../domain/money.vo';
-import { ORDER_REPOSITORY, OrderRepository } from '../domain/order.repository';
-import { Result } from '../../../shared/result';
+import { Order, OrderLine } from '../domain/order.entity.js';
+import { Money } from '../domain/money.vo.js';
+import { ORDER_REPOSITORY, type OrderRepository } from '../domain/order.repository.js';
+import { Result } from '../../../shared/result.js';
 
 /**
  * Contratos de entrada/saída — tipados e legíveis. Um agente entende o que o use-case faz pela

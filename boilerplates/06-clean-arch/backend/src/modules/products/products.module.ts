@@ -1,7 +1,7 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
-import { Product } from './product.entity';
-import { ProductsController } from './products.controller';
+import { Product } from './product.entity.js';
+import { ProductsController } from './products.controller.js';
 
 /** CRUD enxuto: só o controller e a entity. Sem providers de porta/adapter — não há o que inverter. */
 @Module({

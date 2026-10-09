@@ -26,6 +26,8 @@ function parseAi(argv: readonly string[]): string[] | undefined {
 async function main() {
   const full = process.argv.includes('--full');
   const ai = parseAi(process.argv.slice(2));
+  const ti = process.argv.indexOf('--template');
+  const template = ti >= 0 ? process.argv[ti + 1] : undefined;
 
   console.log(`\nForja project smoke${full ? ' (tier --full)' : ''}${ai ? ` (--ai ${ai.join(',')})` : ''}\n`);
   console.log(
@@ -34,7 +36,14 @@ async function main() {
       : `Gerando um projeto num diretório isolado${full ? ' e buildando o backend — isto leva minutos' : ''}.\n`,
   );
 
-  const results = await runProjectSmoke({ full, ai });
+  if (template) console.log(`Template: ${template}\n`);
+  let results;
+  try {
+    results = await runProjectSmoke({ full, ai, template });
+  } catch (e) {
+    console.error(`❌ ${(e as Error).message}`);
+    process.exit(1);
+  }
 
   for (const r of results) {
     console.log(`${(TAG as any)[r.status]} ${r.id.padEnd(16)} ${r.detail}`);

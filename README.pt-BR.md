@@ -85,7 +85,8 @@ E cada comando acima ficou gravado em `.context/forja-runs.jsonl` — quando a g
 - **Pipeline SDD + GSD** — `spec → plan → tasks → check`, decisões registradas como ADRs.
 - **Auto-verificação (invariantes que rodam)** — o framework prova a si mesmo: uma família de gates guarda cada fronteira (núcleo, tarball, coerência de doc, topologia de agentes, projeto gerado), e `check:all` roda a bateria inteira num veredito só. A governança deixa de depender de disciplina — vira harness.
 - **Economia de token medida, não afirmada** — a memória (`context.md` como mapa) economiza ~60% vs explorar no frio, e `token:economy` **prova** isso nos seus domínios. `code:context` entrega o mapa pronto; `memory:audit` garante que ele não mente sobre o código.
-- **Projetos que nascem conectados à sua IA** — `project:new` cria o scaffold completo (memória, agentes, backend NestJS como boilerplate padrão) e liga o projeto à IA que você usa: instruções nativas (`AGENTS.md`, `CLAUDE.md`, `GEMINI.md`, Copilot), hooks do Claude Code que abrem cada sessão com o estado do projeto e anexam a spec citada no prompt, seis sub-agents por papel e o servidor MCP do Forja. A memória já nasce indexada. `project:wire --check` prova a conexão; `project:upgrade --apply` religa projetos antigos sem tocar no código do usuário (ADR-0086).
+- **Projetos que nascem conectados à sua IA** — `project:new` cria o scaffold completo (memória, agentes, backend NestJS como boilerplate padrão) e liga o projeto à IA que você usa: instruções nativas (`AGENTS.md`, `CLAUDE.md`, `GEMINI.md`, Copilot), hooks do Claude Code que abrem cada sessão com o estado do projeto e anexam a spec citada no prompt, seis sub-agents por papel e o servidor MCP do Forja no Claude, Codex, Gemini e Copilot (VS Code). A memória já nasce indexada. `project:wire --check` prova a conexão; `project:upgrade --apply` religa projetos antigos sem tocar no código do usuário — ou o workspace inteiro com `--all` (ADR-0086). O backend NestJS segue o padrão oficial do NestJS 12 (ESM, Vitest, oxlint), e a página `/api/ops` mostra specs, handoffs em aberto e a memória indexada do projeto.
+- **Templates validados** — `project:new <nome> --template clean-arch` parte de um boilerplate cuja instalação, build, testes e lint são provados no CI; `project:templates` lista o que é template e o que é arquitetura de referência (ADR-0088).
 - **A jornada do usuário é gate** — `npm test` e `release:check` percorrem a jornada inteira (workspace → projeto → memória, contexto, specs, hooks, MCP e handoffs dentro do projeto), contra o fonte e contra o pacote instalado, e reprovam se algum comando escrever dentro do pacote.
 - **3 capacidades integradas** (ADR-0016): **codegraph** (análise de código via MCP), **harness** (desenho de times de agentes), **ai-engineering** (base de conhecimento).
 - **Engineering Control Plane** (v3.0, ADR-0078) — o Engineering Graph vira ADRs/SPECs em nós de primeira classe consultáveis; a Architecture Constitution checa o código real contra decisões já registradas; o Change Risk Engine pontua uma mudança 0-100 com fatores nomeados e evidenciados; `forja simulate` testa um ref num worktree isolado e nunca promove sozinho. Uma façade só, `forja engineer "<objetivo>"`, compõe tudo isso — contexto, ADRs relevantes, checagem de arquitetura, risco, agentes recomendados, incidentes parecidos — antes de você começar. Todo score é informação pra um humano/regra de política consultar, nunca uma decisão autônoma por si só.
@@ -205,7 +206,8 @@ Os scripts npm do repo são aliases finos que roteiam pelo core.
 forja workspace:init                       # cria ~/forja-workspace
 forja project:new <nome> --ai claude,copilot  # cria projeto no workspace, conectado à IA
 forja project:wire [--check]               # (no projeto) conecta/verifica instruções, hooks, MCP
-forja project:upgrade --apply              # (no projeto) peças novas de scaffold + religa (aditivo)
+forja project:upgrade --apply              # (no projeto) peças novas de scaffold + religa (aditivo); --all p/ o workspace
+forja project:templates                    # templates validados (project:new --template) × referência
 forja project:list                         # lista projetos do workspace
 forja workspace:project:check <nome>       # valida padrões num projeto do workspace
 
@@ -216,6 +218,7 @@ forja spec:new <slug>                      # também: spec:plan · spec:tasks ·
 forja sprint:start                         # também: sprint:status · sprint:complete
 forja gsd:plan <slug>                      # runbook GSD em .context/
 forja gsd:handoff <intent> <slug>          # handoff entre papéis (ADR-0005)
+forja agent:route list --open --mine       # handoffs em aberto deste projeto (cada um carimbado com o projeto)
 forja gsd:check <slug>                     # gates básicos do runbook
 forja orchestrate "<objetivo>" --slug <s>  # abre a corrida: a cadeia SDD/GSD como máquina de estados (SPEC-021)
 forja orchestrate:status <slug>            # o estado da máquina: etapas, gates, vereditos
@@ -305,10 +308,11 @@ meu-projeto/
     settings.json        # hooks: forja hook:session-start / hook:user-prompt
     agents/              # orchestrator, product, sdd-architect, context-engineer, governance, marketing
   .mcp.json              # servidor MCP do forja (+ codegraph quando instalado)
+  .codex/config.toml     # MCP do forja no Codex · .gemini/settings.json (Gemini) · .vscode/mcp.json (Copilot)
   .forja/models.json     # cadeia de fallback entre IAs (troca de motor)
   memory/                # memória hierárquica, indexada em memory/sqlite/ (fora do git)
   specs/                 # spec → plan → tasks
-  backend/               # NestJS (exceto com --skip-backend)
+  backend/               # NestJS 12, ESM + Vitest + oxlint (exceto com --skip-backend; ou o do --template)
 ```
 
 A parte gerenciada pelo Forja em cada arquivo de instrução fica entre `<!-- forja:begin -->` e

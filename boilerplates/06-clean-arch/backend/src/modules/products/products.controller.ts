@@ -2,7 +2,7 @@ import { Body, Controller, Get, Param, Post } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { IsInt, IsPositive, IsString } from 'class-validator';
-import { Product } from './product.entity';
+import { Product } from './product.entity.js';
 
 class CreateProductDto {
   @IsString()

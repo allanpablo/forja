@@ -1,6 +1,6 @@
-import { Result } from '../../../shared/result';
-import { Money } from './money.vo';
-import { OrderStatus } from './order-status.vo';
+import { Result } from '../../../shared/result.js';
+import { Money } from './money.vo.js';
+import { OrderStatus } from './order-status.vo.js';
 
 /**
  * Order — o agregado. **Toda invariante de negócio mora aqui**, em TypeScript puro:
