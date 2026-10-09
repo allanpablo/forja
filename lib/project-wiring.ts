@@ -33,6 +33,8 @@ export const INSTRUCTION_FILE: Readonly<Record<string, string>> = {
   copilot: '.github/copilot-instructions.md',
 };
 
+const GITIGNORE = ['memory/sqlite/', '.context/'];
+
 export const ROLES = ['orchestrator', 'product', 'sdd-architect', 'context-engineer', 'governance', 'marketing'] as const;
 
 /** Hooks do Claude Code. Guardados por `command -v`: sem `forja` no PATH, a sessão abre sem erro. */
@@ -176,6 +178,15 @@ export function wireProject(dir: string, opts: WireOptions = {}): WireChange[] {
     write(dir, rel, upsertManagedBlock(readOrNull(path.join(dir, rel)), agentsBody), changes);
   }
 
+  // Artefatos locais nunca vão para o git: o índice SQLite e os packs/auditoria em .context/.
+  const giPath = path.join(dir, '.gitignore');
+  const gi = readOrNull(giPath) ?? '';
+  const giLines = new Set(gi.split('\n').map((l) => l.trim()));
+  const missingIgnores = GITIGNORE.filter((l) => !giLines.has(l));
+  if (missingIgnores.length) {
+    write(dir, '.gitignore', `${gi}${gi && !gi.endsWith('\n') ? '\n' : ''}${gi ? '\n' : ''}# Forja — artefatos locais\n${missingIgnores.join('\n')}\n`, changes);
+  }
+
   // Cadeia de fallback entre IAs (protocolo "Engine Switch" de memory/00-global/context-policy.md).
   // Toda IA lê as mesmas instruções (AGENTS.md); o arquivo diz a ordem e onde cada uma as encontra.
   const modelsRel = path.join('.forja', 'models.json');
@@ -315,6 +326,10 @@ export function checkProjectWiring(dir: string, { commands, ai }: { commands: Re
   const broken = ['.', 'backend'].flatMap((sub) => fs.existsSync(path.join(dir, sub, 'package.json'))
     ? brokenNodeScripts(path.join(dir, sub)).map((b) => (sub === '.' ? b : `${sub}/${b}`)) : []);
   add('scripts', broken.length ? 'fail' : 'ok', broken.length ? `scripts apontam para arquivo ausente: ${broken.join('; ')}` : 'todo `node <arquivo>` dos package.json existe');
+
+  const gi = new Set((readOrNull(path.join(dir, '.gitignore')) ?? '').split('\n').map((l) => l.trim()));
+  const unignored = GITIGNORE.filter((l) => !gi.has(l));
+  add('gitignore', unignored.length ? 'warn' : 'ok', unignored.length ? `fora do .gitignore (o índice iria para o git): ${unignored.join(', ')}` : 'índice e .context/ fora do git');
 
   add('forja-bin', hasBinary('forja') ? 'ok' : 'warn', hasBinary('forja') ? 'forja no PATH' : 'forja fora do PATH — hooks e MCP ficam inativos (npm i -g forjajs)');
   return checks;

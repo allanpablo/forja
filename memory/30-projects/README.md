@@ -1,7 +1,7 @@
 # memory/30-projects — fichas de projetos (privadas)
 
 Este diretório registra os projetos rastreados pela Memória Universal. Cada projeto
-gera uma ficha `<nome>.md` (criada por `init-project.js` ou pela sincronização de
+gera uma ficha `<nome>.md` (criada pelo `forja project:new` ou pela sincronização de
 memória).
 
 ## Privacidade

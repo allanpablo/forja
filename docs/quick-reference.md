@@ -56,11 +56,11 @@ npm run project:new meu-projeto -- --ai claude,copilot
 npm run project:new meu-projeto -- --skip-backend
 npm run project:new meu-projeto -- --verbose
 
-# Via binário direto (sempre cria no workspace)
-node bin/init-project.js meu-projeto
+# Dentro do projeto: conferir a conexão com a IA
+forja project:wire --check
 
 # Ajuda
-node bin/init-project.js --help
+forja help project:new
 ```
 
 ---
@@ -362,7 +362,7 @@ logger.error('Auth failed', error);             // Erro
 
 ```bash
 # Quick start
-node bin/init-project.js meu-app && cd meu-app/backend && npm i && npm run start:dev
+forja project:new meu-app && cd ~/forja-workspace/projects/meu-app/backend && npm run start:dev
 
 # Test all
 npm test && npm run test:e2e && npm run lint
@@ -386,10 +386,10 @@ grep -r "TODO\|FIXME" src/
 
 ```bash
 # 1. Gerar (1 min)
-node bin/init-project.js meu-app --force
+forja project:new meu-app
 
-# 2. Instalar (3 min)
-cd meu-app/backend && npm i
+# 2. Entrar no backend (o project:new já instala as dependências)
+cd ~/forja-workspace/projects/meu-app/backend
 
 # 3. Rodar (1 min)
 npm run start:dev

@@ -1,6 +1,6 @@
 # ADR-0022: Congelar o dashboard web
 
-- **Status**: accepted
+- **Status**: superseded by ADR-0087
 - **Data**: 2026-07-09
 - **Autor(es)**: apk
 - **Tags**: dashboard, cli, release, security, sdd

@@ -128,7 +128,7 @@ No kit: Busca em memory/ via SQLite
 CLI que cria novo projeto com toda estrutura. Os projetos vão para o workspace Forja (`~/forja-workspace/projects/<nome>`).
 ```
 Comando: npm run project:new meu-projeto
-Arquivos: bin/init-project.js, bin/create-memory-nest-kit.js
+Arquivos: bin/init-project.ts, bin/create-memory-nest-kit.ts, lib/project-wiring.ts
 ```
 
 ---
@@ -315,8 +315,8 @@ Gerenciar: npm run sprint:start
 ### SQLite
 Banco de dados leve, em-arquivo.
 ```
-No kit: .memory/sqlite/context.db
-Schema: backend/scripts/memory-db-schema.sql
+No projeto: memory/sqlite/universal.db (FTS5, fora do git)
+Indexar: forja sync:universal
 ```
 
 ---

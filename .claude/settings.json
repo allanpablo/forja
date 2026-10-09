@@ -6,7 +6,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "node $CLAUDE_PROJECT_DIR/scripts/hook-session-start.ts",
+            "command": "node $CLAUDE_PROJECT_DIR/bin/forja.ts hook:session-start",
             "timeout": 5000
           }
         ]
@@ -17,7 +17,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "node $CLAUDE_PROJECT_DIR/scripts/hook-user-prompt.ts",
+            "command": "node $CLAUDE_PROJECT_DIR/bin/forja.ts hook:user-prompt",
             "timeout": 3000
           }
         ]

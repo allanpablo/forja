@@ -11,7 +11,7 @@
   <img src="https://img.shields.io/badge/agents-6_roles-orange?style=flat-square" alt="6 agents">
   <img src="https://img.shields.io/badge/pipeline-SDD_+_GSD-teal?style=flat-square" alt="SDD+GSD">
   <img src="https://img.shields.io/badge/memory-SQLite_FTS5-green?style=flat-square" alt="Memory">
-  <img src="https://img.shields.io/badge/node-%E2%89%A520-339933?style=flat-square&logo=node.js&logoColor=white" alt="Node >= 20">
+  <img src="https://img.shields.io/badge/node-%E2%89%A522-339933?style=flat-square&logo=node.js&logoColor=white" alt="Node >= 22">
   <img src="https://img.shields.io/badge/license-MIT-1a1a1a?style=flat-square" alt="MIT">
   <img src="https://img.shields.io/badge/PRs-welcome-8957e5?style=flat-square" alt="PRs welcome">
 </p>
@@ -95,9 +95,15 @@ process followed?", the answer is a file, not a promise.
 - **Token economy measured, not asserted** — memory (the `context.md` as a map) saves ~60% vs
   exploring cold, and `token:economy` **proves** it across your domains. `code:context` delivers the
   map ready to paste; `memory:audit` guarantees it doesn't lie about the code.
-- **Project generation** — `project:new` scaffolds a full project (memory, agents, multi-AI
-  instructions, a NestJS backend as the default boilerplate) and registers the record; `project:upgrade`
-  brings new scaffold pieces to already-generated projects without touching the user's code.
+- **Projects born connected to your AI** — `project:new` scaffolds a full project (memory, agents,
+  a NestJS backend as the default boilerplate) and wires it to the AI you use: native instructions
+  (`AGENTS.md`, `CLAUDE.md`, `GEMINI.md`, Copilot), Claude Code hooks that open every session with the
+  project state and attach the spec you mention, six role sub-agents, and the Forja MCP server. The
+  memory is indexed from the first minute. `project:wire --check` proves it; `project:upgrade --apply`
+  re-wires older projects without touching the user's code (ADR-0086).
+- **The user journey is a gate** — `npm test` and `release:check` run the whole journey (workspace →
+  project → memory, context, specs, hooks, MCP, handoffs inside the project) against the source and
+  against the installed tarball, and fail if any command writes into the package itself.
 - **3 integrated capabilities** (ADR-0016): **codegraph** (code analysis via MCP), **harness**
   (agent-team design), **ai-engineering** (knowledge base).
 - **LLM Fit Loop** — adapters de CLI, perfis no workspace, probes sem custo, observações e
@@ -120,8 +126,11 @@ forja                    # help grouped by domain
 # Prepare the production workspace (the fixed home for your projects)
 forja workspace:init
 
-# Create a new project (generated in ~/forja-workspace/projects/<name>)
+# Create a new project (generated in ~/forja-workspace/projects/<name>, already wired to your AI)
 forja project:new my-project --ai claude,copilot
+cd ~/forja-workspace/projects/my-project
+forja project:wire --check     # instructions, hooks, sub-agents and MCP connected
+forja status                   # memory indexed, specs, handoffs — then open your AI here
 
 # Enter the SDD/GSD cycle for the first feature
 forja spec:new my-feature
@@ -130,10 +139,20 @@ forja spec:tasks my-feature
 forja spec:check my-feature
 ```
 
+### Already have a repository?
+
+```bash
+cd my-existing-app
+forja project:wire --ai claude,codex   # native instructions, hooks, sub-agents, MCP
+forja project:upgrade --apply          # memory and agents layer (additive: no backend, no overwrites)
+forja sync:universal                   # index the memory
+```
+
 ### Maintenance commands
 
 ```bash
-forja project:upgrade <project> --apply
+forja project:upgrade --apply          # inside the project: new scaffold pieces + re-wire (pre-v5 projects)
+forja project:wire --check
 forja code:context <domain> --code
 forja memory:audit
 forja token:economy --project <project>
@@ -165,8 +184,8 @@ external network or Docker handlers must be injected and permissioned by the hos
 > Cloned the repo instead of installing? The same commands run as
 > `node bin/forja.ts <command>` — the npm scripts are just thin aliases of the core.
 > The source is TypeScript and runs natively: **dev needs Node ≥ 22.6** (type stripping). The
-> *published* package ships `dist/*.js` and runs on **Node ≥ 20** — the `release-gate` proves it
-> every release (SPEC-012).
+> *published* package ships `dist/*.js` and requires **Node ≥ 22** — the `release-gate` installs the
+> tarball and runs the full user journey on it every release (SPEC-012, ADR-0086).
 
 Step by step on **create vs update** a project: [`docs/processo-projeto.md`](docs/processo-projeto.md).
 
@@ -227,7 +246,9 @@ forja help [<command>|--all]               # the core, or one command's usage/ar
 
 # Workspace & projects
 forja workspace:init                       # create ~/forja-workspace
-forja project:new <name> --ai claude,copilot  # create a project in the workspace
+forja project:new <name> --ai claude,copilot  # create a project in the workspace, wired to the AI
+forja project:wire [--check]               # (inside a project) connect/verify instructions, hooks, MCP
+forja project:upgrade --apply              # (inside a project) bring new scaffold + re-wire
 forja project:list                         # list workspace projects
 forja workspace:project:check <name>       # validate standards in a workspace project
 
@@ -279,7 +300,7 @@ forja incident:similar "<query>"           # keyword-based similar-incident sugg
 # Memory & context (workspace)
 forja sync:universal                       # reindex the workspace SQLite FTS5
 forja query:universal "<query>"            # FTS5 search
-forja context:smart                        # smart-context (3 modes, ADR-0003)
+forja context:smart --mode task --task pix # smart-context: global | domain | task (ADR-0003)
 forja memory:compress                      # archive old runs + VACUUM
 forja memory:extract                       # extract global knowledge from memory
 
@@ -297,6 +318,8 @@ forja tools:doctor                         # core X-ray; tells permission/lock f
 forja release:check --publish              # tarball gate before publishing
 forja project:smoke                        # generated-project gate; --full installs+builds; --ai <list> checks native instructions
 forja project:dashboard                    # static status report
+forja hook:session-start                   # what Claude Code runs at session start (briefing)
+forja hook:user-prompt                     # what it runs per prompt (attaches the cited spec)
 
 # Governance & audit
 forja audit:sync                           # project the audit trail into a queryable table
@@ -347,6 +370,25 @@ projects/     LEGACY — do not use; projects live in the external workspace
   .context/              # product GSD runbooks
   README.md
 ```
+
+## Inside a generated project
+
+```
+my-project/
+  AGENTS.md              # how to operate the project — read natively by Codex, Copilot agent, Gemini
+  CLAUDE.md, GEMINI.md   # import AGENTS.md (+ .github/copilot-instructions.md for Copilot)
+  .claude/
+    settings.json        # hooks: forja hook:session-start / hook:user-prompt
+    agents/              # orchestrator, product, sdd-architect, context-engineer, governance, marketing
+  .mcp.json              # forja MCP server (+ codegraph when installed)
+  .forja/models.json     # AI fallback chain (engine switch)
+  memory/                # hierarchical memory, indexed in memory/sqlite/ (git-ignored)
+  specs/                 # spec → plan → tasks
+  backend/               # NestJS (unless --skip-backend)
+```
+
+The Forja-managed part of each instruction file lives between `<!-- forja:begin -->` and
+`<!-- forja:end -->`; everything outside it is yours and survives `project:wire`/`project:upgrade`.
 
 ## Documentation
 

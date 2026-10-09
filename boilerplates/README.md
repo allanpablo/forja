@@ -1,6 +1,13 @@
 # 🏗️ Boilerplates - Casos de Uso Profissionais
 
-Exemplos prontos para produção usando **create-memory-nest-kit**.
+Arquiteturas de referência que acompanham o Forja. Elas **não são geradas por um comando**: o
+`forja project:new` cria o projeto (memória, agentes, backend NestJS e conexão com a IA), e cada
+boilerplate serve de modelo para a IA e para o time adaptarem. Os boilerplates estão indexados no
+catálogo: `forja catalog:assets` gera `.context/asset-catalog.md`, e `forja query:universal "<stack>"`
+os encontra.
+
+> Geração direta a partir de um boilerplate (`--template`) está no roadmap; até lá, use-os como
+> referência.
 
 Cada boilerplate é um projeto completo com:
 - ✅ Estrutura hierárquica de memória
@@ -18,7 +25,7 @@ Cada boilerplate é um projeto completo com:
 **Para**: APIs RESTful simples, microserviços, backends genéricos
 
 ```bash
-node ../bin/init-project.js meu-projeto --template api-rest
+forja project:new meu-projeto   # e use boilerplates/01-api-rest/ como arquitetura de referência
 ```
 
 **Inclui**:
@@ -39,7 +46,7 @@ node ../bin/init-project.js meu-projeto --template api-rest
 **Para**: Aplicações multi-tenant, subscriptions, billing
 
 ```bash
-node ../bin/init-project.js meu-projeto --template saas
+forja project:new meu-projeto   # e use boilerplates/02-saas-starter/ como arquitetura de referência
 ```
 
 **Inclui**:
@@ -60,7 +67,7 @@ node ../bin/init-project.js meu-projeto --template saas
 **Para**: Lojas online, marketplaces, checkout
 
 ```bash
-node ../bin/init-project.js meu-projeto --template ecommerce
+forja project:new meu-projeto   # e use boilerplates/03-ecommerce-starter/ como arquitetura de referência
 ```
 
 **Inclui**:
@@ -81,7 +88,7 @@ node ../bin/init-project.js meu-projeto --template ecommerce
 **Para**: Arquiteturas distribuídas, orquestração
 
 ```bash
-node ../bin/init-project.js meu-projeto --template microservices
+forja project:new meu-projeto   # e use boilerplates/04-microservices-starter/ como arquitetura de referência
 ```
 
 **Inclui**:
@@ -102,7 +109,7 @@ node ../bin/init-project.js meu-projeto --template microservices
 **Para**: Monorepositórios, full-stack em um só lugar
 
 ```bash
-node ../bin/init-project.js meu-projeto --template monorepo
+forja project:new meu-projeto   # e use boilerplates/05-monorepo-starter/ como arquitetura de referência
 ```
 
 **Inclui**:
@@ -123,7 +130,7 @@ node ../bin/init-project.js meu-projeto --template monorepo
 **Para**: Produtos com regra de negócio de verdade — DDD por camadas, sem cerimônia
 
 ```bash
-node ../bin/init-project.js meu-projeto --template clean-arch
+forja project:new meu-projeto   # e use boilerplates/06-clean-arch/ como arquitetura de referência
 ```
 
 **Inclui**:
@@ -139,36 +146,12 @@ node ../bin/init-project.js meu-projeto --template clean-arch
 
 ---
 
-### 📊 6. Dashboard Admin
-**Para**: Painel administrativo, gestão interna
-
-```bash
-node ../bin/init-project.js meu-projeto --template dashboard-admin
-```
-
-**Inclui**:
-- RBAC avançado
-- Dashboard com gráficos
-- Gestão de usuários
-- Auditoria e logs
-- Relatórios
-- Dark mode
-
-**Use quando**: Construir admin interno, painel gerencial
-
-[Abrir 📂](./06-dashboard-admin)
-
----
-
 ## 🚀 Quick Start
 
-### 1. Escolher Template
+### 1. Criar o projeto e escolher a referência
 ```bash
-# Listar templates disponíveis
-node ../bin/init-project.js --list-templates
-
-# Escolha um:
-node ../bin/init-project.js meu-api --template api-rest
+forja project:new meu-api
+forja catalog:assets            # lista os boilerplates (.context/asset-catalog.md)
 ```
 
 ### 2. Setup
@@ -232,11 +215,9 @@ template/
 │   ├── scripts/              ← Automação
 │   └── docker-compose.yml    ← Infrastructure
 │
-├── .ia-instructions/         ← Instruções para IAs
-│   ├── copilot.md
-│   ├── claude.md
-│   ├── gemini.md
-│   └── codex.md
+├── AGENTS.md, CLAUDE.md      ← Instruções para IAs (lidas nativamente)
+├── .claude/                  ← hooks e sub-agents do Claude Code
+├── .mcp.json                 ← servidor MCP do Forja
 │
 ├── README.md                 ← Documentação
 ├── .env.example             ← Exemplo de config
@@ -291,14 +272,12 @@ cat backend/src/modules/products/
 
 ## 🤖 Usar com IAs
 
-Cada boilerplate inclui instruções para Copilot, Claude, Gemini e Codex:
+O projeto criado pelo `forja project:new` já sai conectado: Codex, Copilot e Gemini leem o
+`AGENTS.md`; o Claude Code lê o `CLAUDE.md` e roda os hooks do Forja ao abrir a sessão.
 
 ```bash
 cd meu-projeto
-cat .ia-instructions/copilot.md    # Para Copilot
-cat .ia-instructions/claude.md     # Para Claude
-cat .ia-instructions/gemini.md     # Para Gemini
-cat .ia-instructions/codex.md      # Para Codex
+forja project:wire --check    # confirma instruções, hooks, sub-agents e MCP
 ```
 
 ---

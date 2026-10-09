@@ -39,7 +39,7 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const root = pkgRoot;
 // Versão real do pacote — o MCP anunciava '2.0.3' cravado desde a v2.
 const FORJA_VERSION: string = (() => { try { return JSON.parse(fs.readFileSync(path.join(pkgRoot, 'package.json'), 'utf8')).version; } catch { return '0.0.0'; } })();
-const STUDIO_COMMANDS = new Set(['workspace:init', 'project:new', 'project:list', 'project:upgrade', 'workspace:project:check', 'init:project', 'demo:workspace']);
+const STUDIO_COMMANDS = new Set(['workspace:init', 'project:new', 'project:list', 'project:upgrade', 'workspace:project:check', 'demo:workspace']);
 
 // SPEC-043: `forja help` mostra só o núcleo (`tier: 'core'`); `forja help --all` mantém a lista
 // completa de antes. O detalhe por comando vive em `printCommandHelp`.
@@ -207,10 +207,14 @@ function runGates(cmd: any) {
  */
 
 // Auditoria nunca bloqueia o comando (NFR da SPEC-025).
+// Hooks rodam a cada prompt da IA: auditá-los afogaria a trilha. Sem workspace não há onde auditar —
+// antes caía em `<pacote>/.context`, ou seja, dentro de node_modules no pacote instalado.
 function audit(entry: any) {
+  if (String(entry.cmd).startsWith('hook:')) return;
   try {
     const info = getWorkspaceInfo();
-    const dir = info.exists ? getWorkspaceContextDir() : path.join(root, '.context');
+    if (!info.exists) return;
+    const dir = getWorkspaceContextDir();
     fs.mkdirSync(dir, { recursive: true });
     fs.appendFileSync(path.join(dir, 'forja-runs.jsonl'), JSON.stringify(entry) + '\n', 'utf8');
   } catch (error) {

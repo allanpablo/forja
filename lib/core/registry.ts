@@ -27,7 +27,6 @@ export const DOMAINS = {
   contexto: 'Contexto & token economy',
   llm: 'LLMs & execução supervisionada',
   governanca: 'Governança & qualidade',
-  geracao: 'Geração de projetos',
 };
 
 export interface CommandArg {
@@ -825,9 +824,4 @@ export const COMMANDS: Record<string, CommandSpec> = {
   },
 
   // --- Geração ----------------------------------------------------------------------
-  'init:project': {
-    domain: 'geracao',
-    desc: 'Gera projeto direto num path (prefira project:new)',
-    node: 'bin/init-project.ts',
-  },
 };

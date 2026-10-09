@@ -45,7 +45,10 @@ function main() {
     // quebrava o comando instalado com module-not-found (o dist não tem .ts).
     const generator = script('bin/create-memory-nest-kit');
     try {
-      execFileSync(process.execPath, [generator, fresh, '--force'], { cwd: tmp, env, stdio: 'pipe' });
+      // Referência sem backend quando o projeto não tem um: o upgrade é aditivo, e "aditivo" não pode
+      // significar instalar um NestJS inteiro num projeto --skip-backend ou num repo existente.
+      const hasBackend = fs.existsSync(path.join(target, 'backend'));
+      execFileSync(process.execPath, [generator, fresh, ...(hasBackend ? [] : ['--only-memory']), '--force'], { cwd: tmp, env, stdio: 'pipe' });
     } catch (e: any) {
       const out = `${e.stdout ?? ''}${e.stderr ?? ''}`.trim().split('\n').slice(-15).join('\n');
       console.error(`O gerador de referência falhou — nada foi alterado no projeto.\n${out}`);

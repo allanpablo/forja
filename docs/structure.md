@@ -133,11 +133,10 @@ Quando você roda `npm run project:new meu-projeto`, o projeto é criado dentro 
 │   │   └── context-pack.md             → Output compactado
 │   └── package.json
 │
-├── 📂 .ia-instructions/                [Config por IA]
-│   ├── copilot.md                      → Para Copilot/VSCode
-│   ├── claude.md                       → Para Claude/claude.ai
-│   ├── gemini.md                       → Para Gemini/gemini.ai
-│   └── README.md                       → Guia de instrução
+├── 📄 AGENTS.md / CLAUDE.md / GEMINI.md [Instruções nativas por IA — bloco forja:begin/end]
+├── 📂 .claude/                         [settings.json com hooks + agents/ (6 papéis)]
+├── 📄 .mcp.json                        [servidor MCP do Forja]
+├── 📂 .forja/models.json               [cadeia de fallback entre IAs]
 │
 ├── 📂 backend/                         [NestJS (se não --skip-backend)]
 │   ├── 📂 src/
@@ -153,13 +152,6 @@ Quando você roda `npm run project:new meu-projeto`, o projeto é criado dentro 
 │   │   │   └── database.config.ts
 │   │   ├── app.module.ts
 │   │   └── main.ts
-│   │
-│   ├── 📂 scripts/
-│   │   ├── memory-db-init.mjs          → Criar BD
-│   │   ├── memory-db-sync.mjs          → Sincronizar memória
-│   │   ├── memory-db-query.mjs         → Consultar
-│   │   └── .sqlite/
-│   │       └── context.db              → BD principal
 │   │
 │   ├── package.json
 │   ├── tsconfig.json
@@ -240,18 +232,12 @@ node scripts/append-handoff.mjs
 # → Cria handoff pronto para próximo agente
 ```
 
-### `backend/scripts/` - Gerenciar BD
-**Use quando**: Sincronizar memória ou consultar índice
+### Memória indexada - `forja sync:universal`
+**Use quando**: Sincronizar memória ou consultar o índice
 ```bash
-node backend/scripts/memory-db-init.mjs
-# → Criar/resetar BD
-
-node backend/scripts/memory-db-sync.mjs
-# → Indexar memory/ em SQLite
-
-node backend/scripts/memory-db-query.mjs \
-  --query "SELECT * FROM improvement_items WHERE status='pending'"
-# → Consultar rastreamento
+forja sync:universal                       # indexa memory/, docs/, prompts/, specs/ (memory/sqlite/)
+forja query:universal "pagamentos"         # busca FTS5
+forja context:smart --mode task --task pix # pack mínimo da tarefa
 ```
 
 ---
@@ -302,8 +288,8 @@ cat memory/50-orchestration/handoffs/handoff-*.md
 # Executa prompts de review
 cat prompts/reviewer-prompt.md
 
-# Atualiza summaries se OK
-node backend/scripts/memory-db-sync.mjs
+# Atualiza o índice se OK
+forja sync:universal
 ```
 
 ### 5️⃣ Documentar Run
@@ -335,11 +321,11 @@ Após mudanças importantes:
 # 1. Adicionar à memória (manual ou via handoff)
 cat memory/30-domains/auth/context.md
 
-# 2. Sincronizar com BD
-node backend/scripts/memory-db-sync.mjs
+# 2. Sincronizar com o índice
+forja sync:universal
 
-# 3. Consultar progresso
-node backend/scripts/memory-db-query.mjs --table improvement_items
+# 3. Consultar
+forja query:universal "auth"
 ```
 
 ---
@@ -347,7 +333,7 @@ node backend/scripts/memory-db-query.mjs --table improvement_items
 ## 🎯 Próximos Passos
 
 1. ✅ Entender a estrutura (você está aqui)
-2. Ler `.ia-instructions/copilot.md` (ou claude.md/gemini.md)
+2. Ler o `AGENTS.md` do projeto (ou abrir a IA nele: as instruções são lidas sozinhas)
 3. Rodar `node scripts/build-context-pack.mjs`
 4. Chamar primeiro agente com contexto
 5. Criar handoff após cada tarefa

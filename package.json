@@ -42,7 +42,6 @@
     "sync:universal": "node bin/forja.ts sync:universal",
     "query:universal": "node bin/forja.ts query:universal",
     "dev": "node scripts/dev.ts",
-    "init:project": "node bin/forja.ts init:project",
     "sprint:start": "node bin/forja.ts sprint:start",
     "sprint:status": "node bin/forja.ts sprint:status",
     "sprint:complete": "node bin/forja.ts sprint:complete",
@@ -77,10 +76,6 @@
     "gsd:check": "node bin/forja.ts gsd:check",
     "design:check": "node bin/forja.ts design:check",
     "design:select": "node bin/forja.ts design:select",
-    "ops:plan": "node bin/forja.ts gsd:plan",
-    "ops:handoff": "node bin/forja.ts gsd:handoff",
-    "ops:check": "node bin/forja.ts gsd:check",
-    "ops:sprint": "node bin/forja.ts sprint:status",
     "code:index": "node bin/forja.ts code:index",
     "code:sync": "node bin/forja.ts code:sync",
     "code:status": "node bin/forja.ts code:status",
@@ -96,9 +91,9 @@
     "build": "tsc -p tsconfig.build.json",
     "types:check": "tsc --noEmit",
     "test": "node --test test/*.test.js",
-    "demo:autonomy": "node scripts/demo-autonomy.ts",
+    "demo:autonomy": "node bin/forja.ts demo:autonomy",
     "demo:workspace": "node bin/forja.ts demo:workspace",
-    "benchmark:context": "node scripts/context-benchmark.ts",
+    "benchmark:context": "node bin/forja.ts benchmark:context",
     "llm:profiles:init": "node bin/forja.ts llm:profiles:init",
     "llm:doctor": "node bin/forja.ts llm:doctor",
     "llm:probe": "node bin/forja.ts llm:probe",
@@ -122,7 +117,7 @@
     "sdd"
   ],
   "engines": {
-    "node": ">=20"
+    "node": ">=22"
   },
   "repository": {
     "type": "git",

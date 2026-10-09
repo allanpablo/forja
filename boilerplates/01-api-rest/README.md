@@ -10,7 +10,7 @@ Uma API REST profissional com autenticação, validação, rate-limiting e teste
 
 ```bash
 # 1. Criar projeto
-node ../../bin/init-project.js minha-api --template api-rest
+forja project:new minha-api   # o backend NestJS padrão do Forja é esta API REST
 
 # 2. Setup
 cd minha-api
