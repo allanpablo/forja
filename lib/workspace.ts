@@ -23,6 +23,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import os from 'node:os';
 import { fileURLToPath } from 'node:url';
+import { pkgRoot } from './paths.ts';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -56,7 +57,7 @@ export function getForjaMode(): ForjaMode {
   if (process.env.FORJA_MODE === 'embedded' || process.env.FORJA_MODE === 'studio') return process.env.FORJA_MODE;
   if (process.env.FORJA_WORKSPACE) return 'studio';
   const cwd = path.resolve(process.cwd());
-  const frameworkRoot = path.resolve(__dirname, '..');
+  const frameworkRoot = pkgRoot;
   if (cwd !== frameworkRoot && !cwd.startsWith(`${frameworkRoot}${path.sep}`) && fs.existsSync(path.join(cwd, 'package.json'))) return 'embedded';
   return 'studio';
 }
@@ -235,7 +236,7 @@ Fichas de projetos gerados pelo Forja. Cada arquivo representa um produto ativo 
 }
 
 export function isInsideFrameworkRepo(filePath: any) {
-  const frameworkRoot = path.resolve(__dirname, '..');
+  const frameworkRoot = pkgRoot;
   const resolved = path.resolve(filePath);
   return resolved === frameworkRoot || resolved.startsWith(frameworkRoot + path.sep);
 }

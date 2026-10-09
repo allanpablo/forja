@@ -25,10 +25,12 @@ import path from 'node:path';
 import process from 'node:process';
 import crypto from 'node:crypto';
 import { fileURLToPath } from 'node:url';
+import { pkgRoot, script } from '../lib/paths.ts';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-const root = path.resolve(__dirname, '..');
+// O projeto da sessão (repo do framework ou projeto gerado) — nunca o pacote instalado.
+const root = process.env.CLAUDE_PROJECT_DIR || process.cwd();
 
 const TRIGGER_KEYWORDS = [
   'implement', 'implementa', 'implementar',
@@ -118,7 +120,7 @@ function buildTaskContext(slug: any, capBytes: any) {
   }
   if (!pieces.length) return null;
   const header = `Spec detectada no prompt: **${slug}**. Pack task-mode injetado ` +
-    `(ADR-0009). Para mais contexto: \`npm run query:universal -- "<termo>"\`.`;
+    `(ADR-0009). Para mais contexto: \`forja query:universal "<termo>"\`.`;
   let out = `<forja-task-context slug="${slug}">\n${header}\n\n` +
     pieces.join('\n\n---\n\n') + '\n</forja-task-context>';
   if (out.length > capBytes) out = out.slice(0, capBytes) + '\n[…truncado…]';

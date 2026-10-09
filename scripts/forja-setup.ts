@@ -16,9 +16,10 @@ import { spawnSync } from 'node:child_process';
 import path from 'node:path';
 import readline from 'node:readline';
 import { fileURLToPath } from 'node:url';
+import { script } from '../lib/paths.ts';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const forjaBin = path.resolve(__dirname, '..', 'bin', 'forja.ts');
+const forjaBin = script('bin/forja');
 
 // Allowlist fixa. Não ler de config, não aceitar via argv. Ordem importa: o índice precede a busca.
 const STEPS: readonly string[] = ['workspace:init', 'sync:universal'];

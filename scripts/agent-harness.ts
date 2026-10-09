@@ -14,12 +14,13 @@ import {
 } from '../lib/workspace.ts';
 import { resolveScript } from '../lib/core/registry.ts';
 import { isPathWithinRoot } from '../packages/contracts/src/index.ts';
+import { pkgRoot, script } from '../lib/paths.ts';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 // `root` = recursos do FRAMEWORK (ex.: design:* lê design-md/) — resolvidos por __dirname.
 // `projectRoot` = o PROJETO do usuário (gsd:* opera em specs/ e .context/ dele) — onde foi invocado.
 // Sem essa separação o gsd escrevia no PACOTE no consumidor (classe spec-cli v1.6.2/check-standards v1.7.1).
-const root = path.resolve(__dirname, '..');
+const root = pkgRoot;
 const projectRoot = process.cwd();
 
 const DESIGN_REQUIRED = [
@@ -193,7 +194,7 @@ function cmdCodeCheck() {
 }
 
 function cmdCodeImpact([symbol, depthArg]: string[]) {
-  if (!symbol) fail('Uso: agent-harness code:impact <simbolo> [profundidade]');
+  if (!symbol) fail('Uso: forja code:impact <simbolo> [profundidade]');
   // `symbol` vira um elemento de argv passado direto para o binário `codegraph` — não há shell
   // envolvido no caminho normal, então não é injeção de comando, mas um valor começando com `-`
   // ainda pode ser lido como flag pelo `codegraph` em vez de símbolo posicional (injeção de
@@ -224,7 +225,7 @@ function cmdCodeImpact([symbol, depthArg]: string[]) {
 }
 
 function cmdDesignCheck([briefPath]: string[]) {
-  if (!briefPath) fail('Uso: agent-harness design:check <brief.md>');
+  if (!briefPath) fail('Uso: forja design:check <brief.md>');
   const content = readText(briefPath);
   const missing = DESIGN_REQUIRED.filter((needle) => !content.includes(needle));
   const placeholders = (content.match(/<[^>\n]+>/g) || []).length;
@@ -257,7 +258,7 @@ function cmdDesignSelect([surface = 'agent-console', tone = 'tecnico']: string[]
 }
 
 function cmdHermesHandoff([jsonArg]: string[]) {
-  if (!jsonArg) fail('Uso: agent-harness hermes:handoff \'<json ADR-0005>\'');
+  if (!jsonArg) fail('Uso: forja hermes:handoff \'<json ADR-0005>\'');
   let payload: any;
   try {
     payload = JSON.parse(jsonArg);
@@ -269,7 +270,7 @@ function cmdHermesHandoff([jsonArg]: string[]) {
   const missing = required.filter((field) => !payload[field] || typeof payload[field] !== 'string');
   if (missing.length) fail(`Campos ADR-0005 ausentes: ${missing.join(', ')}`);
 
-  const router = resolveScript(root, 'scripts/agent-router.mjs');
+  const router = script('scripts/agent-router.mjs');
   const result = spawnSync(process.execPath, [router, 'append', JSON.stringify(payload)], {
     cwd: root,
     encoding: 'utf8',
@@ -280,7 +281,7 @@ function cmdHermesHandoff([jsonArg]: string[]) {
 }
 
 function appendHandoff(payload: any) {
-  const router = resolveScript(root, 'scripts/agent-router.mjs');
+  const router = script('scripts/agent-router.mjs');
   const result = spawnSync(process.execPath, [router, 'append', JSON.stringify(payload)], {
     cwd: root,
     encoding: 'utf8',
@@ -340,7 +341,7 @@ function cmdGsdPlan([slug = 'run', ...goalParts]: string[]) {
 }
 
 function cmdGsdHandoff([phase, slug, ...contextParts]: string[]) {
-  if (!phase || !slug) fail('Uso: agent-harness gsd:handoff <spec|plan|implement|review> <slug> [contexto]');
+  if (!phase || !slug) fail('Uso: forja gsd:handoff <spec|plan|implement|review> <slug> [contexto]');
   const template = (GSD_HANDOFFS as any)[phase];
   if (!template) fail(`Fase invalida: ${phase}. Use: ${Object.keys(GSD_HANDOFFS).join('|')}`);
 
@@ -364,7 +365,7 @@ function cmdGsdHandoff([phase, slug, ...contextParts]: string[]) {
 }
 
 function cmdGsdCheck([slug, briefPath]: string[]) {
-  if (!slug) fail('Uso: agent-harness gsd:check <slug> [brief.md]');
+  if (!slug) fail('Uso: forja gsd:check <slug> [brief.md]');
   const safeSlug = slug.toLowerCase().replace(/[^a-z0-9._-]+/g, '-');
   const checks: { name: string; ok: boolean; detail: any }[] = [];
 
@@ -385,7 +386,7 @@ function cmdGsdCheck([slug, briefPath]: string[]) {
   // O spec:check tem de rodar no PROJETO do usuário (cwd), não no pacote, e resolver o script pela
   // extensão certa (`.ts` no dev, `.js` no dist publicado). Cravar `cwd: root` + `scripts/spec-cli.mjs`
   // auditava/carregava o pacote no consumidor (mesma classe spec-cli v1.6.2).
-  const specCli = resolveScript(root, 'scripts/spec-cli');
+  const specCli = script('scripts/spec-cli');
   const specCheck = spawnSync(process.execPath, [specCli, 'check', safeSlug], {
     cwd: projectRoot,
     encoding: 'utf8',
@@ -453,20 +454,20 @@ function cmdWorkspaceInit() {
   console.log(`  ${path.join(rootDir, 'specs')}`);
   console.log(`  ${path.join(rootDir, '.context')}`);
   if (!infoBefore.exists) {
-    console.log('\nPróximo passo: npm run dev -- project:new <nome>');
+    console.log('\nPróximo passo: forja project:new <nome>');
   }
 }
 
 function cmdProjectNew([name, ...rest]: string[]) {
-  if (!name) fail('Uso: agent-harness project:new <nome> [--ai claude,copilot] [--skip-backend]');
+  if (!name) fail('Uso: forja project:new <nome> [--ai claude,copilot] [--skip-backend]');
   const safeName = name.toLowerCase().replace(/[^a-z0-9._-]+/g, '-');
   const projectDir = resolveProject(safeName);
   if (fs.existsSync(projectDir)) {
     fail(`Projeto ja existe no workspace: ${projectDir}`);
   }
 
-  // Repassa flags para init-project.js
-  const result = spawnSync('node', [path.join(root, 'bin/init-project.js'), safeName, ...rest], {
+  // Repassa flags para o gerador (script() acha .ts em dev e .js publicado)
+  const result = spawnSync('node', [script('bin/init-project'), safeName, ...rest], {
     cwd: root,
     encoding: 'utf8',
     stdio: 'inherit',
@@ -521,8 +522,8 @@ function cmdProjectList() {
 }
 
 function cmdProjectCheck([name]: string[]) {
-  if (!name) fail('Uso: agent-harness project:check <nome>');
-  const result = spawnSync('node', [path.join(root, 'scripts/check-standards.js'), name], {
+  if (!name) fail('Uso: forja workspace:project:check <nome>');
+  const result = spawnSync('node', [script('scripts/check-standards'), name], {
     cwd: root,
     encoding: 'utf8',
     stdio: 'inherit',
@@ -531,7 +532,8 @@ function cmdProjectCheck([name]: string[]) {
 }
 
 function showHelp() {
-  console.log(`Uso: node scripts/agent-harness.mjs <command> [args]
+  console.log(`Script interno do Forja — use os comandos via core: forja help --all
+
 
 Workspace:
   workspace:init                Cria estrutura base do workspace Forja

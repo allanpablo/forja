@@ -157,7 +157,7 @@ Resultado:
 - Toma alguns minutos na primeira vez
 
 ### 5️⃣ Init Memory DB
-- Roda `npm run memory:db:init`
+- Roda `forja sync:universal`
 - Cria `.memory/sqlite/context.db`
 - Setup schema SQLite
 
@@ -277,10 +277,10 @@ cd backend && npm run start:dev
 cd backend && npm test
 
 # Sincronizar BD (após mudanças grandes)
-cd backend && npm run memory:db:sync
+forja sync:universal
 
 # Consultar contexto
-cd backend && npm run memory:db:query -- "search" "auth" 10
+forja query:universal "auth" 10
 ```
 
 ### Registrar Handoff (Quando Passar para Outro Agente)
@@ -302,7 +302,7 @@ vim memory/20-architecture/backend.md
 vim memory/30-domains/auth/rules.md
 
 # Sincronizar DB
-cd backend && npm run memory:db:sync
+forja sync:universal
 ```
 
 ---
@@ -340,8 +340,7 @@ node bin/init-project.js meu-projeto --force --skip-git
 ```bash
 # Manual
 cd meu-projeto/backend
-npm run memory:db:init
-npm run memory:db:sync
+forja sync:universal
 ```
 
 ### "Backend não compila"
@@ -432,13 +431,13 @@ cat .context/context-pack.md | head -50
 cd backend && npm run start:dev
 
 # Sincronizar memória
-cd backend && npm run memory:db:sync
+forja sync:universal
 
 # Criar handoff
 node scripts/append-handoff.mjs orchestrator backend-nest "tarefa"
 
 # Query contexto
-cd backend && npm run memory:db:query -- "search" "auth" 10
+forja query:universal "auth" 10
 ```
 
 ---

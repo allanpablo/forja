@@ -142,28 +142,20 @@ node scripts/build-context-pack.mjs
 # Cria: .context/context-pack.md
 ```
 
-### Inicializar SQLite
+### Indexar a memória
 
 ```bash
-cd backend
-npm run memory:db:init
-# Cria: .memory/sqlite/context.db
-```
-
-### Sincronizar memória
-
-```bash
-cd backend
-npm run memory:db:sync
-# Atualiza índices do markdown
+forja sync:universal
+# Indexa memory/, docs/, prompts/ e specs/ em memory/sqlite/universal.db (FTS5)
 ```
 
 ### Consultar
 
 ```bash
-cd backend
-npm run memory:db:query -- "auth"
-# Busca "auth" em toda memória
+forja query:universal "auth"
+# Busca "auth" em toda a memória do projeto
+forja context:smart --mode task --task "auth"
+# Pack mínimo da tarefa em .context/smart-context.md
 ```
 
 ### Watcher automático
@@ -382,7 +374,7 @@ rm -rf dist/ node_modules/ && npm i && npm run build
 npm run lint && npm test && npm run build
 
 # Memory sync all
-node scripts/build-context-pack.mjs && npm run memory:db:sync
+node scripts/build-context-pack.mjs && forja sync:universal
 
 # Find TODOs
 grep -r "TODO\|FIXME" src/

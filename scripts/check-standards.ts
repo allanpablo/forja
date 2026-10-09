@@ -1,6 +1,6 @@
 import fs from 'node:fs';
 import path from 'node:path';
-import { resolveProject, getWorkspaceInfo, initWorkspace } from '../lib/workspace.ts';
+import { resolveProject, getWorkspaceInfo, initWorkspace, isInsideFrameworkRepo } from '../lib/workspace.ts';
 
 // O projeto a auditar é ONDE O USUÁRIO INVOCOU — `process.cwd()`, propagado pelo dispatcher desde a
 // v1.6.2. Cravar `__dirname/..` auditava a raiz do PACOTE (`node_modules/forjajs/dist`) no consumidor
@@ -10,7 +10,11 @@ const root = process.cwd();
 
 const [projectArg] = process.argv.slice(2);
 
-const project = projectArg || 'framework-root';
+// Sem argumento: o repo do framework usa a lista do motor; qualquer outro cwd é um projeto. Antes
+// todo cwd sem argumento era tratado como "FRAMEWORK-ROOT" — um projeto recém-gerado tirava 64% e
+// falhava por arquivos (gsd-harness.md, specs/README.md) que só existem no repo do framework.
+const isFramework = !projectArg && isInsideFrameworkRepo(root);
+const project = projectArg || (isFramework ? 'framework-root' : path.basename(root));
 let projectDir: any;
 if (projectArg) {
   initWorkspace();
@@ -48,7 +52,7 @@ function check() {
     process.exit(1);
   }
 
-  const mandatoryFiles = projectArg ? PROJECT_MANDATORY_FILES : ROOT_MANDATORY_FILES;
+  const mandatoryFiles = isFramework ? ROOT_MANDATORY_FILES : PROJECT_MANDATORY_FILES;
 
   console.log(`\nAnalisando aderencia aos padroes: ${project.toUpperCase()}...\n`);
   if (projectArg) {
@@ -96,4 +100,5 @@ try {
   check();
 } catch (e) {
   console.error('Erro ao verificar padrões:', e.message);
+  process.exitCode = 1;
 }

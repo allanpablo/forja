@@ -23,13 +23,14 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { domainsOf, buildContextPack } from '../lib/code-context.ts';
 import { emitOk } from '../lib/cli-output.ts';
+import { pkgRoot } from '../lib/paths.ts';
 
 const JSON_MODE = process.argv.includes('--json');
 /** No modo `--json` o stdout é só o objeto final (ADR-0082); o texto de análise é suprimido. */
 const say = (line = ''): void => { if (!JSON_MODE) console.log(line); };
 
 const __filename = fileURLToPath(import.meta.url);
-const root = path.resolve(path.dirname(__filename), '..');
+const root = pkgRoot;
 
 /**
  * Modo `--project <path>`: mede o eixo memória nos domínios REAIS do usuário, não na fixture. Para

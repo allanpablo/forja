@@ -1,5 +1,6 @@
 import Database from 'better-sqlite3';
 import { getDbPath, ensureSchema } from './memory-schema.ts';
+import { ftsQuery } from '../lib/context-builder.ts';
 
 ensureSchema({ silent: true });
 const dbPath = getDbPath();
@@ -9,8 +10,8 @@ const query = args[0] || '';
 const limit = Number(args[1] || 5);
 
 if (!query) {
-  console.log('Uso: node scripts/query-universal-memory.js "termo de busca" [limite]');
-  process.exit(0);
+  console.error('Uso: forja query:universal "termo de busca" [limite]');
+  process.exit(1);
 }
 
 const db = new Database(dbPath, { readonly: true });
@@ -31,7 +32,8 @@ const search = db.prepare(`
 `);
 
 try {
-  const results = search.all(query, limit);
+  // Termo livre → FTS seguro (`pix-qr`, `auth:jwt` eram sintaxe inválida e a busca lançava).
+  const results = search.all(ftsQuery(query), limit);
 
   if (results.length === 0) {
     console.log(`Nenhum resultado encontrado para: "${query}"`);
@@ -45,6 +47,7 @@ try {
   }
 } catch (e) {
   console.error('Erro na busca:', e.message);
+  process.exitCode = 1;
 }
 
 db.close();

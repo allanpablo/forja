@@ -16,9 +16,10 @@ import path from 'node:path';
 import ContextBuilder from '../lib/context-builder.ts';
 import { fileURLToPath } from 'node:url';
 import { getDbPath, ensureSchema } from './memory-schema.ts';
+import { pkgRoot, script } from '../lib/paths.ts';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const root = path.resolve(__dirname, '..');
+const root = pkgRoot;
 
 /**
  * Estimar tokens (1KB ≈ 250 tokens, aproximação)

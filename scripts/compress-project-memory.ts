@@ -9,7 +9,7 @@ const __dirname = path.dirname(__filename);
 const [project] = process.argv.slice(2);
 
 if (!project) {
-  console.log('Uso: node scripts/compress-project-memory.js <projeto>');
+  console.log('Uso: forja memory:compress <projeto>');
   process.exit(0);
 }
 

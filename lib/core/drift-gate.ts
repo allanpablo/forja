@@ -19,9 +19,9 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { resolveScript } from './registry.ts';
 import type { Result } from './checks.ts';
+import { script as resolveFrameworkScript } from '../paths.ts';
 
 const __filename = fileURLToPath(import.meta.url);
-const repoRoot = path.resolve(path.dirname(__filename), '..', '..');
 
 const ID = 'drift-check';
 const TITLE = 'drift:check — o verified continua verdade (SPEC-030, opt-in)';
@@ -32,7 +32,7 @@ function driftCountFrom(stdout: string): string {
 
 /** Roda `drift:check` num subprocesso e traduz o resultado num `Result` de gate. */
 export async function runDriftGate(): Promise<Result[]> {
-  const script = resolveScript(repoRoot, 'scripts/drift-check.ts');
+  const script = resolveFrameworkScript('scripts/drift-check');
   const result = spawnSync('node', [script], { cwd: process.cwd(), encoding: 'utf8' });
   const stdout = result.stdout ?? '';
 

@@ -5,13 +5,15 @@ import path from 'node:path';
 import Database from 'better-sqlite3';
 import { fileURLToPath } from 'node:url';
 import { ensureSchema, getDbPath } from './memory-schema.ts';
+import { pkgRoot, script } from '../lib/paths.ts';
+import { isInsideFrameworkRepo } from '../lib/workspace.ts';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 // `root` = recursos do FRAMEWORK (catalog: boilerplates/, design-md/) — resolvidos por __dirname.
 // `projectRoot` = o PROJETO do usuário (.context/, specs/, memory/, .memoryrc.json) — onde foi invocado.
 // Cravar `root` para as superfícies do projeto auditava/gravava no PACOTE no consumidor (classe de bug
 // spec-cli v1.6.2 / check-standards v1.7.1). No repo do framework os dois coincidem (cwd = raiz).
-const root = path.resolve(__dirname, '..');
+const root = pkgRoot;
 const projectRoot = process.cwd();
 const outDir = path.join(projectRoot, '.context');
 const defaultLimit = readTokenLimit();
@@ -152,7 +154,7 @@ function latestAdrs() {
 
 function cmdBudget([target, limitArg]: string[]) {
   if (!target) {
-    console.error('Uso: context-ops budget <slug|arquivo> [limite_tokens]');
+    console.error('Uso: forja context:budget <slug|arquivo> [limite_tokens]');
     process.exit(1);
   }
   const limit = Number(limitArg) || defaultLimit;
@@ -210,7 +212,7 @@ function cmdSprintPack() {
 
 function cmdAgentBrief([role, slug]: string[]) {
   if (!role || !slug) {
-    console.error('Uso: context-ops agent-brief <role> <slug>');
+    console.error('Uso: forja agent:brief <role> <slug>');
     process.exit(1);
   }
   ensureOutDir();
@@ -340,6 +342,11 @@ function readJsonIfExists(relPath: any) {
 }
 
 function cmdGenerateManifests() {
+  // Manutenção do catálogo do PRÓPRIO framework: fora do repo, escreveria dentro do pacote instalado.
+  if (!isInsideFrameworkRepo(process.cwd())) {
+    console.error('catalog:manifests regenera os manifests do framework — rode no repositório do Forja.');
+    process.exit(1);
+  }
   let written = 0;
   const boilerRoot = path.join(root, 'boilerplates');
   if (fs.existsSync(boilerRoot)) {
@@ -445,7 +452,8 @@ function cmdAssetCatalog() {
 }
 
 function help() {
-  console.log(`Uso: node scripts/context-ops.mjs <command> [args]
+  console.log(`Script interno do Forja — use os comandos via core: forja help --all
+
 
 Comandos:
   budget <slug|arquivo> [limite]     Mede tokens e falha se passar do limite

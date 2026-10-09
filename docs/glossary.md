@@ -158,7 +158,7 @@ Esperado: { "status": "ok" }
 Estrutura que acelera buscas (SQLite FTS5).
 ```
 No kit: memory/ → .memory/sqlite/context.db
-Sync: npm run memory:db:sync
+Sync: forja sync:universal
 ```
 
 ---

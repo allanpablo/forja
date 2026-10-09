@@ -39,6 +39,7 @@ import { CLI_INTERFACE_COMMANDS } from '../../apps/cli/src/index.ts';
 // Os contratos vivem em checks.mjs — importados, não redefinidos. As cópias locais eram resíduo da
 // extração do runner (SPEC-010) e já divergiam.
 import type { Check, Result } from './checks.ts';
+import { pkgRoot } from '../paths.ts';
 /** @typedef {import('./checks.ts').Status} Status */
 
 // O runner vive em checks.mjs e é compartilhado com o catálogo de release (SPEC-010). Re-exportado
@@ -46,7 +47,7 @@ import type { Check, Result } from './checks.ts';
 export { worstStatus };
 
 const __filename = fileURLToPath(import.meta.url);
-const repoRoot = path.resolve(path.dirname(__filename), '..', '..');
+const repoRoot = pkgRoot;
 
 /**
  * Ambiente injetável. Existe para que os probes sejam testáveis sem mockar o loader de módulos

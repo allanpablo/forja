@@ -21,9 +21,9 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { resolveScript } from './registry.ts';
 import type { Result } from './checks.ts';
+import { script as resolveFrameworkScript } from '../paths.ts';
 
 const __filename = fileURLToPath(import.meta.url);
-const repoRoot = path.resolve(path.dirname(__filename), '..', '..');
 
 const ID = 'architecture-check';
 const TITLE = 'architecture:check — o código respeita a Constitution compilada (SPEC-033, opt-in)';
@@ -36,7 +36,7 @@ function violationCountFrom(stdout: string): number {
 
 /** Roda `architecture:check` num subprocesso e traduz o resultado num `Result` de gate. */
 export async function runArchitectureGate(): Promise<Result[]> {
-  const script = resolveScript(repoRoot, 'scripts/architecture.ts');
+  const script = resolveFrameworkScript('scripts/architecture');
   const result = spawnSync('node', [script, 'check'], { cwd: process.cwd(), encoding: 'utf8' });
   const stdout = result.stdout ?? '';
 

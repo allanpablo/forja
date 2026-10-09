@@ -34,10 +34,11 @@ import process from 'node:process';
 import { fileURLToPath } from 'node:url';
 import Database from 'better-sqlite3';
 import { getDbPath, ensureSchema } from './memory-schema.ts';
+import { pkgRoot, script } from '../lib/paths.ts';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-const root = path.resolve(__dirname, '..');
+const root = pkgRoot;
 ensureSchema({ silent: true });
 const dbPath = getDbPath();
 
@@ -184,6 +185,6 @@ switch (subcmd) {
   case 'archive': cmdSetStatus(rest[0], 'archived'); break;
   case 'schema': cmdSchema(); break;
   default:
-    console.log('Uso: agent-router <append|list|show|done|in_progress|cancel|archive|schema> [args]');
+    console.log('Uso: forja agent:route <append|list|show|done|in_progress|cancel|archive|schema> [args]');
     process.exit(1);
 }

@@ -11,6 +11,8 @@
   },
   "files": [
     "dist/",
+    "templates/",
+    "lib/core/model-pricing.json",
     "prompts/",
     "skills/",
     "boilerplates/",

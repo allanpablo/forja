@@ -7,6 +7,8 @@
  *   forja project:upgrade --project <path>   aponta para outro projeto
  *
  * Aditivo, nunca sobrescreve: só traz arquivos que o projeto não tem. O código do usuário é intocável.
+ * Desde a v5 também religa o projeto à inteligência do Forja (project:wire): instruções nativas,
+ * hooks, sub-agents e MCP — a migração de projetos gerados antes da v5 (ADR-0086).
  */
 
 import { execFileSync } from 'node:child_process';
@@ -15,10 +17,11 @@ import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { planUpgrade, applyUpgrade } from '../lib/project-upgrade.ts';
-import { resolveScript } from '../lib/core/registry.ts';
+import { COMMANDS } from '../lib/core/registry.ts';
+import { wireProject, checkProjectWiring, detectWiredAi } from '../lib/project-wiring.ts';
+import { script } from '../lib/paths.ts';
 
 const __filename = fileURLToPath(import.meta.url);
-const repoRoot = path.resolve(path.dirname(__filename), '..');
 
 function main() {
   const i = process.argv.indexOf('--project');
@@ -40,30 +43,43 @@ function main() {
     for (const k of Object.keys(env)) if (k.startsWith('npm_')) delete env[k];
     // resolveScript acha .ts em dev e dist/bin/create-memory-nest-kit.js no publicado — cravar .ts
     // quebrava o comando instalado com module-not-found (o dist não tem .ts).
-    const generator = resolveScript(repoRoot, 'bin/create-memory-nest-kit');
-    execFileSync(process.execPath, [generator, fresh, '--force'], {
-      cwd: tmp,
-      env,
-      stdio: 'pipe',
-    });
-
-    const plan = planUpgrade(fresh, target);
-
-    if (!plan.newFiles.length) {
-      console.log(`Projeto já em dia — ${plan.existing} arquivo(s) de scaffold presentes, nenhuma peça nova.`);
+    const generator = script('bin/create-memory-nest-kit');
+    try {
+      execFileSync(process.execPath, [generator, fresh, '--force'], { cwd: tmp, env, stdio: 'pipe' });
+    } catch (e: any) {
+      const out = `${e.stdout ?? ''}${e.stderr ?? ''}`.trim().split('\n').slice(-15).join('\n');
+      console.error(`O gerador de referência falhou — nada foi alterado no projeto.\n${out}`);
+      process.exitCode = 1;
       return;
     }
 
-    console.log(`${plan.newFiles.length} peça(s) de scaffold nova(s) que este projeto ainda não tem:\n`);
-    for (const rel of plan.newFiles) console.log(`  + ${rel}`);
+    const plan = planUpgrade(fresh, target);
+    const ai = detectWiredAi(target);
+    const wiringGaps = checkProjectWiring(target, { commands: COMMANDS, ai: ai.length ? ai : undefined })
+      .filter((c) => c.status === 'fail');
+
+    if (!plan.newFiles.length && !wiringGaps.length) {
+      console.log(`Projeto já em dia — ${plan.existing} arquivo(s) de scaffold presentes e conexão com a IA completa.`);
+      return;
+    }
+
+    if (plan.newFiles.length) {
+      console.log(`${plan.newFiles.length} peça(s) de scaffold nova(s) que este projeto ainda não tem:\n`);
+      for (const rel of plan.newFiles) console.log(`  + ${rel}`);
+    }
+    if (wiringGaps.length) {
+      console.log(`\nConexão com a IA a refazer (project:wire${ai.length ? `, IAs: ${ai.join(', ')}` : ''}):`);
+      for (const c of wiringGaps) console.log(`  ~ ${c.id}: ${c.detail}`);
+    }
 
     if (!apply) {
-      console.log(`\nDry-run. Rode com --apply para copiar. Aditivo: nada existente é sobrescrito.`);
+      console.log(`\nDry-run. Rode com --apply para aplicar. Arquivos do usuário não são sobrescritos; nos de instrução só o bloco forja:begin/end muda.`);
       return;
     }
 
     const applied = applyUpgrade(fresh, target, plan);
-    console.log(`\n✓ ${applied.length} arquivo(s) copiado(s). Revise o diff antes de commitar.`);
+    const wired = wireProject(target, { ai: ai.length ? ai : undefined }).filter((c) => c.action !== 'unchanged');
+    console.log(`\n✓ ${applied.length} arquivo(s) copiado(s), ${wired.length} de conexão escrito(s). Revise o diff antes de commitar.`);
   } finally {
     fs.rmSync(tmp, { recursive: true, force: true });
   }

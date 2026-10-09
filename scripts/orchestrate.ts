@@ -15,19 +15,20 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { startRun, advance, loadState, chainFor, handoffFor } from '../lib/orchestrate.ts';
 import { resolveScript } from '../lib/core/registry.ts';
+import { pkgRoot, script } from '../lib/paths.ts';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const pkgRoot = path.resolve(__dirname, '..');
+
 const targetRoot = process.cwd();
 
 function forjaBin(): string {
-  return resolveScript(pkgRoot, 'bin/forja');
+  return script('bin/forja');
 }
 
 /** Registra o handoff da etapa via agent-router. Falha de workspace não derruba a corrida. */
 function registerHandoff(slug: string, goal: string, stageIndex: number): void {
   const payload = handoffFor(slug, goal, stageIndex);
-  const router = resolveScript(pkgRoot, 'scripts/agent-router');
+  const router = script('scripts/agent-router');
   const res = spawnSync(process.execPath, [router, 'append', JSON.stringify(payload)], {
     cwd: targetRoot,
     encoding: 'utf8',

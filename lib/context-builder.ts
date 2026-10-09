@@ -14,6 +14,15 @@ import path from 'node:path';
 import Database from 'better-sqlite3';
 import { getDbPath, ensureSchema } from '../scripts/memory-schema.ts';
 
+/**
+ * Termo livre → consulta FTS5 segura: cada palavra vira frase entre aspas. Sem isto, `pix-qr` ou
+ * `auth:jwt` são sintaxe FTS inválida e a query inteira lança — e o modo task voltava vazio.
+ */
+export function ftsQuery(keyword: string): string {
+  const terms = String(keyword).split(/\s+/).filter(Boolean).map((t) => `"${t.replace(/"/g, '""')}"`);
+  return terms.join(' ') || '""';
+}
+
 export class ContextBuilder {
   projectPath: string;
   dbPath: string;
@@ -68,7 +77,7 @@ export class ContextBuilder {
     const seenPaths = new Set();
 
     // 1. Contexto global obrigatório
-    const globalNodes = this._getGlobalNodes();
+    const globalNodes = this._getGlobalNodes(project);
     nodes.push(...globalNodes);
 
     // 2. Contexto específico por modo
@@ -102,11 +111,13 @@ export class ContextBuilder {
   /**
    * Obter contexto global (mission, standards, padrões)
    */
-  _getGlobalNodes() {
+  _getGlobalNodes(project = '') {
     try {
+      // Globais do workspace (project_id NULL) + fundação do próprio projeto: no modo embedded a
+      // missão, os padrões e as ADRs vivem no projeto, não num nível global separado.
       const stmt = this.db.prepare(`
-        SELECT title, content, path FROM memory_nodes 
-        WHERE project_id IS NULL 
+        SELECT title, content, path FROM memory_nodes
+        WHERE (project_id IS NULL OR project_id = (SELECT id FROM projects WHERE name = ?))
         AND (
           path LIKE '%mission.md' 
           OR path LIKE '%standards.md'
@@ -115,7 +126,7 @@ export class ContextBuilder {
         ORDER BY updated_at DESC
         LIMIT 10
       `);
-      return stmt.all() || [];
+      return stmt.all(project) || [];
     } catch (e) {
       console.warn('⚠️ No global nodes found:', e.message);
       return [];
@@ -154,17 +165,16 @@ export class ContextBuilder {
   _getTaskNodes(project: any, keyword: any) {
     try {
       const stmt = this.db.prepare(`
-        SELECT DISTINCT n.title, n.content, n.path 
+        SELECT DISTINCT n.title, n.content, n.path
         FROM memory_nodes n
         JOIN projects p ON p.id = n.project_id
-        LEFT JOIN search_idx s ON s.node_id = n.id
-        WHERE p.name = ? 
-        AND (n.content LIKE ? OR s.content MATCH ?)
+        WHERE p.name = ?
+        AND (n.content LIKE ? OR n.id IN (SELECT node_id FROM search_idx WHERE search_idx MATCH ?))
         ORDER BY n.updated_at DESC
         LIMIT 20
       `);
       const pattern = `%${keyword}%`;
-      return stmt.all(project, pattern, keyword) || [];
+      return stmt.all(project, pattern, ftsQuery(keyword)) || [];
     } catch (e) {
       console.warn(`⚠️ No task nodes found for "${keyword}":`, e.message);
       return [];
@@ -231,7 +241,7 @@ if (import.meta.url === `file://${process.argv[1]}`) {
   const [mode, project, keyword] = process.argv.slice(2);
 
   if (!mode || !project) {
-    console.error('Usage: node context-builder.mjs <mode> <project> [keyword]');
+    console.error('Uso: forja context:smart [--mode global|domain|task] [--task <termo>]');
     console.error('Modes: global, domain, task');
     process.exit(1);
   }

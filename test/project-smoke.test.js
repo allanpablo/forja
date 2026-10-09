@@ -101,9 +101,7 @@ test('gate-inherited: projeto com o gate aprova', async () => {
 // --- SPEC-047: --ai + coerência multi-IA ------------------------------------
 
 import { runProjectSmoke } from '../lib/core/project-smoke.ts';
-import { writeAiInstructions } from '../lib/multi-ai-instructions.ts';
-
-const repoRoot = path.resolve(path.dirname(new URL(import.meta.url).pathname), '..');
+import { wireProject } from '../lib/project-wiring.ts';
 
 test('ai-instructions: skipped sem --ai', async () => {
   const projectDir = fixtureProject({ 'AGENTS.md': 'ok' });
@@ -112,9 +110,9 @@ test('ai-instructions: skipped sem --ai', async () => {
   fs.rmSync(projectDir, { recursive: true, force: true });
 });
 
-test('ai-instructions: instruções da mesma fonte aprovam', async () => {
+test('ai-instructions: projeto conectado pelo project:wire aprova', async () => {
   const projectDir = fixtureProject({ 'AGENTS.md': 'ok' });
-  writeAiInstructions(projectDir, ['claude', 'copilot'], { kitRoot: repoRoot });
+  wireProject(projectDir, { ai: ['claude', 'copilot'], codegraph: false });
   const [r] = await runChecks({
     checks: only('ai-instructions'),
     env: { ...defaultEnv(), ai: ['claude', 'copilot'], projectDir },
@@ -123,26 +121,25 @@ test('ai-instructions: instruções da mesma fonte aprovam', async () => {
   fs.rmSync(projectDir, { recursive: true, force: true });
 });
 
-test('ai-instructions: corpo divergente entre IAs reprova', async () => {
+test('ai-instructions: instrução citando comando inexistente reprova', async () => {
   const projectDir = fixtureProject({ 'AGENTS.md': 'ok' });
-  writeAiInstructions(projectDir, ['claude', 'copilot'], { kitRoot: repoRoot });
-  const f = path.join(projectDir, '.ia-instructions', 'copilot.md');
-  fs.writeFileSync(f, fs.readFileSync(f, 'utf8') + '\nLINHA EXTRA SÓ NO COPILOT\n');
+  wireProject(projectDir, { ai: ['claude'], codegraph: false });
+  fs.appendFileSync(path.join(projectDir, 'CLAUDE.md'), '\nRode `forja comando:fantasma` antes.\n');
   const [r] = await runChecks({
     checks: only('ai-instructions'),
-    env: { ...defaultEnv(), ai: ['claude', 'copilot'], projectDir },
+    env: { ...defaultEnv(), ai: ['claude'], projectDir },
   });
   assert.equal(r.status, 'fail');
-  assert.match(r.detail, /diverge/);
+  assert.match(r.detail, /comando:fantasma/);
   fs.rmSync(projectDir, { recursive: true, force: true });
 });
 
 test('ai-instructions: models.json fora de sincronia com --ai reprova', async () => {
   const projectDir = fixtureProject({ 'AGENTS.md': 'ok' });
-  writeAiInstructions(projectDir, ['claude', 'copilot'], { kitRoot: repoRoot });
-  const mj = path.join(projectDir, '.ia-instructions', 'models.json');
+  wireProject(projectDir, { ai: ['claude', 'copilot'], codegraph: false });
+  const mj = path.join(projectDir, '.forja', 'models.json');
   const models = JSON.parse(fs.readFileSync(mj, 'utf8'));
-  models.fallback_chain = ['copilot', 'claude']; // ordem trocada
+  models.fallback_chain = ['claude'];
   fs.writeFileSync(mj, JSON.stringify(models, null, 2));
   const [r] = await runChecks({
     checks: only('ai-instructions'),

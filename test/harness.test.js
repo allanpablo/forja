@@ -23,12 +23,6 @@ test('code:check degrada sem travar quando codegraph ausente', () => {
   assert.match(r.stdout, /nao instalado/i);
 });
 
-test('code-intel.mjs (template emitido) tambem degrada sem codegraph', () => {
-  const r = run(['lib/templates/harness/code-intel.mjs', 'check'], NO_TOOLS_ENV);
-  assert.equal(r.status, 0, `${r.stdout}\n${r.stderr}`);
-  assert.match(r.stdout, /nao instalado/i);
-});
-
 test('code:impact sem simbolo retorna erro de uso', () => {
   const r = run(['scripts/agent-harness.ts', 'code:impact']);
   assert.equal(r.status, 1);

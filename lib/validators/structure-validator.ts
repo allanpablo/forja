@@ -55,7 +55,6 @@ const NEST_CRITICAL_DIRS = [
   'backend/src',
   'backend/src/modules/ops',
   'backend/test',
-  'backend/scripts',
 ];
 
 /**

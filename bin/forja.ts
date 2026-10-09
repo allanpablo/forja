@@ -33,9 +33,12 @@ import { SqliteGraphStore, SqliteMigrationRunner } from '../packages/adapter-sql
 import { getWorkspaceDbDir, getWorkspaceDbPath } from '../lib/workspace.ts';
 import type { CapabilityId } from '../packages/contracts/src/index.ts';
 import { McpServer } from '../packages/mcp/src/index.ts';
+import { pkgRoot, codeRoot } from '../lib/paths.ts';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const root = path.resolve(__dirname, '..');
+const root = pkgRoot;
+// Versão real do pacote — o MCP anunciava '2.0.3' cravado desde a v2.
+const FORJA_VERSION: string = (() => { try { return JSON.parse(fs.readFileSync(path.join(pkgRoot, 'package.json'), 'utf8')).version; } catch { return '0.0.0'; } })();
 const STUDIO_COMMANDS = new Set(['workspace:init', 'project:new', 'project:list', 'project:upgrade', 'workspace:project:check', 'init:project', 'demo:workspace']);
 
 // SPEC-043: `forja help` mostra só o núcleo (`tier: 'core'`); `forja help --all` mantém a lista
@@ -220,7 +223,7 @@ function runLegacyCaptured(command: string, args: readonly string[]): LegacyCliR
   if (!cmd) return { exitCode: 127, stdout: '', stderr: `Comando legado não encontrado: ${command}` };
   let result;
   if (cmd.node) {
-    const script = resolveScript(root, cmd.node);
+    const script = resolveScript(codeRoot, cmd.node);
     result = spawnSync('node', [script, ...(cmd.args || []), ...args], {
       cwd: process.cwd(),
       encoding: 'utf8',
@@ -425,7 +428,7 @@ async function runMcpStdio(): Promise<number> {
       if (request.method === 'notifications/initialized') return;
       if (request.method === 'notifications/cancelled') return;
       let result: unknown;
-      if (request.method === 'initialize') result = { protocolVersion: '2025-06-18', capabilities: { tools: {}, resources: {} }, serverInfo: { name: 'forja', version: '2.0.3' } };
+      if (request.method === 'initialize') result = { protocolVersion: '2025-06-18', capabilities: { tools: {}, resources: {} }, serverInfo: { name: 'forja', version: FORJA_VERSION } };
       else if (request.method === 'tools/list') result = { tools: mcp.listTools() };
       else if (request.method === 'resources/list') result = { resources: mcp.listResources() };
       else if (request.method === 'tools/call') result = await mcp.callTool(String(request.params?.name ?? ''), request.params?.arguments ?? {});
@@ -542,7 +545,7 @@ let result;
 // DENTRO do pacote (bug da v1.6.1). Scripts do framework não dependem de cwd: resolvem seus paths
 // por __dirname (repo) ou pelo workspace (absoluto).
 if (cmd.node) {
-  const script = resolveScript(root, cmd.node);
+  const script = resolveScript(codeRoot, cmd.node);
   result = spawnSync('node', [script, ...(cmd.args || []), ...rest], {
     cwd: process.cwd(),
     stdio: 'inherit',

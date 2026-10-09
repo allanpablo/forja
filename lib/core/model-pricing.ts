@@ -11,12 +11,10 @@
  */
 import fs from 'node:fs';
 import path from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { asset } from '../paths.ts';
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-
-export const DEFAULT_PRICING_PATH = path.join(__dirname, 'model-pricing.json');
+// Asset versionado (não código): o tsc não copia .json para o dist/, então lido da raiz do pacote.
+export const DEFAULT_PRICING_PATH = asset('lib', 'core', 'model-pricing.json');
 
 /** Dias após os quais um preço não revisado é considerado velho (risco do SPEC-029: "asOf > 90 dias"). */
 export const STALE_PRICE_MAX_AGE_DAYS = 90;

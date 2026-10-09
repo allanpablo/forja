@@ -3,10 +3,10 @@ import path from 'node:path';
 import Database from 'better-sqlite3';
 import { fileURLToPath } from 'node:url';
 import { getDbPath, ensureSchema } from './memory-schema.ts';
+import { getWorkspaceMemoryDir } from '../lib/workspace.ts';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-const root = path.resolve(__dirname, '..');
 ensureSchema({ silent: true });
 const dbPath = getDbPath();
 
@@ -30,7 +30,7 @@ function extractGlobalLessons() {
     knowledgeBase += `### [Proveniente de: ${adr.project}] ${adr.title}\n\n`;
     // Pega apenas o resumo ou contexto da decisão
     const contextMatch = adr.content.match(/## Contexto\n([\s\S]*?)(?=##|$)/);
-    const decisionMatch = adr.content.match(/## Decisao\n([\s\S]*?)(?=##|$)/);
+    const decisionMatch = adr.content.match(/## Decis[aã]o\n([\s\S]*?)(?=##|$)/);
 
     if (contextMatch && decisionMatch) {
       knowledgeBase += `**Contexto:** ${contextMatch[1].trim().slice(0, 300)}...\n\n`;
@@ -38,7 +38,9 @@ function extractGlobalLessons() {
     }
   }
 
-  const outFile = path.join(root, 'memory/00-global/shared-knowledge.md');
+  // Memória do workspace (ou do projeto, no embedded) — gravar em pkgRoot sujava o pacote do Forja.
+  const outFile = path.join(getWorkspaceMemoryDir(), '00-global', 'shared-knowledge.md');
+  fs.mkdirSync(path.dirname(outFile), { recursive: true });
   fs.writeFileSync(outFile, knowledgeBase, 'utf8');
   
   console.log(`✅ Base de conhecimento global atualizada em: ${outFile}`);
