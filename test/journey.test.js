@@ -11,5 +11,5 @@ test('jornada: projeto gerado nasce conectado e toda a inteligência responde de
   const steps = runJourney({ bin: path.resolve('bin/forja.ts'), pkgDir: process.cwd(), version });
   const failed = steps.filter((s) => !s.ok);
   assert.deepEqual(failed, [], failed.map((s) => `${s.id}: ${s.detail}`).join('\n'));
-  assert.ok(steps.length >= 17, `jornada interrompida em ${steps.at(-1)?.id}`);
+  assert.ok(steps.length >= 18, `jornada interrompida em ${steps.at(-1)?.id}`);
 });

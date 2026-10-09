@@ -101,15 +101,17 @@ function readText(file: any) {
 
 // --- Codegraph (ADR-0017): code intelligence como gate do GSD ---
 
+// O índice é do código ONDE o usuário está (projeto ou repo do framework) — com `cwd: root`, um
+// `code:impact` dentro de um projeto analisava o código do pacote do Forja.
 function runCodegraph(args: any) {
-  const result = spawnSync('codegraph', args, { cwd: root, encoding: 'utf8' });
+  const result = spawnSync('codegraph', args, { cwd: process.cwd(), encoding: 'utf8' });
   if (result.error && (result.error as any).code === 'ENOENT') {
     return { missing: true };
   }
   if (result.error && (result.error as any).code === 'EPERM') {
     const quote = (value: any) => `'${String(value).replace(/'/g, `'\\''`)}'`;
     const fallback = spawnSync('/bin/sh', ['-lc', ['codegraph', ...args.map(quote)].join(' ')], {
-      cwd: root,
+      cwd: process.cwd(),
       encoding: 'utf8',
     });
     return {
@@ -271,8 +273,10 @@ function cmdHermesHandoff([jsonArg]: string[]) {
   if (missing.length) fail(`Campos ADR-0005 ausentes: ${missing.join(', ')}`);
 
   const router = script('scripts/agent-router.mjs');
+  // cwd do usuário: o router carimba o projeto e resolve o banco a partir dele. Com `cwd: root`
+  // (o pacote), todo handoff de produto entrava como handoff do framework.
   const result = spawnSync(process.execPath, [router, 'append', JSON.stringify(payload)], {
-    cwd: root,
+    cwd: process.cwd(),
     encoding: 'utf8',
   });
   if (result.stdout) process.stdout.write(result.stdout);
@@ -282,8 +286,10 @@ function cmdHermesHandoff([jsonArg]: string[]) {
 
 function appendHandoff(payload: any) {
   const router = script('scripts/agent-router.mjs');
+  // cwd do usuário: o router carimba o projeto e resolve o banco a partir dele. Com `cwd: root`
+  // (o pacote), todo handoff de produto entrava como handoff do framework.
   const result = spawnSync(process.execPath, [router, 'append', JSON.stringify(payload)], {
-    cwd: root,
+    cwd: process.cwd(),
     encoding: 'utf8',
   });
   if (result.stdout) process.stdout.write(result.stdout);

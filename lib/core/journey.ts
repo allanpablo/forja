@@ -133,6 +133,14 @@ export function runJourney(opts: JourneyOptions): JourneyStep[] {
     try { version = JSON.parse(r.stdout.split('\n').find((l) => l.includes('"id":1')) ?? '').result.serverInfo.version; } catch { /* reportado abaixo */ }
     add('mcp:start', version === opts.version, version ? `serverInfo.version ${version}` : firstLine(r.out));
 
+    // Handoff (ADR-0005) registrado no projeto chega ao `next` do projeto, carimbado com ele.
+    const handoff = { from: 'worker', to: 'governance', intent: 'review', context: 'specs/pagamentos', acceptance: 'ACs com evidência', constraints: 'jornada', return: 'orchestrator' };
+    r = forja(['hermes:handoff', JSON.stringify(handoff)], proj);
+    let hid = 0;
+    try { hid = JSON.parse(r.stdout.trim().split('\n').pop() ?? '').id; } catch { /* reportado abaixo */ }
+    const next = forja(['next'], proj);
+    add('hermes:handoff', r.code === 0 && hid > 0 && next.out.includes(`agent:route show ${hid}`), hid ? `#${hid} → next: ${firstLine(next.out)}` : firstLine(r.out));
+
     // Comandos que escreviam no pacote quando rodados num projeto (v4): agora gravam no projeto.
     r = forja(['project:dashboard'], proj);
     add('project:dashboard', r.code === 0 && fs.existsSync(path.join(proj, 'DASHBOARD-PROGRESSO.md')), firstLine(r.out));

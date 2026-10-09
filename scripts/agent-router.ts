@@ -35,6 +35,7 @@ import { fileURLToPath } from 'node:url';
 import Database from 'better-sqlite3';
 import { getDbPath, ensureSchema } from './memory-schema.ts';
 import { pkgRoot, script } from '../lib/paths.ts';
+import { currentProjectName } from '../lib/workspace.ts';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -117,6 +118,8 @@ function parsePayload(raw: any) {
 function cmdAppend(arg: any) {
   const raw = arg && arg !== '-' ? arg : readStdin();
   const h = parsePayload(raw);
+  // Carimba o projeto de origem (no payload, sem migração de schema) para o briefing filtrar.
+  if (!h.project) { const p = currentProjectName(); if (p) h.project = p; }
   const db = openDb();
   const stmt = db.prepare(`
     INSERT INTO handoffs (created_at, from_agent, to_agent, intent, context, acceptance, constraints, return_to, spec_slug, payload_json)

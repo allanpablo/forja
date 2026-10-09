@@ -51,7 +51,7 @@ memory/50-orchestration/  Protocolos de orquestracao
 memory/90-decisions/      ADRs e decisoes estruturais
 scripts/                  Harness CLI, sprint, specs, checks
 .context/                 Runbooks GSD e context packs
-dashboard/                Web opcional/legada
+apps/dashboard/            Dashboard web opcional (npm run dashboard:api + dashboard:dev)
 ```
 
 Arquivos que voce vai abrir com frequencia:

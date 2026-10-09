@@ -7,6 +7,9 @@ import { randomUUID } from 'node:crypto';
 import { initWorkspace, getWorkspaceContextDir, getWorkspaceDbPath, getWorkspaceRoot } from '../lib/workspace.ts';
 import { SqliteMigrationRunner, SqliteObservationStore } from '../packages/adapter-sqlite/src/index.ts';
 import { ObservabilityRecorder } from '../packages/observability/src/index.ts';
+import { execFileSync } from 'node:child_process';
+import { wireProject } from '../lib/project-wiring.ts';
+import { script } from '../lib/paths.ts';
 
 const PROJECT = 'atlas-pay';
 const SENTINEL = 'forja-demo.json';
@@ -38,6 +41,7 @@ function createFiles(root: string): void {
   write(path.join(project, 'docs', 'project-brief.md'), '# Briefing: Atlas Pay\n\nDemonstração de uma camada de aprovação para pagamentos empresariais.\n');
   write(path.join(project, 'memory', '20-architecture', 'stack.md'), '# Stack\n\n- API NestJS\n- SQLite local\n- Integração de pagamento simulada\n');
   write(path.join(project, 'memory', '20-architecture', 'design-brief.md'), '# Design brief\n\nDashboard operacional para aprovar pagamentos e revisar evidências.\n');
+  write(path.join(project, 'memory', '30-domains', 'pagamentos.md'), '# Domínio: pagamentos\n\nPagamentos via Pix e TED. Acima de R$ 50 mil, o pagamento exige aprovação explícita de um segundo operador antes da promoção.\n');
   write(path.join(project, 'memory', '40-delivery', 'current-sprint.md'), '# Sprint de demonstração\n\nObjetivo: aprovar pagamentos de alto valor com evidência e revisão.\n');
   write(path.join(root, 'specs', PROJECT, 'spec.md'), '# Spec: atlas-pay\n\n- **Status**: approved\n\n## Problema\nPagamentos empresariais de alto valor precisam de aprovação explícita.\n\n## Critérios de aceite\n- [x] Aprovação registrada antes da promoção.\n- [x] Auditoria consulta os handoffs da entrega.\n');
   write(path.join(root, 'specs', PROJECT, 'plan.md'), '# Plan: atlas-pay\n\n- **Status**: approved\n\nImplementar política de aprovação e trilha de auditoria.\n');
@@ -84,11 +88,15 @@ export async function createDemoWorkspace(args: readonly string[] = process.argv
   if (fs.existsSync(root) && !fs.existsSync(sentinel)) throw new Error(`Recusado: ${root} não é um workspace demo. Escolha --path para um diretório vazio.`);
   initWorkspace();
   createFiles(getWorkspaceRoot());
+  // O projeto demo é um projeto Forja de verdade: conectado à IA e com a memória indexada.
+  const project = path.join(getWorkspaceRoot(), 'projects', PROJECT);
+  wireProject(project, { ai: ['claude', 'codex'], codegraph: false });
   await createDatabase();
+  execFileSync(process.execPath, [script('scripts/sync-universal-memory')], { env: { ...process.env, FORJA_WORKSPACE: root }, stdio: 'pipe' });
   const result = { workspace: getWorkspaceRoot(), project: PROJECT, handoffs: 3, observations: 3 };
   write(sentinel, `${JSON.stringify({ ...result, generatedAt: new Date().toISOString(), warning: 'Dados sintéticos para demonstração. Não use em produção.' }, null, 2)}\n`);
   if (json) console.log(JSON.stringify(result));
-  else console.log(`Demo pronta em ${result.workspace}\nProjeto: ${PROJECT}\nHandoffs: 3 (2 concluídos, 1 em review)\nPróximo: FORJA_WORKSPACE="${result.workspace}" npm --prefix dashboard start`);
+  else console.log(`Demo pronta em ${result.workspace}\nProjeto: ${PROJECT}\nHandoffs: 3 (2 concluídos, 1 em review)\n\nPróximo (o demo é um workspace à parte):\n  export FORJA_WORKSPACE="${result.workspace}"\n  cd "${project}" && forja status`);
   return result;
 }
 

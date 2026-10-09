@@ -33,7 +33,6 @@
     "DOC-MAP.md",
     "CHANGELOG.md",
     "CONTRIBUTING.md",
-    "!docs/dashboard.md",
     "!specs/agent-dashboard/"
   ],
   "scripts": {
@@ -90,7 +89,8 @@
     "code:impact": "node bin/forja.ts code:impact",
     "tools:doctor": "node bin/forja.ts tools:doctor",
     "release:check": "node bin/forja.ts release:check",
-    "dashboard:dev": "npm --prefix apps/dashboard run dev",
+    "dashboard:api": "npm run build && node dist/apps/server/src/main.js",
+    "dashboard:dev": "npm --prefix apps/dashboard run dev -- -p 3001",
     "dashboard:build": "npm --prefix apps/dashboard run build",
     "dashboard:start": "npm --prefix apps/dashboard run start",
     "build": "tsc -p tsconfig.build.json",

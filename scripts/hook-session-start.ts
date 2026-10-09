@@ -22,7 +22,7 @@ import { fileURLToPath } from 'node:url';
 import { runChecks, bucketFor, BUCKET_LABEL } from '../lib/core/health.ts';
 import { listSpecs } from '../lib/specs-index.ts';
 import { openHandoffs } from '../lib/handoffs-index.ts';
-import { getWorkspaceRoot, isInsideFrameworkRepo } from '../lib/workspace.ts';
+import { getWorkspaceRoot, isInsideFrameworkRepo, currentProjectName } from '../lib/workspace.ts';
 import { pkgRoot, script } from '../lib/paths.ts';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -50,7 +50,7 @@ async function coreHealth() {
   const health = await coreHealth();
   const problemas = health.filter((c) => c.status === 'fail' || c.status === 'warn');
   const memoriaOk = !health.some((c) => c.status === 'fail');
-  const handoffs = memoriaOk ? await openHandoffs() : [];
+  const handoffs = memoriaOk ? await openHandoffs(10, currentProjectName(root)) : [];
 
   const lines = ['<framework-status>'];
   lines.push(`Framework: forja (SDD + orquestração)`);

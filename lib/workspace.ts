@@ -248,3 +248,18 @@ export function assertOutsideFrameworkRepo(filePath: any, operation = 'operacao'
     );
   }
 }
+
+/**
+ * Nome do projeto em que o comando roda: `forja` no repo do framework, o próprio projeto no modo
+ * embedded, o projeto do workspace que contém o cwd no studio; `null` fora de qualquer projeto.
+ * Usado para carimbar e filtrar handoffs — antes, um handoff de produto aparecia no briefing do
+ * framework (e vice-versa), porque todos caíam no mesmo banco sem dono.
+ */
+export function currentProjectName(cwd = process.cwd()): string | null {
+  const resolved = path.resolve(cwd);
+  if (isInsideFrameworkRepo(resolved)) return 'forja';
+  if (getForjaMode() === 'embedded') return path.basename(getWorkspaceRoot());
+  const rel = path.relative(getProjectsDir(), resolved);
+  if (!rel || rel.startsWith('..') || path.isAbsolute(rel)) return null;
+  return rel.split(path.sep)[0] || null;
+}
