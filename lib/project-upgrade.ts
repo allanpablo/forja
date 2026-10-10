@@ -58,8 +58,25 @@ export interface UpgradePlan {
  * Planeja o upgrade: o que o scaffold fresco tem que o projeto-alvo não tem. **Só adições** — nunca
  * lista sobrescritas, porque um arquivo existente é território do usuário.
  */
+/** Código do usuário: nunca é scaffold a trazer, mesmo que a referência o tenha. */
+const USER_CODE = /^(backend|frontend|apps|packages|src)\//;
+
+/** Conteúdo de exemplo do scaffold que só faz sentido num projeto que ainda não tem o seu. */
+const SAMPLE_DOMAINS = /^memory\/30-domains\/(?!shared\/)[^/]+\//;
+const NEST_ONLY = /^(agents\/backend-nest\.md|skills\/nest-api\/)/;
+
+function usesNest(targetRoot: string, env: UpgradeEnv): boolean {
+  return ['package.json', 'backend/package.json'].some((rel) => {
+    try { return /"@nestjs\/core"/.test(String(env.fs.readFileSync(path.join(targetRoot, rel), 'utf8'))); } catch { return false; }
+  });
+}
+
 export function planUpgrade(freshRoot: string, targetRoot: string, env: UpgradeEnv = defaultEnv): UpgradePlan {
-  const fresh = listFiles(freshRoot, env);
+  // Domínios de exemplo (auth, billing…) num projeto que já existe confundem a IA: ela os leria como
+  // parte do produto. Idem agente/skill de NestJS num backend que não é Nest.
+  const nest = usesNest(targetRoot, env);
+  const fresh = listFiles(freshRoot, env).filter((rel) =>
+    !USER_CODE.test(rel) && !SAMPLE_DOMAINS.test(rel) && !(!nest && NEST_ONLY.test(rel)));
   const newFiles: string[] = [];
   let existing = 0;
   for (const rel of fresh) {
