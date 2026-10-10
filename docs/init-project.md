@@ -77,7 +77,7 @@ qual remover a marca `<!-- forja:managed -->` não é mais tocado. Hooks e servi
 ```bash
 cd meu-projeto
 forja project:upgrade              # dry-run: peças de scaffold novas + conexão a refazer
-forja project:upgrade --apply      # aplica (aditivo; só traz backend se o projeto já tem um)
+forja project:upgrade --apply      # aplica (aditivo; nunca toca backend/, frontend/, apps/ nem src/)
 forja project:wire --check
 ```
 

@@ -19,6 +19,36 @@ GitHub reusa esse bloco. O README também é reconciliado na mesma entrega — v
 
 _(preencher a cada release: diff de produto vs. a versão anterior, antes das seções técnicas)_
 
+## [5.0.1] — 2026-10-10 — Correção: o upgrade nunca toca o código do projeto
+
+### O que melhorou
+
+- **`forja project:upgrade` não mexe mais no código do projeto.** Na 5.0.0, um projeto com pasta
+  `backend/` recebia o scaffold do backend NestJS — inclusive quando o backend era de outra stack (um
+  backend Python ganharia um app Nest inteiro). Agora o upgrade traz só a camada do Forja (memória,
+  agentes, prompts, skills, scripts) e a conexão com a IA; `backend/`, `frontend/`, `apps/`,
+  `packages/` e `src/` ficam de fora.
+- **A memória de um projeto existente não ganha conteúdo de exemplo.** Os domínios de exemplo do
+  scaffold (`memory/30-domains/auth`, `billing`) não entram mais pelo upgrade; ao lado dos domínios
+  reais, a IA os leria como parte do produto. Agente e skill de NestJS só entram em projeto que usa
+  NestJS.
+- **`npm run build` mantém o `forja` executável.** Para quem usa o Forja linkado ao checkout
+  (`npm link`), o comando e os hooks dos projetos não falham mais com "Permissão negada" depois de
+  recompilar.
+
+### Corrigido
+
+- `scripts/project-upgrade.ts` / `lib/project-upgrade.ts`: referência sempre `--only-memory`; plano
+  exclui diretórios de código, domínios de exemplo e peças Nest fora de projeto Nest (#73). Teste de
+  regressão em `test/project-adoption.test.js`.
+- `package.json` (`build`): restaura o bit de execução dos `bin` após o `tsc`.
+- `docs/init-project.md` e ADR-0086 alinhados ao novo comportamento do upgrade.
+
+### Notas
+
+- Achado ao migrar um workspace real com `project:upgrade --all`. Quem usou o `--apply` da 5.0.0
+  num projeto com `backend/` que não é o gerado pelo Forja deve revisar o `git status` do backend.
+
 ## [5.0.0] — 2026-10-09 — Projeto conectado à IA e a jornada do usuário como gate
 
 ### O que melhorou
