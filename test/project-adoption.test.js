@@ -67,3 +67,26 @@ test('project:upgrade --all: dry-run não toca nada; --apply religa cada projeto
     fs.rmSync(base, { recursive: true, force: true });
   }
 });
+
+test('project:upgrade nunca toca o backend do usuário nem traz domínios de exemplo', { timeout: 120_000 }, () => {
+  const base = fs.mkdtempSync(path.join(os.tmpdir(), 'forja-upcode-'));
+  const repo = path.join(base, 'app');
+  fs.mkdirSync(path.join(repo, 'backend'), { recursive: true });
+  fs.mkdirSync(path.join(repo, 'memory', '30-domains', 'telemetria'), { recursive: true });
+  fs.writeFileSync(path.join(repo, 'backend', 'main.py'), 'print("api")\n');           // backend Python
+  fs.writeFileSync(path.join(repo, 'memory', '30-domains', 'telemetria', 'context.md'), '# Telemetria\n');
+  fs.writeFileSync(path.join(repo, 'AGENTS.md'), '# AGENTS\n');
+  fs.writeFileSync(path.join(repo, 'package.json'), JSON.stringify({ name: 'app' }));
+  const env = { ...process.env, HOME: base };
+  for (const k of Object.keys(env)) if (k.startsWith('FORJA_') || k.startsWith('npm_')) delete env[k];
+  try {
+    const up = spawnSync(process.execPath, [bin, 'project:upgrade', '--apply'], { cwd: repo, env, encoding: 'utf8' });
+    assert.equal(up.status, 0, up.stderr);
+    assert.deepEqual(fs.readdirSync(path.join(repo, 'backend')), ['main.py'], 'backend do usuário intocado');
+    assert.deepEqual(fs.readdirSync(path.join(repo, 'memory', '30-domains')).filter((d) => d !== 'shared'), ['telemetria'], 'sem auth/billing de exemplo');
+    assert.ok(!fs.existsSync(path.join(repo, 'agents', 'backend-nest.md')), 'sem agente NestJS num projeto que não é Nest');
+    assert.ok(fs.existsSync(path.join(repo, 'memory', '00-global', 'mission.md')), 'a camada do Forja chega');
+  } finally {
+    fs.rmSync(base, { recursive: true, force: true });
+  }
+});

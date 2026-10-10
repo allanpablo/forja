@@ -32,15 +32,18 @@ interface UpgradeReport {
   readonly error?: string;
 }
 
-/** Scaffold de referência num tmp isolado (ambiente limpo, a lição do release:check). */
-function freshScaffold(tmp: string, withBackend: boolean): string {
+/**
+ * Scaffold de referência num tmp isolado (ambiente limpo, a lição do release:check). Sempre sem
+ * backend: o upgrade traz a camada do Forja (memória, agentes, prompts, skills, scripts) e nunca
+ * toca `backend/`, que é código do usuário — e pode nem ser NestJS (um backend Python receberia um
+ * app Nest inteiro com o critério antigo "tem pasta backend → traz o scaffold do backend").
+ */
+function freshScaffold(tmp: string): string {
   const fresh = path.join(tmp, 'fresh');
   const env = { ...process.env };
   delete env.NODE_PATH;
   for (const k of Object.keys(env)) if (k.startsWith('npm_')) delete env[k];
-  // Sem backend quando o projeto não tem um: "aditivo" não pode significar instalar um NestJS
-  // inteiro num projeto --skip-backend ou num repositório existente.
-  const args = [script('bin/create-memory-nest-kit'), fresh, ...(withBackend ? [] : ['--only-memory']), '--force'];
+  const args = [script('bin/create-memory-nest-kit'), fresh, '--only-memory', '--force'];
   try {
     execFileSync(process.execPath, args, { cwd: tmp, env, stdio: 'pipe' });
   } catch (e: any) {
@@ -57,7 +60,7 @@ export function upgradeProject(target: string, apply: boolean): UpgradeReport {
   }
   const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'forja-upgrade-'));
   try {
-    const fresh = freshScaffold(tmp, fs.existsSync(path.join(target, 'backend')));
+    const fresh = freshScaffold(tmp);
     const plan = planUpgrade(fresh, target);
     const ai = detectWiredAi(target);
     const wiringGaps = checkProjectWiring(target, { commands: COMMANDS, ai: ai.length ? ai : undefined })
