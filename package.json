@@ -1,6 +1,6 @@
 {
   "name": "forjajs",
-  "version": "5.0.0",
+  "version": "5.0.1",
   "description": "ForjaJS é uma plataforma local-first para memória, contexto, governança e execução supervisionada de agentes de desenvolvimento",
   "type": "module",
   "main": "index.js",
@@ -88,7 +88,7 @@
     "dashboard:dev": "npm --prefix apps/dashboard run dev -- -p 3001",
     "dashboard:build": "npm --prefix apps/dashboard run build",
     "dashboard:start": "npm --prefix apps/dashboard run start",
-    "build": "tsc -p tsconfig.build.json",
+    "build": "tsc -p tsconfig.build.json && node -e \"for (const f of Object.values(require('./package.json').bin)) require('fs').chmodSync(f, 0o755)\"",
     "types:check": "tsc --noEmit",
     "test": "node --test test/*.test.js",
     "demo:autonomy": "node bin/forja.ts demo:autonomy",

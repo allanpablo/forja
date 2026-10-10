@@ -60,7 +60,7 @@ aponta para um arquivo real.
 
 **3. Superfícies.** `project:new` usa o wire e falha alto (exit 1 e resumo de pendências) quando algo
 essencial não sai. `project:wire` conecta e verifica. `project:upgrade` religa projetos pré-v5 e só
-traz backend para quem já tem um. `tools:doctor` mostra a conexão quando roda num projeto.
+traz backend para quem já tem um (revisto na 5.0.1: o upgrade nunca toca `backend/`, `frontend/`, `apps/`, `packages/` nem `src/`, nem traz domínios de exemplo — ver #73). `tools:doctor` mostra a conexão quando roda num projeto.
 `hook:session-start` e `hook:user-prompt` entram no registry. Handoffs passam a ser carimbados com o
 projeto de origem, e o briefing e o `next` filtram por ele.
 
