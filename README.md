@@ -389,7 +389,7 @@ my-project/
   .claude/
     settings.json        # hooks: forja hook:session-start / hook:user-prompt
     agents/              # orchestrator, product, sdd-architect, context-engineer, governance, marketing
-    skills/              # 30 skills (requirements, domain modeling, ADR, testing, TS code review, LGPD…)
+    skills/              # 34 skills (requirements, domain modeling, ADR, front-end, a11y, testing, TS code review, LGPD…)
   .agents/skills/        # the same skills for Codex
   .mcp.json              # forja MCP server (+ codegraph when installed)
   .codex/config.toml     # forja MCP for Codex · .gemini/settings.json (Gemini) · .vscode/mcp.json (Copilot)

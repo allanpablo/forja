@@ -64,9 +64,9 @@ agents/, prompts/        papéis e prompts do projeto
 
 ## Skills
 
-O projeto traz 30 skills (`.claude/skills/` para o Claude Code, `.agents/skills/` para o Codex), uma por
+O projeto traz 34 skills (`.claude/skills/` para o Claude Code, `.agents/skills/` para o Codex), uma por
 tarefa: avaliar produto, levantar requisitos, fatiar backlog, modelar domínio, registrar ADR, desenhar
-API e migrações, testar, revisar código, modelar ameaças, LGPD, observabilidade, release e git. As que
+API e migrações, front-end, acessibilidade, desempenho web, testar, revisar código, atualizar dependências, modelar ameaças, LGPD, observabilidade, release e git. As que
 geram artefatos têm uma seção "No Forja" dizendo onde gravar (`specs/`, `memory/`, ADRs, handoffs).
 Encadeamento típico: `product-evaluation` → `requirements-gathering` → `backlog-slicing` →
 `domain-modeling` → `testing` → `ts-code-review` → `release-checklist`.

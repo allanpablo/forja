@@ -93,7 +93,7 @@ export function runJourney(opts: JourneyOptions): JourneyStep[] {
     const skillCount = (rel: string) => { try { return fs.readdirSync(path.join(proj, rel)).filter((n) => fs.existsSync(path.join(proj, rel, n, 'SKILL.md'))).length; } catch { return 0; } };
     const claudeSkills = skillCount(path.join('.claude', 'skills'));
     const agentSkills = skillCount(path.join('.agents', 'skills'));
-    add('skills', claudeSkills >= 30 && agentSkills >= 30, `${claudeSkills} em .claude/skills, ${agentSkills} em .agents/skills`);
+    add('skills', claudeSkills >= 34 && agentSkills >= 34, `${claudeSkills} em .claude/skills, ${agentSkills} em .agents/skills`);
 
     r = forja(['status'], proj);
     add('status', r.code === 0 && /memória indexada: sim/.test(r.out), /memória indexada: sim/.test(r.out) ? 'memória indexada de nascença' : firstLine(r.out));

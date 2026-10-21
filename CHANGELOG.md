@@ -17,9 +17,9 @@ GitHub reusa esse bloco. O README também é reconciliado na mesma entrega — v
 
 ### O que melhorou
 
-- **O projeto passa a ter skills que as IAs realmente carregam.** São 30 skills em pt-BR (avaliar
+- **O projeto passa a ter skills que as IAs realmente carregam.** São 34 skills em pt-BR (avaliar
   produto, levantar e fatiar requisitos, event storming, modelagem de domínio, ADR, API, migrações,
-  testes, code review TypeScript, modelagem de ameaças, LGPD, observabilidade, release e git),
+  arquitetura de front-end, acessibilidade, desempenho web, atualização de dependências, testes, code review TypeScript, modelagem de ameaças, LGPD, observabilidade, release e git),
   instaladas em `.claude/skills/` (Claude Code) e `.agents/skills/` (Codex). As 9 "skills" anteriores
   eram esboços que nenhuma IA lia.
 - **As skills falam a língua do Forja.** As que produzem artefatos dizem onde gravar: ADR em

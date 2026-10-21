@@ -10,8 +10,8 @@ const dir = path.join('templates', 'project', 'skills');
 const names = templateSkills();
 const read = (n) => fs.readFileSync(path.join(dir, n, 'SKILL.md'), 'utf8');
 
-test('skills do projeto: 30, cada uma com frontmatter válido e name = pasta', () => {
-  assert.equal(names.length, 30);
+test('skills do projeto: 34, cada uma com frontmatter válido e name = pasta', () => {
+  assert.equal(names.length, 34);
   for (const n of names) assert.equal(skillProblem(n, read(n)), null, n);
 });
 
