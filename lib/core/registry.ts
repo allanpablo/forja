@@ -732,6 +732,16 @@ export const COMMANDS: Record<string, CommandSpec> = {
     args: ['eval'],
     gates: ['workspace'],
   },
+  'eval:agents': {
+    domain: 'llm',
+    desc: 'Avalia agentes reais (Claude, Codex) numa suíte de tarefas do Forja, em projeto descartável — custa',
+    node: 'scripts/eval-agents.ts',
+    spec: 'SPEC-054',
+    json: true,
+    usage: 'forja eval:agents --agent claude|codex [--case a,b] [--model m] [--budget-usd n] [--timeout s] [--keep] [--list] [--json]',
+    examples: ['forja eval:agents --list', 'forja eval:agents --agent claude --case adr', 'forja eval:agents --agent codex'],
+    next: ['llm:recommend'],
+  },
   'cost:economy': {
     domain: 'llm',
     desc: 'Custo real acumulado (USD) das execuções LLM registradas, por modelo — tabela de preço local',

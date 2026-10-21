@@ -168,6 +168,26 @@ workspace. `forja llm:doctor` confere se a CLI instalada oferece as flags de som
 elas, o perfil fica incompatível em vez de rodar com permissões que o Forja não pediu. Retomada
 (`--resume`) continua só em Codex e Claude.
 
+## Avaliar agentes reais no método do Forja (SPEC-054, ADR-0093)
+
+`llm:eval` agrega execuções do `llm:run`. Para saber se um agente **segue o Forja** num projeto
+conectado, use a suíte de tarefas:
+
+```bash
+forja eval:agents --list                         # os casos (templates/evals/agents/*.json)
+forja eval:agents --agent claude                 # todos os casos; teto de US$ 1,00 por caso
+forja eval:agents --agent codex --case adr,memoria
+forja eval:agents --agent claude --model sonnet --budget-usd 0.5 --json
+```
+
+Cada caso cria um workspace e um projeto descartáveis, aplica a semente, roda o agente e corrige de
+forma determinística (arquivo criado e conteúdo, comando executado, resposta, critério coberto pelo
+`spec:trace`, comando que passa, arquivos inalterados). É a única exceção ao modo somente leitura:
+o agente escreve, mas só ali (Codex com `-s workspace-write`; Claude com `acceptEdits`, lista fechada
+de comandos e `--max-budget-usd`). O resultado vai para `<workspace>/.context/agent-evals.jsonl` e é
+comparado com a execução anterior do mesmo agente e modelo. **Custa**: cada caso é uma sessão real.
+Exit 0 = tudo passou, 2 = algum caso falhou.
+
 ## Métricas e recomendação por custo/latência (SPEC-049)
 
 `llm:eval` acrescenta às métricas do relatório:

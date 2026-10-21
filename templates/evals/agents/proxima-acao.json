@@ -1,0 +1,29 @@
+{
+  "id": "proxima-acao",
+  "title": "Próxima ação vem do forja",
+  "prompt": "Acabei de voltar de férias. O que devo fazer agora neste projeto? Seja breve e não altere nada.",
+  "seed": {
+    "files": {
+      "specs/exportar-relatorios/spec.md": "# Spec: exportar-relatorios\n\n- **ID**: SPEC-001\n- **Status**: approved\n- **Owner**: time\n- **Criado em**: 2026-10-01\n\n## 1. Problema\nClientes copiam a tabela de relatórios à mão para a planilha.\n\n## 4. Critérios de aceite (Definition of Done)\n- [ ] AC-1: o relatório mensal pode ser baixado em CSV.\n"
+    }
+  },
+  "checks": [
+    {
+      "type": "ran",
+      "desc": "consultou forja next ou status",
+      "matches": "forja\\s+(next|status)|mcp__forja__(next|status)"
+    },
+    {
+      "type": "answer",
+      "desc": "recomenda o plano da spec aprovada",
+      "matches": [
+        "spec:plan|plan\\.md|plano"
+      ]
+    },
+    {
+      "type": "unchanged",
+      "desc": "não alterou specs",
+      "glob": "specs/**"
+    }
+  ]
+}

@@ -1,0 +1,26 @@
+{
+  "id": "spec-nova",
+  "title": "Feature nova começa por spec, pelo spec:new",
+  "prompt": "Queremos que o cliente consiga exportar o extrato da conta em PDF. Comece essa feature do jeito que este projeto pede. Não escreva código ainda.",
+  "checks": [
+    {
+      "type": "ran",
+      "desc": "criou a spec com forja spec:new",
+      "matches": "forja\\s+spec:new|mcp__forja__spec_new"
+    },
+    {
+      "type": "file",
+      "desc": "spec com ID e critério de aceite preenchido",
+      "glob": "specs/*/spec.md",
+      "contains": [
+        "\\*\\*ID\\*\\*: *SPEC-\\d+",
+        "^- \\[ \\] \\**AC-1\\b[^:\\n]*: *[^<\\s]"
+      ]
+    },
+    {
+      "type": "unchanged",
+      "desc": "não escreveu código",
+      "glob": "src/**"
+    }
+  ]
+}

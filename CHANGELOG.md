@@ -17,6 +17,11 @@ GitHub reusa esse bloco. O README também é reconciliado na mesma entrega — v
 
 ### O que melhorou
 
+- **Dá para medir se os agentes seguem o Forja.** `forja eval:agents --agent claude|codex` roda uma
+  suíte de tarefas (registrar decisão, começar feature, testar um critério, responder pela memória,
+  achar a próxima ação) com o agente real num projeto descartável, corrige pelo que ficou no disco e
+  guarda o histórico em `.context/agent-evals.jsonl`, comparando com a execução anterior. Custa uma
+  sessão real por caso: há teto de custo por caso no Claude e timeout nos dois (SPEC-054, ADR-0093).
 - **Dá para saber quais critérios de aceite têm teste.** `forja spec:trace` lista, para cada `AC-N`
   de cada spec, os testes que o citam (`SPEC-NNN AC-N` no nome ou num comentário), os critérios sem
   teste e as citações a critérios que não existem mais. `--strict` vira gate: spec aprovada ou pronta

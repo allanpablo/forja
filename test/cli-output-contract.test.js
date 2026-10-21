@@ -14,7 +14,8 @@ const forja = path.join(root, 'bin/forja.ts');
 
 // Comandos json:true pesados demais para rodar por inteiro no unit test (worktree isolado,
 // indexação de grafo). Deles verificamos só o caminho de erro do contrato — que é rápido.
-const HEAVY = new Set(['simulate', 'engineer']);
+// `eval:agents` roda agentes reais e pagos: só o caminho de erro (sem --agent) entra no unit test.
+const HEAVY = new Set(['simulate', 'engineer', 'eval:agents']);
 
 // `llm:sessions` (SPEC-048) tem contrato JSON próprio e anterior ao ADR-0082: `list` emite um
 // array e `show` um objeto sem chave `status`. É uma exceção conhecida ao contrato genérico —

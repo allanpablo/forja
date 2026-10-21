@@ -1,0 +1,29 @@
+{
+  "id": "teste-do-criterio",
+  "title": "Teste cita o critério que prova",
+  "prompt": "Escreva o teste automatizado que prova o critério AC-1 da spec de pagamentos. Use o executor de testes nativo do Node (node --test). Não altere o código de produção.",
+  "seed": {
+    "files": {
+      "specs/pagamentos/spec.md": "# Spec: pagamentos\n\n- **ID**: SPEC-001\n- **Status**: approved\n- **Owner**: time\n- **Criado em**: 2026-10-01\n\n## 1. Problema\nPagamentos com valor zero ou negativo chegam ao gateway e são recusados lá, tarde demais.\n\n## 4. Critérios de aceite (Definition of Done)\n- [ ] AC-1: `validarValor` rejeita valor zero ou negativo com erro \"valor inválido\".\n- [ ] AC-2: `validarValor` devolve o valor quando ele é positivo.\n",
+      "src/pagamentos.js": "export function validarValor(valor) {\n  if (!(valor > 0)) throw new Error('valor inválido');\n  return valor;\n}\n"
+    }
+  },
+  "checks": [
+    {
+      "type": "criterion",
+      "desc": "um teste cita SPEC-001 AC-1 (spec:trace)",
+      "spec": "pagamentos",
+      "ac": "AC-1"
+    },
+    {
+      "type": "command",
+      "desc": "os testes passam",
+      "run": "node --test"
+    },
+    {
+      "type": "unchanged",
+      "desc": "não mexeu no código de produção",
+      "glob": "src/pagamentos.js"
+    }
+  ]
+}
