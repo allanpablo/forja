@@ -38,7 +38,8 @@ export interface TraceReport {
 /** Status em que "pronto" já foi prometido: o `--strict` cobra a rastreabilidade. */
 export const GATED_STATUSES = new Set(['approved', 'implementing', 'done']);
 
-const AC_LINE = /^\s*[-*]\s*(?:\[[ xX]\]\s*)?\**(AC-\d+)\**\s*[:—–-]\s*(.+)$/;
+// `AC-1 (RF-01): …` também: agentes ligam o critério ao requisito entre parênteses.
+const AC_LINE = /^\s*[-*]\s*(?:\[[ xX]\]\s*)?\**(AC-\d+)\**(?:\s*\([^)\n]*\))?\s*[:—–-]\s*(.+)$/;
 const SPEC_ID = /\*\*ID\*\*:\s*(SPEC-\d+)/;
 const STATUS = /-\s*\*\*Status\*\*:\s*([a-z-]+)/i;
 

@@ -80,9 +80,10 @@ test('SPEC-053 AC-4: acha testes de qualquer stack e ignora node_modules, dist, 
   assert.equal(r.testFiles, 4);
 });
 
-test('parseCriteria: aceita [ ], [x], negrito e travessão; ignora AC citado no meio do texto', () => {
-  const acs = parseCriteria('- [x] AC-1: feito\n- [ ] **AC-2** — negrito\n* AC-3: estrela\ntexto citando AC-9 no meio\n- [ ] AC-1: duplicado\n');
-  assert.deepEqual(acs.map((a) => a.id), ['AC-1', 'AC-2', 'AC-3']);
+test('parseCriteria: aceita [ ], [x], negrito, travessão e (RF-NN); ignora AC citado no meio do texto', () => {
+  const acs = parseCriteria('- [x] AC-1: feito\n- [ ] **AC-2** — negrito\n* AC-3: estrela\n- [ ] AC-4 (RF-01): ligado ao requisito\ntexto citando AC-9 no meio\n- [ ] AC-1: duplicado\n');
+  assert.deepEqual(acs.map((a) => a.id), ['AC-1', 'AC-2', 'AC-3', 'AC-4']);
+  assert.equal(acs[3].text, 'ligado ao requisito');
 });
 
 function cli(dir, args) {
