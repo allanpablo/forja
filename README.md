@@ -143,6 +143,7 @@ forja spec:new my-feature
 forja spec:plan my-feature
 forja spec:tasks my-feature
 forja spec:check my-feature
+forja spec:trace my-feature      # AC-N criteria × tests that cite them (SPEC-NNN AC-N)
 ```
 
 ### Already have a repository?

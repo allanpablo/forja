@@ -95,7 +95,7 @@ Feche com **Pendentes**: regras que dependem de suposições não confirmadas e 
 
 ## No Forja
 
-No Forja, os critérios de aceite estão em `specs/<slug>/spec.md` (§4, `AC-n`). Nomeie os casos citando o `AC-n` que cobrem, para a ligação spec → teste ficar rastreável, e registre a evidência na seção "Evidências e estado real" da spec.
+No Forja, os critérios de aceite estão em `specs/<slug>/spec.md` (§4, `AC-n`). Nomeie os casos citando a spec e o critério que cobrem, `SPEC-NNN AC-N` (ex.: `test('SPEC-004 AC-2: estorno parcial', …)`), e confira com `forja spec:trace <slug>`: critérios sem teste e citações a critérios que não existem mais aparecem ali. Registre a evidência na seção "Evidências e estado real" da spec.
 
 ## Evite
 

@@ -160,6 +160,18 @@ export const COMMANDS: Record<string, CommandSpec> = {
     examples: ['forja spec:tasks pagamentos-pix'],
     next: ['hermes:handoff'],
   },
+  'spec:trace': {
+    domain: 'sdd',
+    desc: 'Critérios de aceite × testes que os citam (SPEC-NNN AC-N): cobertos, sem teste e órfãos',
+    node: 'scripts/spec-trace.ts',
+    readonly: true,
+    json: true,
+    spec: 'SPEC-053',
+    usage: 'forja spec:trace [slug] [--strict] [--json]',
+    cliArgs: [{ name: 'slug', required: false, desc: 'feature ou SPEC-NNN; omitido = todas' }],
+    examples: ['forja spec:trace', 'forja spec:trace pagamentos', 'forja spec:trace --strict'],
+    next: ['spec:check'],
+  },
   'spec:check': {
     domain: 'sdd',
     desc: 'Valida completude da spec (gate de governança)',
