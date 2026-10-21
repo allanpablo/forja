@@ -410,6 +410,7 @@ Exemplos:
   forja project:new meu-app
   forja project:new meu-app -- --ai claude,codex --skip-backend
   forja project:new pedidos -- --template clean-arch
+  forja project:new minha-saas -- --template saas-starter
     `);
     process.exit(projectName === undefined && process.argv.length > 2 ? 1 : 0);
   }

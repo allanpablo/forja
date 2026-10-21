@@ -51,5 +51,8 @@ compilação, então nada disso aparecia.
 ## Consequências
 
 - `clean-arch` é o primeiro template. Promover outro exige migrá-lo e incluí-lo na matriz do CI.
+- 5.1: `saas-starter` (02) promovido depois de reescrito do zero (o backend antigo não compilava e
+  tinha segredo JWT padrão e valor de cobrança vindo do cliente). Mesma regra de dependência do
+  `clean-arch`, contexts `identity` e `billing`, testes de isolamento entre tenants.
 - Projetos gerados antes da v5 continuam em CommonJS + Jest. O `project:upgrade` é aditivo e não
   migra o backend existente.

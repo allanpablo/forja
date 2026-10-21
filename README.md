@@ -104,7 +104,7 @@ process followed?", the answer is a file, not a promise.
   re-wires older projects without touching the user's code — or the whole workspace with `--all`
   (ADR-0086). The NestJS backend follows the official NestJS 12 layout (ESM, Vitest, oxlint) and its
   `/api/ops` page shows the project's specs, open handoffs and indexed memory.
-- **Validated templates** — `project:new <name> --template clean-arch` starts from a boilerplate whose
+- **Validated templates** — `project:new <name> --template clean-arch` (DDD) or `--template saas-starter` (multi-tenant SaaS with subscriptions and billing) starts from a boilerplate whose
   install, build, tests and lint are proven in CI; `project:templates` lists what is a template and
   what is reference architecture (ADR-0088).
 - **The user journey is a gate** — `npm test` and `release:check` run the whole journey (workspace →

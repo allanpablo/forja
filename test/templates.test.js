@@ -16,7 +16,7 @@ test('todo template validado está na matriz project-smoke-full do CI', () => {
 
 test('resolveTemplate: aceita nome curto, recusa referência e desconhecido com a lista', () => {
   assert.equal(resolveTemplate('clean-arch').name, '06-clean-arch');
-  assert.throws(() => resolveTemplate('saas-starter'), /arquitetura de referência.*Disponíveis: clean-arch/);
+  assert.throws(() => resolveTemplate('ecommerce-starter'), /arquitetura de referência.*Disponíveis: saas-starter, clean-arch/);
   assert.throws(() => resolveTemplate('nao-existe'), /template desconhecido/);
 });
 

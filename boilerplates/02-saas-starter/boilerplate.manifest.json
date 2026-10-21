@@ -2,41 +2,46 @@
   "schemaVersion": "1.0",
   "type": "boilerplate",
   "name": "02-saas-starter",
-  "title": "SaaS Starter - Multi-Tenant Platform Boilerplate",
+  "title": "SaaS Starter - API multi-tenant com assinatura e faturamento",
   "path": "boilerplates/02-saas-starter",
   "readme": "boilerplates/02-saas-starter/README.md",
   "stack": [
-    "NestJS",
-    "Docker",
+    "NestJS 12",
+    "TypeORM",
+    "Postgres",
     "JWT",
-    "Postgres"
+    "Vitest"
   ],
   "useCases": [
-    "SaaS",
-    "Admin",
-    "Billing",
-    "Auth"
+    "SaaS B2B",
+    "Multi-tenant",
+    "Assinatura",
+    "Faturamento",
+    "Auth com papéis"
   ],
   "commands": [
     "npm install",
     "npm run start:dev",
-    "docker compose up -d",
-    "npm test"
+    "npm test",
+    "npm run lint"
   ],
   "gates": [
-    "npm run spec:check",
     "npm test",
-    "npm run project:check"
+    "npm run lint",
+    "npm run build"
   ],
   "tokenPolicy": {
     "firstRead": [
       "boilerplate.manifest.json",
-      "README.md"
+      "README.md",
+      "memory/30-domains/identity/context.md",
+      "memory/30-domains/billing/context.md"
     ],
     "avoidLoadingByDefault": [
       "node_modules",
       "dist",
       "coverage"
     ]
-  }
+  },
+  "template": true
 }
