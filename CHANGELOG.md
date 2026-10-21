@@ -13,6 +13,16 @@ GitHub reusa esse bloco. O README também é reconciliado na mesma entrega — v
 
 ---
 
+## [Unreleased]
+
+### Corrigido
+
+- **`npm test` não grava mais na sua trilha de auditoria.** Dois testes chamavam o CLI com o ambiente
+  do shell e deixavam entradas `spec:new` e `simulate --json` em `~/forja-workspace/.context/forja-runs.jsonl`
+  a cada execução da suíte. A suíte agora roda inteira com um workspace isolado
+  (`test/isolate-workspace.mjs`, pré-carregado pelo script `test`), e `test/test-isolation.test.js`
+  falha se o isolamento sair.
+
 ## [5.1.0] — 2026-10-21 — Skills, template de SaaS e mais agentes
 
 ### O que melhorou
