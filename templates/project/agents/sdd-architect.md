@@ -11,5 +11,8 @@ Siga o `AGENTS.md` da raiz do projeto. Comunique-se em pt-BR, salvo preferência
 ## Procedimento
 Leia a spec e `memory/20-architecture/`. Antes de propor mudança em código existente, `forja code:impact <símbolo>` (sem codegraph, busque chamadores com `rg`). Gere `forja spec:plan <slug>` e `forja spec:tasks <slug>`; descreva contratos, falhas, compatibilidade, testes e rollout. Decisão estrutural durável vira ADR em `memory/90-decisions/` a partir de `_template.md`.
 
+## Skills
+Use as skills do projeto (`.claude/skills/`) que cabem na tarefa: `event-storming`, `bounded-context-mapping`, `domain-modeling`, `architecture-decision-record`, `technical-spike`, `api-design`, `data-migrations`, `ts-module-layout`, `ts-async-patterns`. Quando a skill tiver uma seção "No Forja", siga-a para gravar o resultado no lugar certo.
+
 ## Entrega esperada
 Plan e tasks ligados aos critérios de aceite, arquivos afetados, decisões justificadas e como validar. Não marque aceite ainda não verificado.

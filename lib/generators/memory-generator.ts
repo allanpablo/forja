@@ -307,7 +307,7 @@ Mantenha resumos curtos por dominio para carregamento rapido de contexto.
 Armazenar indice operacional da documentacao para busca e continuidade de contexto.
 
 ## Fonte da verdade
-- Arquivos Markdown em memory/, docs/, agents/, skills/, prompts/
+- Arquivos Markdown em memory/, docs/, agents/, prompts/
 
 ## Banco
 - SQLite em .memory/sqlite/context.db
@@ -400,153 +400,9 @@ Planejamento, decomposicao de tarefas, atribuicao de ownership e consolidacao.
 `,
 };
 
-/**
- * Gera estrutura de skills
- */
-const skillTemplates = {
-  'skills/triage-task/SKILL.md': `# Skill: Triage de Tarefa
-
-## Objetivo
-Classificar demanda em: rapido, medio, complexo.
-
-## Saida
-- resumo
-- risco
-- owner sugerido
-- fatias de execucao
-`,
-
-  'skills/context-compaction/SKILL.md': `# Skill: Compactacao de Contexto
-
-## Objetivo
-Gerar resumo operacional sem perder decisoes chave.
-
-## Regras
-- manter fatos verificaveis
-- remover redundancia
-- preservar links para fontes internas
-`,
-
-  'skills/handoff/SKILL.md': `# Skill: Handoff
-
-## Template
-- contexto
-- alteracoes
-- riscos
-- pendencias
-- proximo agente
-`,
-
-  'skills/nest-api/SKILL.md': `# Skill: Nest API
-
-## Checklist
-- modulo criado
-- dto com validacao
-- controller + service
-- testes
-`,
-
-  'skills/self-healing/SKILL.md': `# Skill: Auto-Diagnóstico (Self-Healing)
-
-## Objetivo
-Resolver falhas de build, testes ou tipos sem intervenção humana.
-
-## Fluxo
-1. Analisar a stack trace completa do erro.
-2. Identificar se é: erro de sintaxe, falta de dependência, erro de tipo ou lógica.
-3. Consultar documentação interna ou padrões do projeto.
-4. Propor correção mínima e rodar validação novamente.
-`,
-
-  'skills/validate-handoff/SKILL.md': `# Skill: Validação e Review de Segurança (Gatekeeper)
-
-## Objetivo
-Atuar como Gatekeeper final para garantir que nenhum código inseguro ou incompleto entre no pipeline.
-
-## Protocolo de Review (Obrigatório)
-Antes de aceitar um handoff, o Reviewer deve validar:
-
-1. **Compliance de Raciocínio**: O Worker preencheu o bloco \`## Raciocínio Estruturado\`? (Se não, rejeite imediatamente).
-2. **Scan de Segurança**:
-   - Há logs sensíveis (PII, tokens) sendo impressos?
-   - As validações de input estão no DTO?
-3. **Verificação de Handoff**: 
-   - Os arquivos listados no handoff condizem com o diff real?
-   - Existem pendências (riscos) não documentadas?
-
-## Saída do Reviewer
-- [ ] Aprovado (Status: \`done\` no DB)
-- [ ] Rejeitado (Status: \`blocked\` + pendências listadas)
-`,
-
-  'skills/ui-fidelity/SKILL.md': `# Skill: Fidelidade Visual
-
-## Objetivo
-Garantir que a UI segue padrões de elite.
-
-## Instrução
-1. Consultar a biblioteca \`design-md/\` para inspiração de marca/padrão.
-2. Comparar o código gerado com os padrões de espaçamento, tipografia e cores da referência.
-3. Ajustar CSS/Componentes para atingir qualidade visual de nível mundial.
-`,
-
-  'skills/reasoning-protocol/SKILL.md': `# Skill: Raciocínio Estruturado (Chain-of-Thought)
-
-## Objetivo
-Reduzir erros de implementação através de análise lógica explícita.
-
-## Protocolo Obrigatório
-Antes de qualquer código ou plano de ação, preencha o bloco \`## Raciocínio Estruturado\`:
-
-1. **Entendimento**: O que foi pedido e qual o impacto no sistema?
-2. **Restrições**: Quais arquivos NÃO posso tocar? Quais padrões devo seguir?
-3. **Alternativas**: Existe mais de uma forma de fazer? Por que escolhi esta?
-4. **Plano de Ataque**: Passo-a-passo lógico da implementação.
-`,
-
-  'skills/llm-provider-routing/SKILL.md': `# Skill: Roteamento de LLM Providers
-
-## Objetivo
-Selecionar e configurar uma LLM por papel sem amarrar o projeto a um unico fornecedor, usando o ciclo verificável do Forja.
-
-## Quando usar
-- O usuario pedir DeepSeek, MiniMax, Mistral, Qwen, Ollama, OpenRouter, Together, Groq, xAI, Cohere, Perplexity ou outro provider.
-- Um papel precisar trocar de modelo por custo, cota, latencia, contexto, privacidade ou qualidade.
-- Uma CLI/API externa precisar entrar no fluxo de handoffs sem alterar o SDD.
-
-## Regras
-- Preferir providers locais para tarefas sensiveis quando o modelo disponivel for suficiente.
-- Usar \`manual\` quando o provider nao tiver CLI local confiavel.
-- Registrar perfis no workspace em \`.context/llm-profiles.json\` com \`provider\`, \`model\`, \`command\`, \`commandArgs\`, \`roles\`, \`taskTypes\`, \`privacy\` e \`enabled\`.
-- Nao assumir que uma CLI existe: validar o binario ou documentar o comando esperado.
-- Nao colocar API keys em memoria, specs, handoffs ou logs.
-
-## Checklist
-1. Identificar papel e tipo de tarefa.
-2. Inicializar ou revisar os perfis com \`forja llm:profiles:init\`.
-3. Preencher \`command\` com um único executável e \`commandArgs\` para argumentos fixos; nunca use shell ou grave credenciais.
-4. Rodar \`forja llm:probe <perfil>\` antes de delegar uma sprint inteira.
-5. Consultar \`forja llm:recommend --role <papel> --task <tipo>\` e aprovar explicitamente a escolha.
-6. Executar \`forja llm:run --profile <perfil> --task <arquivo>\` e avaliar com \`forja llm:eval --scope model --id <provider:model>\`.
-7. Registrar handoff Hermes quando a troca impactar entrega.
-`,
-
-  'skills/MANIFEST.json': `{
-  "version": "0.5.0",
-  "skills": [
-    { "id": "triage", "path": "skills/triage-task/SKILL.md", "description": "Classificação de tarefas" },
-    { "id": "compaction", "path": "skills/context-compaction/SKILL.md", "description": "Compactação de memória" },
-    { "id": "handoff", "path": "skills/handoff/SKILL.md", "description": "Protocolo de transição" },
-    { "id": "nest-api", "path": "skills/nest-api/SKILL.md", "description": "Geração de endpoints NestJS" },
-    { "id": "self-healing", "path": "skills/self-healing/SKILL.md", "description": "Resolução autônoma de erros" },
-    { "id": "validate-handoff", "path": "skills/validate-handoff/SKILL.md", "description": "Checklist de qualidade de handoff" },
-    { "id": "ui-fidelity", "path": "skills/ui-fidelity/SKILL.md", "description": "Auditoria estética de UI" },
-    { "id": "reasoning", "path": "skills/reasoning-protocol/SKILL.md", "description": "Protocolo de raciocínio lógico" },
-    { "id": "llm-provider-routing", "path": "skills/llm-provider-routing/SKILL.md", "description": "Roteamento multi-LLM por papel" }
-  ]
-}
-`,
-};
+// Skills do projeto: instaladas pelo project:wire em .claude/skills/ e .agents/skills/ a partir de
+// templates/project/skills/ (SPEC-051). As 9 "skills" de esboço que viviam aqui ficavam em skills/
+// sem frontmatter, onde nenhuma IA as carregava.
 
 /**
  * Gera estrutura de prompts
@@ -755,26 +611,6 @@ console.log('');
 console.log('OK -- os mapas de memoria batem com o codigo.');
 `,
 
-  'scripts/lib/skill-loader.mjs': `import fs from 'node:fs';
-import path from 'node:path';
-import { fileURLToPath } from 'node:url';
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-const root = path.resolve(__dirname, '..', '..');
-
-export function loadSkills() {
-  const manifestPath = path.join(root, 'skills', 'MANIFEST.json');
-  if (!fs.existsSync(manifestPath)) return [];
-  const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8'));
-  return manifest.skills;
-}
-
-export function getSkill(id) {
-  const skills = loadSkills();
-  return skills.find(s => s.id === id);
-}
-`,
 
   'scripts/memory-vacuum.mjs': `import fs from 'node:fs';
 import path from 'node:path';
@@ -823,7 +659,7 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const root = path.resolve(__dirname, '..');
 
-const watchDirs = ['memory', 'agents', 'skills', 'prompts', 'docs'];
+const watchDirs = ['memory', 'agents', 'prompts', 'docs'];
 let timeout = null;
 
 console.log('👀 Memory Watcher iniciado...');
@@ -853,7 +689,6 @@ export function getAllMemoryTemplates() {
   return {
     ...memoryTemplates,
     ...agentTemplates,
-    ...skillTemplates,
     ...promptTemplates,
     ...configTemplates,
     ...scriptTemplates,

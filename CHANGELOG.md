@@ -17,7 +17,25 @@ GitHub reusa esse bloco. O README também é reconciliado na mesma entrega — v
 
 ### O que melhorou
 
-_(preencher a cada release: diff de produto vs. a versão anterior, antes das seções técnicas)_
+- **O projeto passa a ter skills que as IAs realmente carregam.** São 30 skills em pt-BR (avaliar
+  produto, levantar e fatiar requisitos, event storming, modelagem de domínio, ADR, API, migrações,
+  testes, code review TypeScript, modelagem de ameaças, LGPD, observabilidade, release e git),
+  instaladas em `.claude/skills/` (Claude Code) e `.agents/skills/` (Codex). As 9 "skills" anteriores
+  eram esboços que nenhuma IA lia.
+- **As skills falam a língua do Forja.** As que produzem artefatos dizem onde gravar: ADR em
+  `memory/90-decisions/`, requisitos em `specs/<slug>/spec.md`, entrega como handoff, postmortem com
+  `forja incident:record`. Cada sub-agent de papel lista as skills que deve usar.
+- **Conferido como o resto da conexão:** `forja project:wire --check` valida as skills (frontmatter,
+  referências entre elas e comandos citados), e uma skill que você editar não é sobrescrita.
+
+### Adicionado
+
+- `templates/project/skills/` (SPEC-051, ADR-0089); checks `skills-claude`/`skills-codex` no
+  `project:wire`; passo `skills` na jornada; `test/project-skills.test.js`.
+
+### Removido
+
+- Skills de esboço do gerador (`skills/` na raiz do projeto) e `scripts/lib/skill-loader.mjs`.
 
 ## [5.0.1] — 2026-10-10 — Correção: o upgrade nunca toca o código do projeto
 

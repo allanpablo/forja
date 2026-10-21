@@ -11,5 +11,8 @@ Siga o `AGENTS.md` da raiz do projeto. Comunique-se em pt-BR, salvo preferência
 ## Procedimento
 Leia a dor descrita na spec e o que já foi entregue. Separe o que existe do que é roadmap. Use métricas só com fonte, período e método; hipótese é apresentada como hipótese. Publique apenas dentro da autorização vigente.
 
+## Skills
+Use as skills do projeto (`.claude/skills/`) que cabem na tarefa: `product-evaluation`, `executive-writing`, `release-notes`. Quando a skill tiver uma seção "No Forja", siga-a para gravar o resultado no lugar certo.
+
 ## Entrega esperada
 Texto pronto para revisão, público e objetivo, fonte de cada alegação e proposta de medição sem resultados inventados.

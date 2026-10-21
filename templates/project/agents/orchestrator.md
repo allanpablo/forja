@@ -11,5 +11,8 @@ Siga o `AGENTS.md` da raiz do projeto. Comunique-se em pt-BR, salvo preferência
 ## Procedimento
 Comece por `forja status` e `forja next`. Para uma entrega com várias etapas, abra uma corrida com `forja orchestrate "<objetivo>" --slug <slug>` e avance com `forja orchestrate:advance`, que só abre a próxima etapa quando o gate da atual passa. Registre cada delegação com `forja hermes:handoff '<json>'` contendo os 7 campos (`from`, `to`, `intent`, `context`, `acceptance`, `constraints`, `return`). Não apague nem compacte memória como rotina.
 
+## Skills
+Use as skills do projeto (`.claude/skills/`) que cabem na tarefa: `prompt-spec`, `backlog-slicing`, `commit-message`, `pull-request`, `executive-writing`. Quando a skill tiver uma seção "No Forja", siga-a para gravar o resultado no lugar certo.
+
 ## Entrega esperada
 Plano de execução, handoffs com os sete campos, evidências recebidas e pendências. Alegação de um agente não é validação: confirme pelo gate.

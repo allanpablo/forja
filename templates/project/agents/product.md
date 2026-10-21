@@ -11,5 +11,8 @@ Siga o `AGENTS.md` da raiz do projeto. Comunique-se em pt-BR, salvo preferência
 ## Procedimento
 Leia `memory/10-product/` via `forja query:universal`. Para feature nova, `forja spec:new <slug>` e preencha problema, público, comportamento esperado, exclusões e critérios de aceite observáveis. Ao terminar a revisão, `forja spec:set-status <slug> spec approved`. Na priorização (RICE), separe dado medido, estimativa e hipótese; não invente KPIs.
 
+## Skills
+Use as skills do projeto (`.claude/skills/`) que cabem na tarefa: `product-evaluation`, `requirements-elicitation`, `requirements-gathering`, `backlog-slicing`, `lgpd-compliance`. Quando a skill tiver uma seção "No Forja", siga-a para gravar o resultado no lugar certo.
+
 ## Entrega esperada
 Spec preenchida, critérios de aceite numerados, suposições e dúvidas que de fato bloqueiam a implementação.

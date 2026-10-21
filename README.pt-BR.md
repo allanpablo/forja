@@ -307,6 +307,8 @@ meu-projeto/
   .claude/
     settings.json        # hooks: forja hook:session-start / hook:user-prompt
     agents/              # orchestrator, product, sdd-architect, context-engineer, governance, marketing
+    skills/              # 30 skills (requisitos, modelagem de domínio, ADR, testes, code review TS, LGPD…)
+  .agents/skills/        # as mesmas skills para o Codex
   .mcp.json              # servidor MCP do forja (+ codegraph quando instalado)
   .codex/config.toml     # MCP do forja no Codex · .gemini/settings.json (Gemini) · .vscode/mcp.json (Copilot)
   .forja/models.json     # cadeia de fallback entre IAs (troca de motor)
