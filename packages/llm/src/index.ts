@@ -41,6 +41,9 @@ export const DEFAULT_LLM_PROFILES: LlmProfiles = {
     claude: { provider: 'claude', model: 'default', command: 'claude', roles: ['sdd-architect', 'product'], taskTypes: ['architecture', 'specification', 'analysis'], privacy: 'external', enabled: true },
     gemini: { provider: 'gemini-cli', model: 'default', command: 'gemini', roles: ['context-engineer', 'marketing'], taskTypes: ['research', 'context', 'writing'], privacy: 'external', enabled: true },
     ollama: { provider: 'ollama', model: 'llama3.3', command: 'ollama', roles: [], taskTypes: ['offline', 'sensitive'], privacy: 'local', enabled: false },
+    copilot: { provider: 'copilot', model: 'default', command: 'copilot', roles: ['worker'], taskTypes: ['implementation', 'review'], privacy: 'external', enabled: false },
+    cursor: { provider: 'cursor-agent', model: 'default', command: 'cursor-agent', roles: ['worker', 'sdd-architect'], taskTypes: ['implementation', 'analysis', 'review'], privacy: 'external', enabled: false },
+    opencode: { provider: 'opencode', model: 'default', command: 'opencode', roles: ['worker'], taskTypes: ['implementation', 'analysis'], privacy: 'external', enabled: false },
   },
 };
 
@@ -89,9 +92,14 @@ export function buildLlmExecution(profile: LlmProfile, prompt: string, options: 
     args: [...base, ...(profile.model === 'default' ? [] : ['--model', profile.model]), '-p', prompt,
       '--output-format', 'json', ...(options.resume ? ['--resume', options.resume] : [])],
   };
-  if (profile.provider === 'gemini-cli') return { executable: profile.command, args: [...base, ...(profile.model === 'default' ? [] : ['-m', profile.model]), '-p', prompt] };
+  // Todos os adapters de agente rodam em modo somente leitura/planejamento: o llm:run é supervisionado
+  // e quem aplica mudanças é o fluxo do Forja, não o provedor (ADR-0090).
+  if (profile.provider === 'gemini-cli') return { executable: profile.command, args: [...base, ...(profile.model === 'default' ? [] : ['-m', profile.model]), '--approval-mode', 'plan', '-o', 'json', '-p', prompt] };
   if (profile.provider === 'ollama') return { executable: profile.command, args: [...base, 'run', profile.model, prompt] };
-  if (profile.provider === 'copilot') return { executable: profile.command, args: [...base, 'copilot', 'suggest', '-t', 'shell', prompt] };
+  // GitHub Copilot CLI (`copilot`): sem --allow-*, ferramentas que pedem aprovação ficam negadas no modo -p.
+  if (profile.provider === 'copilot') return { executable: profile.command, args: [...base, ...(profile.model === 'default' ? [] : ['--model', profile.model]), '-s', '-p', prompt] };
+  if (profile.provider === 'cursor-agent') return { executable: profile.command, args: [...base, '-p', '--mode', 'plan', '--output-format', 'json', ...(profile.model === 'default' ? [] : ['--model', profile.model]), prompt] };
+  if (profile.provider === 'opencode') return { executable: profile.command, args: ['run', ...base, '--agent', 'plan', ...(profile.model === 'default' ? [] : ['-m', profile.model]), prompt] };
   return { executable: profile.command, args: [...base, prompt] };
 }
 
