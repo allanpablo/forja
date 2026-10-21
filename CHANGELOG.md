@@ -13,6 +13,16 @@ GitHub reusa esse bloco. O README também é reconciliado na mesma entrega — v
 
 ---
 
+## [Unreleased]
+
+### O que melhorou
+
+- **Dá para saber quais critérios de aceite têm teste.** `forja spec:trace` lista, para cada `AC-N`
+  de cada spec, os testes que o citam (`SPEC-NNN AC-N` no nome ou num comentário), os critérios sem
+  teste e as citações a critérios que não existem mais. `--strict` vira gate: spec aprovada ou pronta
+  com lacuna sai com 2. O `AGENTS.md` e a skill `testing` do projeto ensinam a convenção (SPEC-053,
+  ADR-0092). No próprio Forja, 27 de 326 critérios têm teste citando — o ponto de partida.
+
 ## [5.1.0] — 2026-10-21 — Skills, template de SaaS e mais agentes
 
 ### O que melhorou
@@ -939,14 +949,6 @@ ADR-0022 (`memory/90-decisions/0022-congelar-dashboard-web.md`) para rationale e
 - `docs/dashboard.md` e `specs/agent-dashboard/` do `files[]` do pacote npm.
 
 ## [Unreleased] — Workspace separado
-
-### O que melhorou
-
-- **Dá para saber quais critérios de aceite têm teste.** `forja spec:trace` lista, para cada `AC-N`
-  de cada spec, os testes que o citam (`SPEC-NNN AC-N` no nome ou num comentário), os critérios sem
-  teste e as citações a critérios que não existem mais. `--strict` vira gate: spec aprovada ou pronta
-  com lacuna sai com 2. O `AGENTS.md` e a skill `testing` do projeto ensinam a convenção (SPEC-053,
-  ADR-0092). No próprio Forja, 27 de 326 critérios têm teste citando — o ponto de partida.
 
 SPEC-028 (`specs/reestruturacao-forja-v2/`): separação do framework Forja do workspace de produção.
 
