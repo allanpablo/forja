@@ -34,7 +34,6 @@ const CRITICAL_DIRS = [
   'memory/60-runs',
   'memory/70-summaries',
   'agents',
-  'skills',
   'prompts',
   '.memory/sqlite',
 ];

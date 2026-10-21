@@ -37,6 +37,31 @@ const CODEX_MCP = '# Forja — servidor MCP (forja project:wire)\n[mcp_servers.f
 
 const GITIGNORE = ['memory/sqlite/', '.context/'];
 
+/**
+ * Skills do projeto (SPEC-051): pastas com SKILL.md em templates/project/skills/, instaladas onde cada
+ * IA as procura sozinha. Codex e o padrão comum entre ferramentas leem `.agents/skills/`.
+ */
+export const SKILL_TARGETS: Readonly<Record<string, string>> = {
+  claude: path.join('.claude', 'skills'),
+  codex: path.join('.agents', 'skills'),
+};
+
+export function templateSkills(): string[] {
+  const dir = asset('templates', 'project', 'skills');
+  try {
+    return fs.readdirSync(dir, { withFileTypes: true }).filter((e) => e.isDirectory()).map((e) => e.name).sort();
+  } catch { return []; }
+}
+
+/** Valida o frontmatter de um SKILL.md: devolve o problema ou null. */
+export function skillProblem(name: string, text: string | null): string | null {
+  if (text == null) return 'ausente';
+  const m = text.match(/^---\nname: ([^\n]+)\ndescription: ([^\n]+)\n/);
+  if (!m) return 'frontmatter sem name/description';
+  if (m[1].trim() !== name) return `name "${m[1].trim()}" ≠ pasta`;
+  return null;
+}
+
 export const ROLES = ['orchestrator', 'product', 'sdd-architect', 'context-engineer', 'governance', 'marketing'] as const;
 
 /** Hooks do Claude Code. Guardados por `command -v`: sem `forja` no PATH, a sessão abre sem erro. */
@@ -208,6 +233,18 @@ export function wireProject(dir: string, opts: WireOptions = {}): WireChange[] {
   else if (mcp.mcpServers.codegraph && !hasBinary('codegraph')) delete mcp.mcpServers.codegraph;
   writeJson(dir, '.mcp.json', mcp, changes);
 
+  // Skills: uma cópia por IA conectada que as lê nativamente. Skill editada pelo usuário (sem a marca)
+  // não é sobrescrita.
+  for (const [agent, target] of Object.entries(SKILL_TARGETS)) {
+    if (!ai.includes(agent)) continue;
+    for (const name of templateSkills()) {
+      const rel = path.join(target, name, 'SKILL.md');
+      const current = readOrNull(path.join(dir, rel));
+      if (current != null && !current.includes(AGENT_MARK)) { changes.push({ file: rel, action: 'unchanged' }); continue; }
+      write(dir, rel, `${template(path.join('skills', name, 'SKILL.md'))}\n\n${AGENT_MARK}\n`, changes);
+    }
+  }
+
   // O mesmo servidor nas outras IAs, cada uma na config de projeto que ela lê sozinha.
   if (ai.includes('codex')) {
     const rel = path.join('.codex', 'config.toml');
@@ -342,10 +379,33 @@ export function checkProjectWiring(dir: string, { commands, ai }: { commands: Re
   const others = wiredAi.filter((a) => a !== 'claude');
   if (others.length) add('mcp-ias', mcpGaps.length ? 'fail' : 'ok', mcpGaps.length ? `servidor forja ausente em: ${mcpGaps.join(', ')}` : `servidor forja também em: ${others.join(', ')}`);
 
+  // Skills: presentes, com frontmatter válido, e citando só skills que existem.
+  const expectedSkills = templateSkills();
+  const skillTexts: string[] = [];
+  for (const [agent, target] of Object.entries(SKILL_TARGETS)) {
+    if (!wiredAi.includes(agent)) continue;
+    const problems: string[] = [];
+    const installed = new Set<string>();
+    for (const name of expectedSkills) {
+      const rel = path.join(target, name, 'SKILL.md');
+      const text = readOrNull(path.join(dir, rel));
+      const p = skillProblem(name, text);
+      if (p) problems.push(`${name}: ${p}`);
+      else { installed.add(name); skillTexts.push(rel); }
+    }
+    for (const rel of skillTexts.filter((r) => r.startsWith(target))) {
+      const text = readOrNull(path.join(dir, rel)) ?? '';
+      for (const ref of text.matchAll(/`([a-z]+(?:-[a-z]+)+)`/g)) {
+        if (expectedSkills.includes(ref[1]) && !installed.has(ref[1])) problems.push(`${path.basename(path.dirname(rel))} cita ${ref[1]}, ausente`);
+      }
+    }
+    add(`skills-${agent}`, problems.length ? 'fail' : 'ok', problems.length ? `${target}: ${problems.slice(0, 4).join('; ')}${problems.length > 4 ? ` (+${problems.length - 4})` : ''}` : `${installed.size} skills em ${target}`);
+  }
+
   // Todo comando citado ao usuário/IA precisa existir — é o que impede instrução que não funciona.
   const cited = new Map<string, string>();
   const texts = ['AGENTS.md', 'CLAUDE.md', 'GEMINI.md', path.join('.github', 'copilot-instructions.md'),
-    ...ROLES.map((r) => path.join('.claude', 'agents', `${r}.md`))];
+    ...ROLES.map((r) => path.join('.claude', 'agents', `${r}.md`)), ...skillTexts];
   for (const rel of texts) {
     const t = readOrNull(path.join(dir, rel));
     if (t) for (const c of citedForjaCommands(t)) if (!cited.has(c)) cited.set(c, rel);
@@ -354,7 +414,8 @@ export function checkProjectWiring(dir: string, { commands, ai }: { commands: Re
     const s = readJson(path.join(dir, '.claude', 'settings.json'));
     for (const c of citedForjaCommands(JSON.stringify(s ?? {}))) if (!cited.has(c)) cited.set(c, '.claude/settings.json');
   } catch { /* já reportado acima */ }
-  const unknown = [...cited].filter(([c]) => !(c in commands)).map(([c, f]) => `${c} (${f})`);
+  // `help` é embutido no core (não está no registry).
+  const unknown = [...cited].filter(([c]) => !(c in commands) && c !== 'help').map(([c, f]) => `${c} (${f})`);
   add('commands', unknown.length ? 'fail' : 'ok', unknown.length ? `comandos inexistentes citados: ${unknown.join(', ')}` : `${cited.size} comandos citados, todos no registry`);
 
   const broken = ['.', 'backend'].flatMap((sub) => fs.existsSync(path.join(dir, sub, 'package.json'))

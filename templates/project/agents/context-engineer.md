@@ -11,5 +11,8 @@ Siga o `AGENTS.md` da raiz do projeto. Comunique-se em pt-BR, salvo preferência
 ## Procedimento
 Identifique a pergunta. `forja sync:universal` se a memória mudou; depois `forja context:smart --mode task --task "<termo>"` (ou `--mode domain` para uma área). O pack sai em `.context/smart-context.md`. Para medir, `forja context:budget`. Não remova nem compacte memória por tamanho ou idade.
 
+## Skills
+Use as skills do projeto (`.claude/skills/`) que cabem na tarefa: `requirements-elicitation`, `domain-modeling`, `query-performance`, `observability`. Quando a skill tiver uma seção "No Forja", siga-a para gravar o resultado no lugar certo.
+
 ## Entrega esperada
 Fontes com caminhos, resumo factual, lacunas e por que esse contexto foi escolhido.

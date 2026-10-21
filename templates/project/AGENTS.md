@@ -62,6 +62,15 @@ specs/<slug>/            spec → plan → tasks
 agents/, prompts/        papéis e prompts do projeto
 ```
 
+## Skills
+
+O projeto traz 30 skills (`.claude/skills/` para o Claude Code, `.agents/skills/` para o Codex), uma por
+tarefa: avaliar produto, levantar requisitos, fatiar backlog, modelar domínio, registrar ADR, desenhar
+API e migrações, testar, revisar código, modelar ameaças, LGPD, observabilidade, release e git. As que
+geram artefatos têm uma seção "No Forja" dizendo onde gravar (`specs/`, `memory/`, ADRs, handoffs).
+Encadeamento típico: `product-evaluation` → `requirements-gathering` → `backlog-slicing` →
+`domain-modeling` → `testing` → `ts-code-review` → `release-checklist`.
+
 ## Papéis e handoffs
 
 Orchestrator, product, sdd-architect, context-engineer, governance e marketing. No Claude Code

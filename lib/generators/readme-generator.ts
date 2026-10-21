@@ -30,7 +30,7 @@ Este projeto segue uma arquitetura modular com:
   - 90-decisions/ — ADRs
 
 - **agents/** — Definição de agentes especializados
-- **skills/** — Capacidades reutilizáveis
+- **.claude/skills/** e **.agents/skills/** — Skills por papel (instaladas pelo \`forja project:wire\`)
 - **prompts/** — Instruções por contexto
 - **backend/** — API NestJS (se gerado)
 
