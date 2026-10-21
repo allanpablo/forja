@@ -10,6 +10,7 @@ import { digestTranscript, writeCheckpoint, findCheckpoint } from '../lib/sessio
 import { HOOKS, wireProject, checkProjectWiring } from '../lib/project-wiring.ts';
 import { COMMANDS } from '../lib/core/registry.ts';
 
+// SPEC-052 (memoria-de-sessao): os AC-N abaixo são dessa spec (ligação lida pelo spec:trace).
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const forja = path.join(root, 'bin/forja.ts');
 const SID = 'abcd1234-0000-4000-8000-000000000000';
