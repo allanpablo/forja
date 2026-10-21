@@ -13,6 +13,17 @@ GitHub reusa esse bloco. O README também é reconciliado na mesma entrega — v
 
 ---
 
+## [Unreleased]
+
+### O que melhorou
+
+- **A IA não perde o fio quando o contexto é compactado.** Em projetos conectados ao Claude Code, cada
+  sessão que muda alguma coisa deixa um checkpoint em `memory/60-runs/sessions/` (arquivos editados,
+  specs tocadas, comandos `forja`, commits), atualizado ao fim de cada turno e antes de compactar.
+  Depois da compactação o checkpoint volta para a IA; numa sessão nova, ela vê onde a anterior parou.
+  Nenhum texto de prompt nem comando inteiro entra na memória. Projetos existentes ganham os hooks com
+  `forja project:upgrade --apply` (SPEC-052, ADR-0091).
+
 ## [5.1.0] — 2026-10-21 — Skills, template de SaaS e mais agentes
 
 ### O que melhorou
@@ -939,15 +950,6 @@ ADR-0022 (`memory/90-decisions/0022-congelar-dashboard-web.md`) para rationale e
 - `docs/dashboard.md` e `specs/agent-dashboard/` do `files[]` do pacote npm.
 
 ## [Unreleased] — Workspace separado
-
-### O que melhorou
-
-- **A IA não perde o fio quando o contexto é compactado.** Em projetos conectados ao Claude Code, cada
-  sessão que muda alguma coisa deixa um checkpoint em `memory/60-runs/sessions/` (arquivos editados,
-  specs tocadas, comandos `forja`, commits), atualizado ao fim de cada turno e antes de compactar.
-  Depois da compactação o checkpoint volta para a IA; numa sessão nova, ela vê onde a anterior parou.
-  Nenhum texto de prompt nem comando inteiro entra na memória. Projetos existentes ganham os hooks com
-  `forja project:upgrade --apply` (SPEC-052, ADR-0091).
 
 SPEC-028 (`specs/reestruturacao-forja-v2/`): separação do framework Forja do workspace de produção.
 
