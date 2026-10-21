@@ -44,23 +44,22 @@ forja project:new meu-projeto   # e use boilerplates/01-api-rest/ como arquitetu
 ---
 
 ### 💼 2. SaaS
-**Para**: Aplicações multi-tenant, subscriptions, billing
+**Para**: SaaS B2B multi-tenant com assinatura e faturamento
 
 ```bash
-forja project:new meu-projeto   # e use boilerplates/02-saas-starter/ como arquitetura de referência
+forja project:new meu-projeto --template saas-starter   # template validado (NestJS 12, Vitest)
 ```
 
 **Inclui**:
-- Autenticação com planos
-- Subscription management
-- Billing mock
-- Organização multi-tenant
-- Role-based access control
-- Testes
+- Organização = tenant; o tenant vem sempre do token, recurso de outro tenant responde 404
+- Cadastro, login e refresh (scrypt, access e refresh com segredos distintos), papéis owner/admin/member
+- Planos com transições validadas no domínio, preço em centavos vindo da tabela (nunca do cliente)
+- Fatura mensal idempotente por período; gateway de pagamento fica como adapter seu
+- A API não sobe sem os segredos configurados (nada de segredo padrão)
 
-**Use quando**: Construir SaaS com múltiplos clientes, subscriptions
+**Use quando**: Construir SaaS com múltiplos clientes, papéis e assinaturas
 
-[Abrir 📂](./02-saas)
+[Abrir 📂](./02-saas-starter)
 
 ---
 

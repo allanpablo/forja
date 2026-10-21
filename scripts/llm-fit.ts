@@ -14,6 +14,7 @@ import { buildContextPrompt, buildEngineerBlock } from '../lib/llm/context.ts';
 import { normalizeCodexResult, type NormalizedLlmResult } from '../lib/llm/codex-output.ts';
 import { normalizeClaudeResult } from '../lib/llm/claude-output.ts';
 import { LlmSessionStore, RESUME_PROVIDERS, validSessionId } from '../lib/llm/session.ts';
+import { normalizeGeminiResult, normalizeCursorResult } from '../lib/llm/json-output.ts';
 import { prepareValidation, validateLlmResponse } from '../lib/llm/validation.ts';
 
 const profilePath = () => path.join(getWorkspaceContextDir(), 'llm-profiles.json');
@@ -92,6 +93,22 @@ function doctor(name?: string): void {
       compatible = helpOk && ['--output-format', '--print'].every((flag) => help.stdout.includes(flag));
       features = { resume: helpOk && help.stdout.includes('--resume'), outputSchema: false };
     }
+    // Compatibilidade dos adapters de agente: a CLI precisa oferecer o modo somente leitura que o
+    // adapter usa. Ausente, o adapter rodaria com permissões que o Forja não pediu.
+    const HELP_FLAGS: Record<string, string[]> = {
+      'gemini-cli': ['--approval-mode', '--output-format'],
+      'cursor-agent': ['--print', '--mode', '--output-format'],
+      copilot: ['--prompt', '--silent'],
+    };
+    if (available && compatible === null && HELP_FLAGS[value.provider]) {
+      const help = spawnSync(value.command, ['--help'], { encoding: 'utf8', timeout: 10_000, shell: false });
+      compatible = !help.error && help.status === 0 && HELP_FLAGS[value.provider].every((flag) => help.stdout.includes(flag));
+      features = { resume: false, outputSchema: false };
+    } else if (available && compatible === null && value.provider === 'opencode') {
+      const help = spawnSync(value.command, ['run', '--help'], { encoding: 'utf8', timeout: 10_000, shell: false });
+      compatible = !help.error && help.status === 0 && help.stdout.includes('--agent');
+      features = { resume: false, outputSchema: false };
+    }
     return { name: profileName, provider: value.provider, model: value.model, enabled: value.enabled, executable: value.command, available, compatible,
       features, modelAccess: 'not-probed', detail: errorCode ?? (probe.status === 0 ? String(probe.stdout).trim().split('\n')[0] : String(probe.stderr).trim().split('\n')[0]), pricing };
   });
@@ -150,7 +167,11 @@ async function run(): Promise<void> {
       ? normalizeCodexResult(raw)
       : selected.provider === 'claude'
         ? normalizeClaudeResult(raw)
-        : raw;
+        : selected.provider === 'gemini-cli'
+          ? normalizeGeminiResult(raw)
+          : selected.provider === 'cursor-agent'
+            ? normalizeCursorResult(raw)
+            : raw;
     if (result.sessionId !== undefined && (!validSessionId(result.sessionId) || (resume !== undefined && result.sessionId !== resume))) {
       result = { ...result, exitCode: result.exitCode || 1, errorCode: 'SESSION_MISMATCH', sessionId: undefined };
     }

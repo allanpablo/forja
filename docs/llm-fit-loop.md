@@ -152,6 +152,22 @@ forja llm:run --profile claude --resume SESSION_ID --prompt "Continue a análise
 - **Custo**: o `total_cost_usd` do provedor **não** substitui a estimativa local de
   `model-pricing.json` — a evidência de custo continua vindo do preço declarado no Forja.
 
+## Outros agentes: Gemini, Copilot CLI, Cursor e opencode (ADR-0090)
+
+Rodam sempre em modo somente leitura/planejamento: quem aplica mudanças é o fluxo do Forja.
+
+| Perfil | Comando | Modo | Uso de tokens |
+|---|---|---|---|
+| `gemini-cli` | `gemini -p … --approval-mode plan -o json` | plano | sim (`stats.models`) |
+| `copilot` | `copilot -s -p …` (GitHub Copilot CLI, sem `--allow-*`) | ferramentas com aprovação negadas | não |
+| `cursor` | `cursor-agent -p … --mode plan --output-format json` | plano | sim |
+| `opencode` | `opencode run --agent plan …` | agente `plan` | não |
+
+`copilot`, `cursor` e `opencode` vêm desligados em `llm:profiles:init`; habilite no perfil do
+workspace. `forja llm:doctor` confere se a CLI instalada oferece as flags de somente leitura; sem
+elas, o perfil fica incompatível em vez de rodar com permissões que o Forja não pediu. Retomada
+(`--resume`) continua só em Codex e Claude.
+
 ## Métricas e recomendação por custo/latência (SPEC-049)
 
 `llm:eval` acrescenta às métricas do relatório:

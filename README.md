@@ -104,7 +104,7 @@ process followed?", the answer is a file, not a promise.
   re-wires older projects without touching the user's code — or the whole workspace with `--all`
   (ADR-0086). The NestJS backend follows the official NestJS 12 layout (ESM, Vitest, oxlint) and its
   `/api/ops` page shows the project's specs, open handoffs and indexed memory.
-- **Validated templates** — `project:new <name> --template clean-arch` starts from a boilerplate whose
+- **Validated templates** — `project:new <name> --template clean-arch` (DDD) or `--template saas-starter` (multi-tenant SaaS with subscriptions and billing) starts from a boilerplate whose
   install, build, tests and lint are proven in CI; `project:templates` lists what is a template and
   what is reference architecture (ADR-0088).
 - **The user journey is a gate** — `npm test` and `release:check` run the whole journey (workspace →
@@ -112,7 +112,7 @@ process followed?", the answer is a file, not a promise.
   against the installed tarball, and fail if any command writes into the package itself.
 - **3 integrated capabilities** (ADR-0016): **codegraph** (code analysis via MCP), **harness**
   (agent-team design), **ai-engineering** (knowledge base).
-- **LLM Fit Loop** — adapters de CLI, perfis no workspace, probes sem custo, observações e
+- **LLM Fit Loop** — adapters de CLI (Codex, Claude; Gemini, Copilot CLI, Cursor e opencode em modo somente leitura), perfis no workspace, probes sem custo, observações e
   recomendação determinística por papel/tarefa; credenciais nunca entram no Forja.
 - **Engineering Control Plane** (v3.0, ADR-0078) — the Engineering Graph turns ADRs/SPECs into
   first-class, queryable nodes; the Architecture Constitution checks real code against decisions
@@ -389,7 +389,7 @@ my-project/
   .claude/
     settings.json        # hooks: forja hook:session-start / hook:user-prompt
     agents/              # orchestrator, product, sdd-architect, context-engineer, governance, marketing
-    skills/              # 30 skills (requirements, domain modeling, ADR, testing, TS code review, LGPD…)
+    skills/              # 34 skills (requirements, domain modeling, ADR, front-end, a11y, testing, TS code review, LGPD…)
   .agents/skills/        # the same skills for Codex
   .mcp.json              # forja MCP server (+ codegraph when installed)
   .codex/config.toml     # forja MCP for Codex · .gemini/settings.json (Gemini) · .vscode/mcp.json (Copilot)

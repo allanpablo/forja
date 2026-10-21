@@ -89,6 +89,7 @@ jobs:
         template:
           - default
           - clean-arch
+          - saas-starter
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v6
