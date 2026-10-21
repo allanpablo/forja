@@ -56,6 +56,7 @@ memory/20-architecture/  design técnico
 memory/30-domains/       regras por domínio
 memory/40-delivery/      roadmap, sprint, backlog
 memory/50-orchestration/ topologia e handoffs
+memory/60-runs/sessions/ checkpoint de cada sessão do Claude Code (gerado pelos hooks; não edite)
 memory/70-summaries/     resumos compactos (prefira a arquivos brutos)
 memory/90-decisions/     ADRs
 specs/<slug>/            spec → plan → tasks

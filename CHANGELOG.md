@@ -940,6 +940,15 @@ ADR-0022 (`memory/90-decisions/0022-congelar-dashboard-web.md`) para rationale e
 
 ## [Unreleased] — Workspace separado
 
+### O que melhorou
+
+- **A IA não perde o fio quando o contexto é compactado.** Em projetos conectados ao Claude Code, cada
+  sessão que muda alguma coisa deixa um checkpoint em `memory/60-runs/sessions/` (arquivos editados,
+  specs tocadas, comandos `forja`, commits), atualizado ao fim de cada turno e antes de compactar.
+  Depois da compactação o checkpoint volta para a IA; numa sessão nova, ela vê onde a anterior parou.
+  Nenhum texto de prompt nem comando inteiro entra na memória. Projetos existentes ganham os hooks com
+  `forja project:upgrade --apply` (SPEC-052, ADR-0091).
+
 SPEC-028 (`specs/reestruturacao-forja-v2/`): separação do framework Forja do workspace de produção.
 
 - `lib/workspace.mjs` — resolução centralizada do workspace (`FORJA_WORKSPACE` > `~/.forjarc.json` > `~/forja-workspace`).
