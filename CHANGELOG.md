@@ -13,29 +13,47 @@ GitHub reusa esse bloco. O README também é reconciliado na mesma entrega — v
 
 ---
 
-## [Unreleased]
+## [5.1.0] — 2026-10-21 — Skills, template de SaaS e mais agentes
 
 ### O que melhorou
 
 - **O projeto passa a ter skills que as IAs realmente carregam.** São 34 skills em pt-BR (avaliar
   produto, levantar e fatiar requisitos, event storming, modelagem de domínio, ADR, API, migrações,
-  arquitetura de front-end, acessibilidade, desempenho web, atualização de dependências, testes, code review TypeScript, modelagem de ameaças, LGPD, observabilidade, release e git),
-  instaladas em `.claude/skills/` (Claude Code) e `.agents/skills/` (Codex). As 9 "skills" anteriores
-  eram esboços que nenhuma IA lia.
+  arquitetura de front-end, acessibilidade, desempenho web, atualização de dependências, testes,
+  code review TypeScript, modelagem de ameaças, LGPD, observabilidade, release e git), instaladas em
+  `.claude/skills/` (Claude Code) e `.agents/skills/` (Codex). As 9 "skills" anteriores eram esboços
+  que nenhuma IA lia.
 - **As skills falam a língua do Forja.** As que produzem artefatos dizem onde gravar: ADR em
   `memory/90-decisions/`, requisitos em `specs/<slug>/spec.md`, entrega como handoff, postmortem com
   `forja incident:record`. Cada sub-agent de papel lista as skills que deve usar.
 - **Conferido como o resto da conexão:** `forja project:wire --check` valida as skills (frontmatter,
   referências entre elas e comandos citados), e uma skill que você editar não é sobrescrita.
+- **Novo template: `forja project:new minha-saas --template saas-starter`.** Uma API NestJS 12
+  multi-tenant que instala, compila e passa nos testes: cadastro que cria a organização, login e
+  refresh com papéis, planos com transições validadas e fatura mensal. O tenant vem sempre do token
+  (recurso de outro tenant responde 404), o preço vem da tabela de planos, nunca do cliente, e a API
+  não sobe sem os segredos configurados. O boilerplate antigo não compilava.
+- **Mais agentes no `llm:run`: Gemini CLI, GitHub Copilot CLI, Cursor e opencode**, todos em modo
+  somente leitura (o Forja aplica as mudanças, não o provedor). Gemini e Cursor reportam uso de
+  tokens. O perfil `copilot` deixou de chamar o `gh copilot suggest`, que só sugeria comandos de
+  shell.
 
 ### Adicionado
 
 - `templates/project/skills/` (SPEC-051, ADR-0089); checks `skills-claude`/`skills-codex` no
   `project:wire`; passo `skills` na jornada; `test/project-skills.test.js`.
+- `boilerplates/02-saas-starter` como template validado (`"template": true`), na matriz
+  `project-smoke-full` do CI; ADR-0088 atualizado.
+- Adapters `gemini-cli` (`--approval-mode plan -o json`), `copilot` (`copilot -s -p`), `cursor`
+  (`cursor-agent -p --mode plan --output-format json`) e `opencode` (`run --agent plan`), com
+  normalizadores em `lib/llm/json-output.ts`; `llm:doctor` exige as flags de somente leitura
+  (ADR-0090). `copilot`, `cursor` e `opencode` vêm desligados nos perfis padrão.
 
 ### Removido
 
 - Skills de esboço do gerador (`skills/` na raiz do projeto) e `scripts/lib/skill-loader.mjs`.
+- Do `02-saas-starter`: o backend antigo (segredo JWT padrão, cobrança com valor do cliente,
+  `Math.random` simulando pagamento), Redis sem uso no `docker-compose.yml` e os guias desatualizados.
 
 ## [5.0.1] — 2026-10-10 — Correção: o upgrade nunca toca o código do projeto
 

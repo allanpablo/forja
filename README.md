@@ -112,7 +112,7 @@ process followed?", the answer is a file, not a promise.
   against the installed tarball, and fail if any command writes into the package itself.
 - **3 integrated capabilities** (ADR-0016): **codegraph** (code analysis via MCP), **harness**
   (agent-team design), **ai-engineering** (knowledge base).
-- **LLM Fit Loop** — adapters de CLI, perfis no workspace, probes sem custo, observações e
+- **LLM Fit Loop** — adapters de CLI (Codex, Claude; Gemini, Copilot CLI, Cursor e opencode em modo somente leitura), perfis no workspace, probes sem custo, observações e
   recomendação determinística por papel/tarefa; credenciais nunca entram no Forja.
 - **Engineering Control Plane** (v3.0, ADR-0078) — the Engineering Graph turns ADRs/SPECs into
   first-class, queryable nodes; the Architecture Constitution checks real code against decisions
