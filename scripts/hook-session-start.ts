@@ -24,6 +24,7 @@ import { listSpecs } from '../lib/specs-index.ts';
 import { openHandoffs } from '../lib/handoffs-index.ts';
 import { getWorkspaceRoot, isInsideFrameworkRepo, currentProjectName } from '../lib/workspace.ts';
 import { pkgRoot, script } from '../lib/paths.ts';
+import { findCheckpoint, latestCheckpoint, summarizeCheckpoint } from '../lib/session-memory.ts';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -34,6 +35,29 @@ const root = isInsideFrameworkRepo(cwd)
   : (fs.existsSync(path.join(cwd, 'specs')) || fs.existsSync(path.join(cwd, 'package.json')))
   ? cwd
   : getWorkspaceRoot();
+
+/** stdin do Claude Code: `{ session_id, source: startup|resume|clear|compact }`. Ausente → {}. */
+function hookInput(): { session_id?: string; source?: string } {
+  if (process.stdin.isTTY) return {}; // rodado à mão no terminal: não espera stdin
+  try { return JSON.parse(fs.readFileSync(0, 'utf8') || '{}'); } catch { return {}; }
+}
+
+const CHECKPOINT_CAP = 3000;
+
+/** SPEC-052: depois de compactar, o checkpoint da própria sessão; senão, onde a última parou. */
+function sessionMemory(input: { session_id?: string; source?: string }): string[] {
+  try {
+    if (input.source === 'compact' && input.session_id) {
+      const file = findCheckpoint(root, input.session_id);
+      if (!file) return [];
+      const text = fs.readFileSync(file, 'utf8').replace(/<!--[\s\S]*?-->\n?/g, '').trim();
+      return ['', `Checkpoint desta sessão antes da compactação (${path.relative(root, file)}):`, text.slice(0, CHECKPOINT_CAP)];
+    }
+    if (input.source === 'clear') return [];
+    const last = latestCheckpoint(root, input.session_id);
+    return last ? ['', `Última sessão: ${summarizeCheckpoint(last)} (${path.relative(root, last)})`] : [];
+  } catch { return []; }
+}
 
 /**
  * Nunca lança e nunca trava a sessão: o hook reporta, o `tools:doctor` é que é gate. Se a própria
@@ -46,6 +70,7 @@ async function coreHealth() {
 }
 
 (async function main() {
+  const input = hookInput();
   const specs = listSpecs(root);
   const health = await coreHealth();
   const problemas = health.filter((c) => c.status === 'fail' || c.status === 'warn');
@@ -79,6 +104,7 @@ async function coreHealth() {
     lines.push('\nHandoffs em aberto:');
     for (const h of handoffs) lines.push(`  - #${h.id} ${h.from} → ${h.to} (${h.intent}) ${h.slug || ''}`);
   }
+  lines.push(...sessionMemory(input));
   lines.push('\nFluxo SDD: `forja spec:new|spec:plan|spec:tasks|spec:check <slug>`  ·  próximo passo: `forja next`');
   lines.push('Handoff: `forja hermes:handoff \'<json ADR-0005>\'`');
   lines.push('</framework-status>');

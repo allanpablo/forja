@@ -98,7 +98,8 @@ process followed?", the answer is a file, not a promise.
 - **Projects born connected to your AI** — `project:new` scaffolds a full project (memory, agents,
   a NestJS backend as the default boilerplate) and wires it to the AI you use: native instructions
   (`AGENTS.md`, `CLAUDE.md`, `GEMINI.md`, Copilot), Claude Code hooks that open every session with the
-  project state and attach the spec you mention, six role sub-agents, and the Forja MCP server in
+  project state, attach the spec you mention and save a checkpoint of each session to memory
+  (returned to the AI after compaction), six role sub-agents, and the Forja MCP server in
   Claude, Codex, Gemini and Copilot (VS Code). The
   memory is indexed from the first minute. `project:wire --check` proves it; `project:upgrade --apply`
   re-wires older projects without touching the user's code — or the whole workspace with `--all`
