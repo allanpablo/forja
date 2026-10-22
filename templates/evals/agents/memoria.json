@@ -1,0 +1,32 @@
+{
+  "id": "memoria",
+  "title": "Resposta vem da memória do projeto",
+  "prompt": "Um cliente perguntou em quantos dias úteis vence um boleto no nosso produto. Qual é a regra e em que arquivo do projeto ela está registrada? Não altere nada.",
+  "seed": {
+    "files": {
+      "memory/30-domains/cobranca/context.md": "# Cobrança — contexto\n\n## Regras\n\n- Boleto vence em **3 dias úteis** a partir da emissão.\n- Pix expira em 30 minutos.\n- Cartão é capturado na hora.\n"
+    }
+  },
+  "checks": [
+    {
+      "type": "answer",
+      "desc": "responde 3 dias úteis",
+      "matches": [
+        "\\b3\\b|\\btr[eê]s\\b",
+        "[uú]teis"
+      ]
+    },
+    {
+      "type": "answer",
+      "desc": "cita o arquivo de memória",
+      "matches": [
+        "memory/30-domains/cobranca"
+      ]
+    },
+    {
+      "type": "unchanged",
+      "desc": "não alterou a memória",
+      "glob": "memory/**"
+    }
+  ]
+}
