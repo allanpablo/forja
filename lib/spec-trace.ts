@@ -49,7 +49,7 @@ const TEST_DIRS = new Set(['test', 'tests', '__tests__', 'spec']);
 const SKIP_DIRS = new Set(['node_modules', 'dist', 'build', 'coverage', '.git', 'vendor', 'target', 'fixtures', '__fixtures__', '__snapshots__']);
 
 /** Grupo qualificado: `SPEC-029 AC-5/AC-6`, `pagamentos AC-1, AC-2`, `SPEC-053 (AC-3)`. */
-const QUALIFIED = /\b(SPEC-\d+|[a-z0-9]+(?:-[a-z0-9]+)*)[\s#:(]+(AC-\d+(?:\s*(?:\/|,|&|\be\b|\band\b)\s*AC-\d+)*)/g;
+const QUALIFIED = /\b(SPEC-\d+|[a-z0-9]+(?:-[a-z0-9]+)*)[\s#:(]+(AC-\d+(?:\s*(?:\/|,|&|\be\b|\band\b)?\s*AC-\d+)*)/g;
 const AC_TOKEN = /\bAC-\d+\b/g;
 
 export function parseCriteria(specText: string): Criterion[] {
@@ -132,16 +132,21 @@ export function traceSpecs(root: string): TraceReport {
 
     // Specs que o arquivo cita: pelo ID, por `specs/<slug>` ou pelo slug com hífen (palavra única
     // como "gates" ou "help" aparece em qualquer teste; só conta qualificada ou pelo caminho).
+    const live = text.replace(/spec-trace:off[\s\S]*?(?:spec-trace:on|$)/g, '');
     const cited = new Set<SpecInfo>();
-    for (const m of text.matchAll(/\bSPEC-\d+\b/g)) { const s = byId.get(m[0]); if (s) cited.add(s); }
+    for (const m of live.matchAll(/\bSPEC-\d+\b/g)) { const s = byId.get(m[0]); if (s) cited.add(s); }
     const base = path.basename(rel).replace(/\.(?:test|spec)\.[cm]?[jt]sx?$|\.[a-z]+$/, '').replace(/^test_|_test$/, '').replace(/_/g, '-');
     for (const s of specs) {
-      if (base === s.slug || text.includes(`specs/${s.slug}`) || (s.slug.includes('-') && new RegExp(`\\b${s.slug}\\b`).test(text))) cited.add(s);
+      if (base === s.slug || live.includes(`specs/${s.slug}`) || (s.slug.includes('-') && new RegExp(`\\b${s.slug}\\b`).test(live))) cited.add(s);
     }
 
+    // Fixtures que contêm citações de exemplo ficam entre `spec-trace:off` e `spec-trace:on`.
     const lines = text.split('\n');
+    let off = false;
     lines.forEach((line, i) => {
-      if (!line.includes('AC-')) return;
+      if (line.includes('spec-trace:off')) { off = true; return; }
+      if (line.includes('spec-trace:on')) { off = false; return; }
+      if (off || !line.includes('AC-')) return;
       const ref = { file: rel, line: i + 1 };
       const consumed: [number, number][] = [];
       for (const m of line.matchAll(QUALIFIED)) {

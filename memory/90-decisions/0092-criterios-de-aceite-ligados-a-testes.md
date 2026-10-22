@@ -32,3 +32,6 @@ arquivo dedicado a uma spec. Ninguém confere essa ligação.
 
 - Citar o critério vira parte de escrever o teste (AGENTS.md e skill `testing` ensinam).
 - Uma citação no texto conta como cobertura, mesmo que o teste seja fraco; a revisão do teste segue humana.
+- Fixtures que contêm citações de exemplo (`'SPEC-001 AC-1: …'` como dado de teste) contariam como
+  cobertura de uma spec real; ficam entre `spec-trace:off` e `spec-trace:on`. Achado no próprio Forja:
+  a SPEC-001 aparecia com 2/7 critérios cobertos só por fixtures.

@@ -1,0 +1,25 @@
+{
+  "id": "adr",
+  "title": "Decisão vira ADR no lugar certo",
+  "prompt": "Decidimos usar PostgreSQL como banco principal deste produto: precisamos de transações e de colunas JSONB, e o time já opera Postgres. Registre essa decisão no projeto. Não escreva código.",
+  "checks": [
+    {
+      "type": "file",
+      "desc": "ADR novo em memory/90-decisions/ com Postgres, Contexto e Decisão",
+      "glob": "memory/90-decisions/*.md",
+      "contains": [
+        "postgres",
+        "^#+ *Contexto",
+        "^#+ *Decis[aã]o"
+      ],
+      "exclude": [
+        "memory/90-decisions/_template.md"
+      ]
+    },
+    {
+      "type": "unchanged",
+      "desc": "não mexeu no template de ADR",
+      "glob": "memory/90-decisions/_template.md"
+    }
+  ]
+}
