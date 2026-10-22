@@ -89,7 +89,7 @@ apps/dashboard/.next/
 !/specs/llm-adaptador-claude
 !/specs/projeto-gerado-confiavel
 !/specs/skills-do-projeto
-!/specs/memoria-de-sessao
+!/specs/criterios-ligados-a-testes
 
 # Runbooks GSD e context packs são gerados/efêmeros e podem carregar dados de
 # produto. São regeneráveis (gsd:plan, context:build), então ficam fora do git.

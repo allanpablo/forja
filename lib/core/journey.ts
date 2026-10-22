@@ -117,6 +117,12 @@ export function runJourney(opts: JourneyOptions): JourneyStep[] {
     r = forja(['spec:check'], proj);
     add('spec:check', r.code === 0 && /pagamentos/.test(r.out), firstLine(r.out));
 
+    // SPEC-053: o rastreio critério × teste roda no projeto do consumidor e lê a spec recém-criada.
+    r = forja(['spec:trace', 'pagamentos', '--json'], proj);
+    let trace: any = null;
+    try { trace = JSON.parse(r.stdout); } catch { /* reportado abaixo */ }
+    add('spec:trace', r.code === 0 && trace?.status === 'ok' && trace.specs?.[0]?.slug === 'pagamentos', trace ? `${trace.totals.covered}/${trace.totals.criteria} critérios com teste` : firstLine(r.out));
+
     r = forja(['project:check'], proj);
     add('project:check', r.code === 0, firstLine(r.out));
 

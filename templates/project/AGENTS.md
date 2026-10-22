@@ -33,6 +33,7 @@ forja spec:set-status <slug> spec approved     # depois da revisão
 forja spec:plan <slug>             # plan.md (exige spec aprovada)
 forja spec:tasks <slug>            # tasks.md
 forja spec:check <slug>            # gate de completude
+forja spec:trace <slug>            # critérios AC-N × testes que os citam
 forja orchestrate "<objetivo>" --slug <slug>   # corrida guardada por gates
 forja orchestrate:advance          # roda o gate da etapa aberta
 ```
@@ -45,7 +46,11 @@ forja code:impact <símbolo>        # quem chama e o que quebra
 forja project:check                # documentação de fundação
 forja tools:doctor                 # saúde do Forja e das ferramentas
 forja project:wire --check         # IA, hooks e MCP conectados a este projeto
+forja spec:trace <slug> --strict   # todo critério da spec tem teste (exit 2 se não)
 ```
+
+Teste que prova um critério cita a spec e o critério no nome ou num comentário: `SPEC-NNN AC-N`
+(ex.: `test('SPEC-004 AC-2: estorno parcial', …)`). É o que o `spec:trace` lê.
 
 ## Onde fica cada coisa
 

@@ -113,6 +113,7 @@ forja spec:new minha-feature
 forja spec:plan minha-feature
 forja spec:tasks minha-feature
 forja spec:check minha-feature
+forja spec:trace minha-feature   # critérios AC-N × testes que os citam (SPEC-NNN AC-N)
 ```
 
 ### Já tem um repositório?
@@ -213,7 +214,7 @@ forja project:list                         # lista projetos do workspace
 forja workspace:project:check <nome>       # valida padrões num projeto do workspace
 
 # Pipeline SDD
-forja spec:new <slug>                      # também: spec:plan · spec:tasks · spec:check
+forja spec:new <slug>                      # também: spec:plan · spec:tasks · spec:check · spec:trace
 
 # Sprint & handoffs (GSD)
 forja sprint:start                         # também: sprint:status · sprint:complete
