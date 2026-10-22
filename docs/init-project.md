@@ -39,7 +39,9 @@ O workspace é resolvido por: `FORJA_WORKSPACE` → `workspaceRoot` em `~/.forja
    - `AGENTS.md` com o bloco do Forja (lido por Codex, Copilot agent e Gemini).
    - `CLAUDE.md` e `GEMINI.md` importando o `AGENTS.md`; `.github/copilot-instructions.md`.
    - `.claude/settings.json`: hooks `forja hook:session-start` (briefing da sessão) e
-     `forja hook:user-prompt` (anexa a spec citada), mais a permissão `Bash(forja *)`.
+     `forja hook:user-prompt` (anexa a spec citada), `forja hook:session-memory` nos eventos `Stop` e
+     `PreCompact` (checkpoint da sessão em `memory/60-runs/sessions/`, ADR-0091), mais a permissão
+     `Bash(forja *)`.
    - `.claude/agents/`: orchestrator, product, sdd-architect, context-engineer, governance, marketing.
    - `.mcp.json`: servidor `forja mcp:start` (e `codegraph`, se instalado); o mesmo servidor em
      `.codex/config.toml` (Codex), `.gemini/settings.json` (Gemini) e `.vscode/mcp.json` (Copilot).
