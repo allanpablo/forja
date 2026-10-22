@@ -139,6 +139,22 @@ export function runJourney(opts: JourneyOptions): JourneyStep[] {
     try { ctx = JSON.parse(r.stdout).hookSpecificOutput.additionalContext; } catch { /* reportado abaixo */ }
     add('hook:user-prompt', r.code === 0 && ctx.includes('specs/pagamentos/spec.md'), ctx ? 'injeta a spec citada' : firstLine(r.out));
 
+    // SPEC-052: o checkpoint gravado no Stop/PreCompact volta no SessionStart depois da compactação.
+    const sid = 'jornada0-0000-4000-8000-000000000000';
+    const transcript = path.join(base, 'transcript.jsonl');
+    fs.writeFileSync(transcript, [
+      { type: 'assistant', timestamp: new Date().toISOString(), gitBranch: 'main', message: { content: [{ type: 'tool_use', id: 'w1', name: 'Write', input: { file_path: path.join(proj, 'specs', 'pagamentos', 'plan.md') } }] } },
+      { type: 'user', timestamp: new Date().toISOString(), message: { content: [{ type: 'tool_result', tool_use_id: 'w1', content: 'ok' }] } },
+    ].map((l) => JSON.stringify(l)).join('\n') + '\n');
+    r = forja(['hook:session-memory'], proj, JSON.stringify({ session_id: sid, transcript_path: transcript, cwd: proj, hook_event_name: 'PreCompact' }));
+    const sessions = path.join(proj, 'memory', '60-runs', 'sessions');
+    const saved = fs.existsSync(sessions) && fs.readdirSync(sessions).some((n) => n.endsWith('-jornada0.md'));
+    r = forja(['hook:session-start'], proj, JSON.stringify({ session_id: sid, source: 'compact' }));
+    ctx = '';
+    try { ctx = JSON.parse(r.stdout).hookSpecificOutput.additionalContext; } catch { /* reportado abaixo */ }
+    const back = ctx.includes('specs/pagamentos/plan.md');
+    add('session-memory', saved && back, saved ? (back ? 'checkpoint gravado e devolvido após compactar' : 'checkpoint gravado, mas o SessionStart não o devolveu') : 'hook:session-memory não gravou o checkpoint');
+
     const init = JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'initialize', params: { protocolVersion: '2025-06-18', capabilities: {}, clientInfo: { name: 'journey', version: '1' } } });
     r = forja(['mcp:start'], proj, `${init}\n`);
     let version = '';

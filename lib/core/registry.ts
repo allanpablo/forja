@@ -799,6 +799,12 @@ export const COMMANDS: Record<string, CommandSpec> = {
     spec: 'ADR-0086',
     readonly: true,
   },
+  'hook:session-memory': {
+    domain: 'governanca',
+    desc: 'Hook Stop/PreCompact: grava o checkpoint da sessão em memory/60-runs/sessions/',
+    node: 'scripts/hook-session-memory.ts',
+    spec: 'SPEC-052',
+  },
   'demo:autonomy': {
     domain: 'governanca',
     desc: 'Executa a prova offline de autonomia supervisionada com Git worktree real',

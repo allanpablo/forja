@@ -68,6 +68,9 @@ export const ROLES = ['orchestrator', 'product', 'sdd-architect', 'context-engin
 export const HOOKS: Readonly<Record<string, string>> = {
   SessionStart: 'hook:session-start',
   UserPromptSubmit: 'hook:user-prompt',
+  // SPEC-052: checkpoint da sessão ao fim de cada turno e antes de compactar.
+  Stop: 'hook:session-memory',
+  PreCompact: 'hook:session-memory',
 };
 
 export function hookCommand(cmd: string): string {
@@ -342,7 +345,7 @@ export function checkProjectWiring(dir: string, { commands, ai }: { commands: Re
     if (settings !== undefined) {
       const missing = Object.entries(HOOKS).filter(([event, cmd]) =>
         !(settings?.hooks?.[event] || []).some((g: any) => (g.hooks || []).some((h: any) => String(h.command || '').includes(`forja ${cmd}`))));
-      add('claude-hooks', missing.length ? 'fail' : 'ok', missing.length ? `hooks ausentes: ${missing.map(([e]) => e).join(', ')}` : 'SessionStart + UserPromptSubmit');
+      add('claude-hooks', missing.length ? 'fail' : 'ok', missing.length ? `hooks ausentes: ${missing.map(([e]) => e).join(', ')}` : Object.keys(HOOKS).join(' + '));
     }
 
     const absent = ROLES.filter((r) => !fs.existsSync(path.join(dir, '.claude', 'agents', `${r}.md`)));
