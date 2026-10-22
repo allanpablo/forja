@@ -90,7 +90,7 @@
     "dashboard:start": "npm --prefix apps/dashboard run start",
     "build": "tsc -p tsconfig.build.json && node -e \"for (const f of Object.values(require('./package.json').bin)) require('fs').chmodSync(f, 0o755)\"",
     "types:check": "tsc --noEmit",
-    "test": "node --test test/*.test.js",
+    "test": "node --test --import ./test/isolate-workspace.mjs test/*.test.js",
     "demo:autonomy": "node bin/forja.ts demo:autonomy",
     "demo:workspace": "node bin/forja.ts demo:workspace",
     "benchmark:context": "node bin/forja.ts benchmark:context",
