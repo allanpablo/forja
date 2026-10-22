@@ -17,16 +17,31 @@ GitHub reusa esse bloco. O README também é reconciliado na mesma entrega — v
 
 ### O que melhorou
 
+- **A IA não perde o fio quando o contexto é compactado.** Em projetos conectados ao Claude Code, cada
+  sessão que muda alguma coisa deixa um checkpoint em `memory/60-runs/sessions/` (arquivos editados,
+  specs tocadas, comandos `forja`, commits), atualizado ao fim de cada turno e antes de compactar.
+  Depois da compactação o checkpoint volta para a IA; numa sessão nova, ela vê onde a anterior parou.
+  Nenhum texto de prompt nem comando inteiro entra na memória. Projetos existentes ganham os hooks com
+  `forja project:upgrade --apply` (SPEC-052, ADR-0091).
+- **Dá para saber quais critérios de aceite têm teste.** `forja spec:trace` lista, para cada `AC-N`
+  de cada spec, os testes que o citam (`SPEC-NNN AC-N` no nome ou num comentário), os critérios sem
+  teste e as citações a critérios que não existem mais. `--strict` vira gate: spec aprovada ou pronta
+  com lacuna sai com 2. O `AGENTS.md` e a skill `testing` do projeto ensinam a convenção (SPEC-053,
+  ADR-0092). Fixture com citações de exemplo fica entre `spec-trace:off` e `spec-trace:on`. No
+  próprio Forja, 48 de 340 critérios têm teste citando — o ponto de partida.
 - **Dá para medir se os agentes seguem o Forja.** `forja eval:agents --agent claude|codex` roda uma
   suíte de tarefas (registrar decisão, começar feature, testar um critério, responder pela memória,
   achar a próxima ação) com o agente real num projeto descartável, corrige pelo que ficou no disco e
   guarda o histórico em `.context/agent-evals.jsonl`, comparando com a execução anterior. Custa uma
   sessão real por caso: há teto de custo por caso no Claude e timeout nos dois (SPEC-054, ADR-0093).
-- **Dá para saber quais critérios de aceite têm teste.** `forja spec:trace` lista, para cada `AC-N`
-  de cada spec, os testes que o citam (`SPEC-NNN AC-N` no nome ou num comentário), os critérios sem
-  teste e as citações a critérios que não existem mais. `--strict` vira gate: spec aprovada ou pronta
-  com lacuna sai com 2. O `AGENTS.md` e a skill `testing` do projeto ensinam a convenção (SPEC-053,
-  ADR-0092). No próprio Forja, 27 de 326 critérios têm teste citando — o ponto de partida.
+
+### Corrigido
+
+- **`npm test` não grava mais na sua trilha de auditoria.** Dois testes chamavam o CLI com o ambiente
+  do shell e deixavam entradas `spec:new` e `simulate --json` em `~/forja-workspace/.context/forja-runs.jsonl`
+  a cada execução da suíte. A suíte agora roda inteira com um workspace isolado
+  (`test/isolate-workspace.mjs`, pré-carregado pelo script `test`), e `test/test-isolation.test.js`
+  falha se o isolamento sair.
 
 ## [5.1.0] — 2026-10-21 — Skills, template de SaaS e mais agentes
 

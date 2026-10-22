@@ -1,3 +1,4 @@
+// A jornada cobre SPEC-052 AC-6 (checkpoint de sessão) e o passo spec:trace da SPEC-053.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';

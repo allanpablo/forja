@@ -13,6 +13,7 @@ import { isTestFile, parseCriteria, traceSpecs, strictFailures } from '../lib/sp
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const forja = path.join(root, 'bin/forja.ts');
 
+// spec-trace:off — as specs e testes abaixo são de exemplo (SPEC-001…003 do fixture, não do Forja)
 function spec(dir, slug, id, status, acs) {
   fs.mkdirSync(path.join(dir, 'specs', slug), { recursive: true });
   fs.writeFileSync(path.join(dir, 'specs', slug, 'spec.md'), [
@@ -35,6 +36,7 @@ function fixture() {
   w('test/fixtures/dados.test.js', "test('SPEC-002 AC-2', () => {});\n");
   return dir;
 }
+// spec-trace:on
 
 const bySlug = (r, slug) => r.specs.find((s) => s.slug === slug);
 
@@ -80,11 +82,13 @@ test('SPEC-053 AC-4: acha testes de qualquer stack e ignora node_modules, dist, 
   assert.equal(r.testFiles, 4);
 });
 
+// spec-trace:off
 test('parseCriteria: aceita [ ], [x], negrito, travessão e (RF-NN); ignora AC citado no meio do texto', () => {
   const acs = parseCriteria('- [x] AC-1: feito\n- [ ] **AC-2** — negrito\n* AC-3: estrela\n- [ ] AC-4 (RF-01): ligado ao requisito\ntexto citando AC-9 no meio\n- [ ] AC-1: duplicado\n');
   assert.deepEqual(acs.map((a) => a.id), ['AC-1', 'AC-2', 'AC-3', 'AC-4']);
   assert.equal(acs[3].text, 'ligado ao requisito');
 });
+// spec-trace:on
 
 function cli(dir, args) {
   return spawnSync(process.execPath, [forja, 'spec:trace', ...args], { cwd: dir, encoding: 'utf8' });
@@ -137,4 +141,21 @@ test('SPEC-053 NFR: o repo do Forja é rastreado em menos de 2 s', () => {
   const r = traceSpecs(root);
   assert.ok(performance.now() - t0 < 2000);
   assert.ok(r.testFiles > 50);
+});
+
+// Marcador montado por concatenação: escrito literal, desligaria a leitura deste próprio arquivo.
+const OFF = 'spec-trace:' + 'off';
+const ON = 'spec-trace:' + 'on';
+
+test('SPEC-053 AC-2: lista separada só por espaço (AC-5 AC-6) e trechos entre marcadores ignorados', () => {
+  const dir = fixture();
+  fs.writeFileSync(path.join(dir, 'test', 'extra.test.js'), [
+    "test('SPEC-002 AC-1 AC-2: cria e valida', () => {});",
+    `// ${OFF}`,
+    "const exemplo = 'SPEC-001 AC-9: citação de fixture';",
+    `// ${ON}`,
+  ].join('\n'));
+  const r = traceSpecs(dir);
+  assert.deepEqual(bySlug(r, 'cadastro').uncovered, [], 'AC-2 separado por espaço não contou');
+  assert.ok(!bySlug(r, 'pagamentos').orphans.some((o) => o.ref.file === 'test/extra.test.js'), 'citação dentro do trecho desligado contou');
 });

@@ -11,7 +11,7 @@ import {
   runSuite, compareRuns, CLAUDE_ALLOWED_TOOLS, claudeAdapter, codexAdapter,
 } from '../lib/agent-evals.ts';
 
-// SPEC-054 (avaliacoes-de-agentes). Nenhum teste aqui chama um provedor real (AC-7): os agentes são
+// SPEC-054 (avaliacoes-de-agentes). Nenhum teste aqui chama um provedor real (SPEC-054 AC-7): os agentes são
 // falsos, e o CLI roda com FORJA_EVAL_CLAUDE_BIN apontando para um script local.
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const forjaBin = path.join(root, 'bin/forja.ts');
@@ -118,6 +118,7 @@ test('grade: cada tipo de check aprova e reprova pelo que ficou no disco', () =>
   assert.match(g({ type: 'unchanged', glob: 'src/**' }).detail, /mudou: src\/a\.js/);
 });
 
+// spec-trace:off — o agente falso escreve testes de exemplo que citam SPEC-001 (do projeto descartável)
 /** Agente falso que faz o que o Forja pede, usando o `forja` do PATH que o runner preparou. */
 const diligent = {
   name: 'diligente',
@@ -146,6 +147,8 @@ const diligent = {
     return run({ answer: 'ok' });
   },
 };
+
+// spec-trace:on
 
 const lazy = { name: 'preguicoso', version: () => 'fake 1', run: () => run({ answer: 'Feito!' }) };
 

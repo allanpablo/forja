@@ -51,6 +51,7 @@ forja spec:trace <slug> --strict   # todo critério da spec tem teste (exit 2 se
 
 Teste que prova um critério cita a spec e o critério no nome ou num comentário: `SPEC-NNN AC-N`
 (ex.: `test('SPEC-004 AC-2: estorno parcial', …)`). É o que o `spec:trace` lê.
+Fixture com citações de exemplo fica entre comentários `spec-trace:off` e `spec-trace:on`.
 
 ## Onde fica cada coisa
 
