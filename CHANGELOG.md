@@ -13,7 +13,7 @@ GitHub reusa esse bloco. O README também é reconciliado na mesma entrega — v
 
 ---
 
-## [Unreleased]
+## [5.2.0] — 2026-10-22 — Memória de sessão, critérios ligados a testes e avaliação de agentes
 
 ### O que melhorou
 

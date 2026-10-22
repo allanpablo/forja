@@ -113,8 +113,10 @@ process followed?", the answer is a file, not a promise.
   against the installed tarball, and fail if any command writes into the package itself.
 - **3 integrated capabilities** (ADR-0016): **codegraph** (code analysis via MCP), **harness**
   (agent-team design), **ai-engineering** (knowledge base).
-- **LLM Fit Loop** — adapters de CLI (Codex, Claude; Gemini, Copilot CLI, Cursor e opencode em modo somente leitura), `eval:agents` to measure whether real agents follow the Forja method (ADR-0093), perfis no workspace, probes sem custo, observações e
-  recomendação determinística por papel/tarefa; credenciais nunca entram no Forja.
+- **LLM Fit Loop** — CLI adapters (Codex, Claude; Gemini, Copilot CLI, Cursor and opencode in
+  read-only mode), workspace profiles, no-cost probes, observations and deterministic recommendation
+  per role/task; credentials never enter Forja. `eval:agents` measures whether real agents follow the
+  Forja method on a task suite in a throwaway project (ADR-0093).
 - **Engineering Control Plane** (v3.0, ADR-0078) — the Engineering Graph turns ADRs/SPECs into
   first-class, queryable nodes; the Architecture Constitution checks real code against decisions
   already recorded; the Change Risk Engine scores a change 0-100 with named, evidenced factors;
