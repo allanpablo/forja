@@ -12,7 +12,6 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import Database from 'better-sqlite3';
-import { getDbPath, ensureSchema } from '../scripts/memory-schema.ts';
 
 /**
  * Termo livre → consulta FTS5 segura: cada palavra vira frase entre aspas. Sem isto, `pix-qr` ou
@@ -21,6 +20,87 @@ import { getDbPath, ensureSchema } from '../scripts/memory-schema.ts';
 export function ftsQuery(keyword: string): string {
   const terms = String(keyword).split(/\s+/).filter(Boolean).map((t) => `"${t.replace(/"/g, '""')}"`);
   return terms.join(' ') || '""';
+}
+
+/**
+ * Nó curto entra inteiro (SPEC-057 AC-1). ~400 tokens na régua bytes/4 que o framework usa em todo
+ * lugar: abaixo disso, cortar economiza migalha e perde o contexto que dava sentido ao trecho.
+ */
+export const FULL_CONTENT_MAX_CHARS = Number(process.env.FORJA_CONTEXT_FULL_MAX_CHARS) || 1600;
+
+/** Raio do `snippet()` do FTS5 — em tokens, não em chars: ±24 tokens em volta de cada casamento. */
+export const SNIPPET_RADIUS_TOKENS = 24;
+
+/** Marcador de casamento no trecho injetado; o agente vê onde a busca bateu. */
+const MARK = '**';
+
+/**
+ * Constituição do pack: missão e padrões entram inteiros por tamanho que tenham. Um trecho solto de
+ * `standards.md` orienta pior do que nada — é a única classe de nó que o corte piora sempre.
+ */
+const ALWAYS_FULL_RE = /(?:mission|standards)\.md$/i;
+
+interface MemoryNode {
+  title: string;
+  path: string;
+  content: string;
+  /** Trecho casado (FTS `snippet()` ou janela em volta do LIKE). Ausente → cabeça do nó. */
+  excerpt?: string;
+}
+
+export interface BuildOptions {
+  /** `--full-context`: injeta o conteúdo integral de todo nó, sem corte (opt-out do AC-1). */
+  full?: boolean;
+}
+
+function elision(omitted: number): string {
+  return `\n\n> ⋯ ${omitted} chars omitidos — leia o arquivo acima ou rode com \`--full-context\``;
+}
+
+/** Cabeça do nó cortada em fronteira de linha: corte no meio de uma linha parece arquivo corrompido. */
+export function headExcerpt(content: string, max = FULL_CONTENT_MAX_CHARS): string {
+  const cut = content.slice(0, max);
+  const nl = cut.lastIndexOf('\n');
+  return (nl > 0 ? cut.slice(0, nl) : cut).trimEnd();
+}
+
+/**
+ * Janela em volta da primeira ocorrência do termo — para os nós que o LIKE acha e o FTS não (o
+ * porter não casa substring no meio de palavra, e é justamente esse o caso que cai aqui). O raio é o
+ * mesmo do `snippet()` em chars (tokens × 4, a régua do repo): dois produtores de trecho, um orçamento.
+ */
+export function excerptAround(content: string, needle: string, radius = SNIPPET_RADIUS_TOKENS * 4): string {
+  const at = needle ? content.toLowerCase().indexOf(needle.toLowerCase()) : -1;
+  if (at < 0) return headExcerpt(content);
+
+  let start = Math.max(0, at - radius);
+  let end = Math.min(content.length, at + needle.length + radius);
+  if (start > 0) {
+    const word = /^\S*/.exec(content.slice(start))?.[0].length ?? 0;
+    start = Math.min(at, start + word);
+  }
+  if (end < content.length) {
+    const word = /\S*$/.exec(content.slice(0, end))?.[0].length ?? 0;
+    end = Math.max(at + needle.length, end - word);
+  }
+  const prefix = start > 0 ? '… ' : '';
+  const suffix = end < content.length ? ' …' : '';
+  return prefix + content.slice(start, end).trim() + suffix;
+}
+
+/**
+ * O que entra no pack por nó. Retorna também quantos chars ficaram de fora — a omissão é sempre
+ * visível, porque corte calado é o agente raciocinando sobre metade da regra e não sabendo.
+ */
+export function nodeBody(node: MemoryNode, opts: BuildOptions = {}): { text: string; omitted: number } {
+  const total = node.content.length;
+  if (opts.full || total <= FULL_CONTENT_MAX_CHARS || ALWAYS_FULL_RE.test(node.path)) {
+    return { text: node.content, omitted: 0 };
+  }
+  const text = node.excerpt ?? headExcerpt(node.content);
+  const kept = text.replaceAll(MARK, '').replaceAll('…', '').trim().length;
+  const omitted = Math.max(0, total - kept);
+  return { text: text + elision(omitted), omitted };
 }
 
 export class ContextBuilder {
@@ -69,12 +149,12 @@ export class ContextBuilder {
    * @param {string} keyword - Palavra-chave para busca (modo 'task')
    * @returns {string} Conteúdo do contexto em markdown
    */
-  build(mode: any, project: any, keyword = '') {
+  build(mode: any, project: any, keyword = '', opts: BuildOptions = {}) {
     this.connect();
     
     const started = Date.now();
-    const nodes: any[] = [];
-    const seenPaths = new Set();
+    const nodes: MemoryNode[] = [];
+    const seenPaths = new Set<string>();
 
     // 1. Contexto global obrigatório
     const globalNodes = this._getGlobalNodes(project);
@@ -92,7 +172,7 @@ export class ContextBuilder {
     }
 
     // 3. Gerar markdown deduplicado
-    let context = this._generateMarkdown(mode, project, keyword, nodes, seenPaths);
+    const { markdown: context, shown, excerpted } = this._generateMarkdown(mode, project, keyword, nodes, seenPaths, opts);
     const duration = Date.now() - started;
 
     // 4. Adicionar footer com metadata
@@ -103,6 +183,7 @@ export class ContextBuilder {
       `- **Generated**: ${new Date().toISOString()}\n` +
       `- **Duration**: ${duration}ms\n` +
       `- **Files**: ${seenPaths.size}\n` +
+      `- **Excerpts**: ${excerpted}/${shown} nodes\n` +
       `- **Size**: ${Math.round(context.length / 1024)}KB\n`;
 
     return context + footer;
@@ -161,20 +242,51 @@ export class ContextBuilder {
 
   /**
    * Obter contexto orientado a tarefa (busca por FTS5)
+   *
+   * Duas consultas, não uma: a do FTS já devolve o trecho casado via `snippet()` — injetar o nó
+   * inteiro era o maior sorvedouro de token do pack (SPEC-057). O `LIKE` cobre o que o porter não
+   * casa (substring no meio de palavra) e ganha uma janela calculada aqui, porque fora do FTS não
+   * existe `snippet()` para destacar o casamento.
    */
-  _getTaskNodes(project: any, keyword: any) {
+  _getTaskNodes(project: any, keyword: any, limit = 20): MemoryNode[] {
+    const fts = this._ftsTaskNodes(project, keyword, limit);
+    if (fts.length >= limit) return fts;
+    return [...fts, ...this._likeTaskNodes(project, keyword, ftsQuery(keyword), limit - fts.length)];
+  }
+
+  _ftsTaskNodes(project: string, keyword: string, limit: number): MemoryNode[] {
     try {
       const stmt = this.db.prepare(`
-        SELECT DISTINCT n.title, n.content, n.path
+        SELECT n.title, n.path, n.content,
+               snippet(search_idx, 2, '${MARK}', '${MARK}', ' … ', ?) AS excerpt
+        FROM search_idx
+        JOIN memory_nodes n ON n.id = search_idx.node_id
+        JOIN projects p ON p.id = n.project_id
+        WHERE search_idx MATCH ? AND p.name = ?
+        ORDER BY rank
+        LIMIT ?
+      `);
+      return stmt.all(SNIPPET_RADIUS_TOKENS, ftsQuery(keyword), project, limit) || [];
+    } catch (e) {
+      console.warn(`⚠️ No task nodes found for "${keyword}":`, e.message);
+      return [];
+    }
+  }
+
+  _likeTaskNodes(project: string, keyword: string, fts: string, limit: number): MemoryNode[] {
+    if (limit <= 0) return [];
+    try {
+      const stmt = this.db.prepare(`
+        SELECT n.title, n.path, n.content
         FROM memory_nodes n
         JOIN projects p ON p.id = n.project_id
-        WHERE p.name = ?
-        AND (n.content LIKE ? OR n.id IN (SELECT node_id FROM search_idx WHERE search_idx MATCH ?))
+        WHERE p.name = ? AND n.content LIKE ?
+        AND n.id NOT IN (SELECT node_id FROM search_idx WHERE search_idx MATCH ?)
         ORDER BY n.updated_at DESC
-        LIMIT 20
+        LIMIT ?
       `);
-      const pattern = `%${keyword}%`;
-      return stmt.all(project, pattern, ftsQuery(keyword)) || [];
+      const rows: MemoryNode[] = stmt.all(project, `%${keyword}%`, fts, limit) || [];
+      return rows.map((n) => ({ ...n, excerpt: excerptAround(n.content, keyword) }));
     } catch (e) {
       console.warn(`⚠️ No task nodes found for "${keyword}":`, e.message);
       return [];
@@ -184,23 +296,29 @@ export class ContextBuilder {
   /**
    * Gerar markdown deduplicado
    */
-  _generateMarkdown(mode: any, project: any, keyword: any, nodes: any, seenPaths: any) {
+  _generateMarkdown(mode: any, project: any, keyword: any, nodes: MemoryNode[], seenPaths: Set<string>, opts: BuildOptions = {}) {
     let md = `# CONTEXT PACK: ${project.toUpperCase()}\n\n`;
     md += `**Mode**: \`${mode}\`\n`;
     if (keyword) md += `**Search**: \`${keyword}\`\n`;
     md += `\n`;
 
+    let shown = 0;
+    let excerpted = 0;
     for (const node of nodes) {
       if (seenPaths.has(node.path)) continue;
       seenPaths.add(node.path);
 
+      const body = nodeBody(node, opts);
+      if (body.omitted > 0) excerpted++;
+      shown++;
+
       md += `## 📄 ${node.title}\n`;
       md += `**Path**: \`${node.path}\`\n\n`;
-      md += `${node.content}\n\n`;
+      md += `${body.text}\n\n`;
       md += `---\n\n`;
     }
 
-    return md;
+    return { markdown: md, shown, excerpted };
   }
 
   /**
@@ -217,8 +335,8 @@ export class ContextBuilder {
   /**
    * Estatísticas de contexto
    */
-  stats(mode: any, project: any, keyword = '') {
-    const content = this.build(mode, project, keyword);
+  stats(mode: any, project: any, keyword = '', opts: BuildOptions = {}) {
+    const content = this.build(mode, project, keyword, opts);
     const lines = content.split('\n').length;
     const tokens = Math.round(content.length / 4); // Aproximação simples
 
@@ -231,42 +349,6 @@ export class ContextBuilder {
       tokens,
       estimatedCost: (tokens * 0.00001).toFixed(4), // Assumindo $0.00001 por token
     };
-  }
-}
-
-/**
- * Modo CLI - Executar via node scripts/context-builder.mjs
- */
-if (import.meta.url === `file://${process.argv[1]}`) {
-  const [mode, project, keyword] = process.argv.slice(2);
-
-  if (!mode || !project) {
-    console.error('Uso: forja context:smart [--mode global|domain|task] [--task <termo>]');
-    console.error('Modes: global, domain, task');
-    process.exit(1);
-  }
-
-  ensureSchema({ silent: true });
-  const dbPath = getDbPath();
-  const builder = new ContextBuilder(process.cwd(), dbPath);
-
-  try {
-    console.log(`🔨 Building ${mode} context for ${project}...`);
-    const content = builder.build(mode, project, keyword);
-    const stats = builder.stats(mode, project, keyword);
-
-    const outDir = path.join(process.cwd(), '.context');
-    const outFile = path.join(outDir, `context-${mode}.md`);
-
-    builder.save(content, outFile);
-
-    console.log(`✅ Context saved: ${outFile}`);
-    console.log(`📊 Stats:`, stats);
-  } catch (e) {
-    console.error('❌ Error:', e.message);
-    process.exit(1);
-  } finally {
-    builder.close();
   }
 }
 

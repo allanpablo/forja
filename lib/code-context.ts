@@ -23,6 +23,63 @@ export function estimateTokens(text: string): number {
   return Math.round(text.length / 4);
 }
 
+/**
+ * Orçamento do código anexado por padrão (SPEC-057 AC-4). Uma fatia grande tem dezenas de arquivos e
+ * `--code` lia todos por inteiro — janela gasta com apresentação e ORM antes de chegar na regra.
+ * `--full` devolve o comportamento antigo.
+ */
+export const CODE_TOKEN_BUDGET = 6000;
+
+/**
+ * Camadas mais informativas primeiro: é em `domain/` que a invariante mora, e `presentation/` é a
+ * camada que um agente quase sempre já sabe como é.
+ */
+const LAYER_ORDER = ['domain', 'application', 'infrastructure', 'presentation'];
+
+export interface CodeFile {
+  path: string;
+  tokens: number;
+  content: string;
+}
+
+/**
+ * Ordem de leitura da fatia: quem casa com o termo vem primeiro (caminho pesa mais que conteúdo —
+ * `order.entity.ts` é sobre a entidade, um arquivo que só a menciona não), desempate por camada e
+ * depois por caminho, para a mesma consulta dar sempre o mesmo pacote.
+ */
+export function byRelevance(files: CodeFile[], terms: string[]): CodeFile[] {
+  const hits = (f: CodeFile): number => {
+    const rel = f.path.toLowerCase();
+    const body = f.content.toLowerCase();
+    return terms.reduce((acc, t) => {
+      const inPath = rel.includes(t) ? 3 : 0;
+      const inBody = body.split(t).length - 1;
+      return acc + inPath + Math.min(inBody, 5);
+    }, 0);
+  };
+  const layer = (f: CodeFile): number => {
+    const rel = f.path.toLowerCase();
+    const at = LAYER_ORDER.findIndex((l) => rel.includes(`/${l}/`));
+    return at === -1 ? LAYER_ORDER.length : at;
+  };
+  return [...files].sort((a, b) => hits(b) - hits(a) || layer(a) - layer(b) || a.path.localeCompare(b.path));
+}
+
+/** Pega arquivos na ordem até estourar o orçamento; devolve também o que ficou de fora. */
+export function withinBudget(files: CodeFile[], budget: number): { kept: CodeFile[]; omitted: CodeFile[] } {
+  const kept: CodeFile[] = [];
+  const omitted: CodeFile[] = [];
+  let used = 0;
+  for (const f of files) {
+    if (used + f.tokens > budget && kept.length > 0) omitted.push(f);
+    else {
+      kept.push(f);
+      used += f.tokens;
+    }
+  }
+  return { kept, omitted };
+}
+
 /** Domínios disponíveis num projeto: os diretórios sob `memory/30-domains/`. */
 export function domainsOf(projectRoot: string, env: CodeContextEnv = defaultFsEnv): string[] {
   const dir = path.join(projectRoot, 'memory', '30-domains');
@@ -76,24 +133,35 @@ export interface ContextPack {
   mapPath: string | null;
   map: string | null;
   mapTokens: number;
-  code: { path: string; tokens: number; content: string }[];
+  code: CodeFile[];
   codeTokens: number;
+  /** Arquivos da fatia que o orçamento deixou de fora — sempre à mostra, nunca corte calado. */
+  codeOmitted: { path: string; tokens: number }[];
   totalTokens: number;
 }
 
 /**
  * Monta o pacote de um domínio. Por padrão só o mapa (`context.md`) — o contexto barato que substitui
- * a exploração. Com `includeCode`, anexa o código da fatia — o que se lê ao *editar*.
+ * a exploração. Com `includeCode`, anexa o código da fatia — o que se lê ao *editar* — na ordem de
+ * relevância e até `budget` tokens; `full: true` anexa a fatia inteira (comportamento pré-SPEC-057,
+ * e o que o `token:economy` precisa para medir o custo de ler tudo).
  */
 export function buildContextPack(
-  { projectRoot, domain, includeCode = false }: { projectRoot: string; domain: string; includeCode?: boolean },
+  {
+    projectRoot,
+    domain,
+    includeCode = false,
+    query = '',
+    full = false,
+    budget = CODE_TOKEN_BUDGET,
+  }: { projectRoot: string; domain: string; includeCode?: boolean; query?: string; full?: boolean; budget?: number },
   env: CodeContextEnv = defaultFsEnv
 ): ContextPack {
   // Allowlist against the domains the project actually declares (memory/30-domains/*) — rejects early
   // rather than sanitizing, since it's information this function already has and a traversal payload
   // (e.g. "../../etc") can never literally equal one of those directory names.
   if (!domainsOf(projectRoot, env).includes(domain)) {
-    return { domain, found: false, mapPath: null, map: null, mapTokens: 0, code: [], codeTokens: 0, totalTokens: 0 };
+    return { domain, found: false, mapPath: null, map: null, mapTokens: 0, code: [], codeTokens: 0, codeOmitted: [], totalTokens: 0 };
   }
 
   const mapPath = path.join(projectRoot, 'memory', '30-domains', domain, 'context.md');
@@ -104,8 +172,10 @@ export function buildContextPack(
     map = null;
   }
 
-  const code: ContextPack['code'] = [];
+  const code: CodeFile[] = [];
+  let codeOmitted: { path: string; tokens: number }[] = [];
   if (includeCode) {
+    const files: CodeFile[] = [];
     for (const file of moduleFiles(projectRoot, domain, env)) {
       let content = '';
       try {
@@ -113,8 +183,12 @@ export function buildContextPack(
       } catch {
         continue;
       }
-      code.push({ path: path.relative(projectRoot, file), tokens: estimateTokens(content), content });
+      files.push({ path: path.relative(projectRoot, file), tokens: estimateTokens(content), content });
     }
+    const ordered = byRelevance(files, query.toLowerCase().split(/\s+/).filter(Boolean));
+    const cut = full ? { kept: ordered, omitted: [] } : withinBudget(ordered, budget);
+    code.push(...cut.kept);
+    codeOmitted = cut.omitted.map(({ path: rel, tokens }) => ({ path: rel, tokens }));
   }
 
   const mapTokens = map ? estimateTokens(map) : 0;
@@ -128,6 +202,7 @@ export function buildContextPack(
     mapTokens,
     code,
     codeTokens,
+    codeOmitted,
     totalTokens: mapTokens + codeTokens,
   };
 }

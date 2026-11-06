@@ -191,14 +191,20 @@ export const CLI_CAPABILITY_SPECS: readonly CliCapabilitySpec<InputRecord>[] = [
   {
     id: 'code.context' as CapabilityId,
     command: 'code:context',
-    description: 'Pacote de contexto mínimo de um domínio (o mapa; + código com --code).',
+    description: 'Pacote de contexto mínimo de um domínio (o mapa; + código com --code, fatia inteira com --full).',
     categories: ['read'],
     permissions: ['read'],
     risk: 'low',
     sideEffects: [],
+    // Cada flag que `usage` anuncia tem que estar aqui: o roteador rebuilda o argv a partir destes
+    // params, e o que não é declarado é descartado em silêncio — `--full` existir no help e não chegar
+    // ao script é o pior tipo de flag (o usuário jura que pediu).
     params: [
       { name: 'domain', kind: 'positional' },
+      { name: 'query', kind: 'positional' },
       { name: 'code', kind: 'flag' },
+      { name: 'full', kind: 'flag' },
+      { name: 'project', kind: 'flag-value', flag: '--project' },
     ],
   },
   {

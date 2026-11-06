@@ -17,6 +17,7 @@ function sync(ws) {
     env: { ...process.env, FORJA_WORKSPACE: ws },
   });
   assert.equal(res.status, 0, `sync:universal falhou: ${res.stderr}`);
+  return res.stdout;
 }
 
 function ficha(ws, nome, titulo) {
@@ -79,6 +80,64 @@ test('sync:universal mantém search_idx alinhado após um insert seguido de upda
       `${depois.cruzados.length} nós com conteúdo cruzado no FTS, ex.: ${JSON.stringify(depois.cruzados[0])}`
     );
     assert.equal(depois.orfaos, 0, `${depois.orfaos} linhas órfãs no search_idx`);
+  } finally {
+    fs.rmSync(ws, { recursive: true, force: true });
+  }
+});
+
+/**
+ * SPEC-057 AC-3: o `content_hash` sempre foi gravado e nunca foi comparado — todo sync re-upsertava e
+ * re-indexava tudo. Pular o inalterado tem duas armadilhas que este teste prende: o nó pulado precisa
+ * continuar íntegro e buscável (pular não é perder), e o banco precisa parecer novo para o check
+ * `memory-fresh`, que compara o mtime do banco com o de memory/ — um sync que não escreve nada
+ * deixaria o índice em dia com aviso de índice velho aceso.
+ */
+test('sync:universal pula o que não mudou, reprocessa o que mudou e ainda marca o banco como novo', () => {
+  const ws = fs.mkdtempSync(path.join(os.tmpdir(), 'forja-incr-'));
+  try {
+    ficha(ws, 'estavel.md', 'Ficha Estável');
+    ficha(ws, 'mutavel.md', 'Ficha Mutável');
+    const primeiro = sync(ws);
+    assert.match(primeiro, /indexados/, 'primeiro sync não indexou nada');
+
+    const dbPath = path.join(ws, 'memory/sqlite/universal.db');
+    const antes = new Database(dbPath, { readonly: true })
+      .prepare("SELECT content_hash, updated_at FROM memory_nodes WHERE path LIKE '%estavel.md'")
+      .get();
+
+    // mtime novo com conteúdo igual: o pulo tem que ser por hash, não por data de modificação.
+    fs.utimesSync(path.join(ws, 'memory/30-projects/mutavel.md'), new Date(), new Date());
+    const segundo = sync(ws);
+    assert.match(segundo, /[1-9]\d* inalterados \(pulados\)/, `re-sync reprocessou tudo: ${segundo.trim()}`);
+
+    // Um char mudado: só aquele nó volta a ser processado (falso skip é o risco alto do AC-3).
+    const alvo = path.join(ws, 'memory/30-projects/mutavel.md');
+    fs.writeFileSync(alvo, `${fs.readFileSync(alvo, 'utf8')}\nDetalhe novo que muda o hash.\n`);
+    const terceiro = sync(ws);
+    assert.match(terceiro, /[1-9]\d* indexados/, 'a mutação não foi reprocessada');
+
+    const db = new Database(dbPath, { readonly: true });
+    try {
+      const depois = db
+        .prepare("SELECT content_hash, updated_at FROM memory_nodes WHERE path LIKE '%estavel.md'")
+        .get();
+      assert.equal(depois.content_hash, antes.content_hash, 'o hash do nó inalterado mudou');
+      assert.equal(depois.updated_at, antes.updated_at, 'o nó inalterado foi regravado');
+
+      const buscavel = db
+        .prepare("SELECT COUNT(*) AS c FROM search_idx WHERE search_idx MATCH '\"Estável\"'")
+        .get().c;
+      assert.ok(buscavel > 0, 'pular o re-sync quebrou a busca do nó inalterado');
+
+      const meta = db.prepare("SELECT value FROM sync_meta WHERE name = 'last_sync'").get();
+      assert.ok(meta, 'a execução não ficou registrada em sync_meta');
+      assert.ok(
+        fs.statSync(dbPath).mtimeMs >= fs.statSync(alvo).mtimeMs,
+        'banco parece mais velho que memory/ — memory-fresh vai avisar com o índice em dia'
+      );
+    } finally {
+      db.close();
+    }
   } finally {
     fs.rmSync(ws, { recursive: true, force: true });
   }
