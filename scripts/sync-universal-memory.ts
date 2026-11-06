@@ -59,6 +59,15 @@ CREATE VIRTUAL TABLE IF NOT EXISTS search_idx USING fts5(
   content,
   tokenize='porter'
 );
+
+-- Uma linha por execução de sync. Existe porque um sync incremental que pula tudo não escreve byte
+-- nenhum no banco, e o doctor compara o mtime do banco com o de memory/ (check memory-fresh): sem
+-- ela, o índice em dia pareceria velho. De quebra carrega os contadores da execução.
+CREATE TABLE IF NOT EXISTS sync_meta (
+  name TEXT PRIMARY KEY,
+  value TEXT NOT NULL,
+  updated_at TEXT NOT NULL
+);
 `;
 
 function log(msg: any, level = 'info') {
@@ -105,6 +114,8 @@ const upsertProject = db.prepare('INSERT INTO projects (name, path, created_at) 
 // um documento sob o node_id de outro (ADR-0021).
 const upsertNode = db.prepare('INSERT INTO memory_nodes (project_id, path, kind, title, content, content_hash, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?) ON CONFLICT(path) DO UPDATE SET project_id=excluded.project_id, kind=excluded.kind, title=excluded.title, content=excluded.content, content_hash=excluded.content_hash, updated_at=excluded.updated_at RETURNING id');
 const getProjectId = db.prepare('SELECT id FROM projects WHERE name = ?');
+const getStoredNode = db.prepare('SELECT content_hash, project_id FROM memory_nodes WHERE path = ?');
+const upsertSyncMeta = db.prepare('INSERT INTO sync_meta (name, value, updated_at) VALUES (?, ?, ?) ON CONFLICT(name) DO UPDATE SET value=excluded.value, updated_at=excluded.updated_at');
 const deleteFts = db.prepare('DELETE FROM search_idx WHERE node_id = ?');
 const insertFts = db.prepare('INSERT INTO search_idx (node_id, title, content) VALUES (?, ?, ?)');
 const purgeFtsOrphans = db.prepare('DELETE FROM search_idx WHERE node_id NOT IN (SELECT id FROM memory_nodes)');
@@ -235,14 +246,65 @@ function syncAssetCatalog() {
   log(`Asset catalog sincronizado: ${assets.length}`, 'info');
 }
 
+/** Contadores da execução: o log diz quanto do sync foi trabalho de verdade e quanto foi pulado. */
+const tally = { indexados: 0, pulados: 0, falhas: 0 };
+
+interface StoredNode { content_hash: string; project_id: number | null }
+
+/**
+ * `abs` está mesmo dentro de `base`? `startsWith('..')` não basta: em Windows, `path.relative()` entre
+ * unidades diferentes devolve o caminho **absoluto** de `abs` — que não começa por `..` e seria lido
+ * como "está dentro".
+ */
+function inside(base: string, abs: string): boolean {
+  const rel = path.relative(base, abs);
+  return rel !== '' && !rel.startsWith('..') && !path.isAbsolute(rel);
+}
+
+const realCache = new Map<string, string>();
+function realOf(p: string): string {
+  let v = realCache.get(p);
+  if (v === undefined) {
+    try {
+      v = fs.realpathSync(p);
+    } catch {
+      v = p;
+    }
+    realCache.set(p, v);
+  }
+  return v;
+}
+
+/**
+ * Caminho do nó: relativo à raiz cujo conteúdo ele é, na mesma forma em qualquer máquina. Dois
+ * atalhos unix-cêntricos gravavam o mesmo arquivo com duas identidades no Windows — `relative()`
+ * entre unidade diferente devolve caminho absoluto, e `os.tmpdir()` chega como nome 8.3
+ * (`RUNNER~1`) enquanto o walk devolve a forma longa, o que faz o `relative()` subir a árvore toda e
+ * cair na raiz errada. Se a forma direta não contém o arquivo, tenta a canônica dos dois lados.
+ */
+function nodePathOf(abs: string): string {
+  for (const base of [contentRoot, operationRoot]) {
+    if (inside(base, abs)) return path.relative(base, abs);
+    if (inside(realOf(base), realOf(abs))) return path.relative(realOf(base), realOf(abs));
+  }
+  return path.relative(contentRoot, abs);
+}
+
 function syncFiles(files: any, projectId = null) {
   for (const abs of files) {
-    let rel = path.relative(contentRoot, abs);
-    if (rel.startsWith('..')) {
-      rel = path.relative(operationRoot, abs);
-    }
+    const rel = nodePathOf(abs);
     const raw = fs.readFileSync(abs, 'utf8');
     const hash = crypto.createHash('sha256').update(raw).digest('hex');
+
+    // O `content_hash` sempre foi gravado e nunca foi comparado: todo sync re-upsertava e re-indexava
+    // os 289 nós do pacote. Pular o inalterado é seguro — a linha e o trecho FTS continuam lá — e o
+    // project_id entra na comparação porque o mesmo path pode mudar de dono (global ↔ projeto).
+    const stored = getStoredNode.get(rel) as StoredNode | undefined;
+    if (stored && stored.content_hash === hash && stored.project_id === projectId) {
+      tally.pulados++;
+      continue;
+    }
+
     const titleMatch = raw.match(/^#\s+(.+)$/m);
     const title = titleMatch ? titleMatch[1].trim() : path.basename(rel, '.md');
 
@@ -251,7 +313,9 @@ function syncFiles(files: any, projectId = null) {
 
       deleteFts.run(nodeId);
       insertFts.run(nodeId, title, raw);
+      tally.indexados++;
     } catch (e) {
+      tally.falhas++;
       log(`Erro sincronizando ${rel}: ${e.message}`, 'error');
     }
   }
@@ -319,5 +383,12 @@ if (mode === 'studio' && fs.existsSync(workspaceProjectsMemoryDir)) {
 const orphans = purgeFtsOrphans.run().changes;
 if (orphans) log(`Índice FTS: ${orphans} linhas órfãs removidas`, 'info');
 
+// Marca a execução mesmo quando tudo foi pulado — ver o comentário de `sync_meta` no schema.
+upsertSyncMeta.run('last_sync', JSON.stringify({ at: now, ...tally }), now);
+log(`Nós: ${tally.indexados} indexados · ${tally.pulados} inalterados (pulados) · ${tally.falhas} falhas`, 'info');
+
+// O banco abre em WAL: sem checkpoint, uma escrita pequena fica no -wal e o mtime do .db não muda —
+// o arquivo principal passa a mentir sobre a idade do índice (e vale menos sozinho, sem o -wal).
+db.pragma('wal_checkpoint(TRUNCATE)');
 db.close();
 log('Sincronização Universal Concluída!', 'success');

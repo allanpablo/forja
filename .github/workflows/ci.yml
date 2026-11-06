@@ -7,13 +7,32 @@ on:
 
 jobs:
   test:
-    runs-on: ubuntu-latest
+    runs-on: ${{ matrix.os }}
+    # AC-4 de SPEC-056, medido nas quatro primeiras rodadas da célula: macOS passou inteira; Windows
+    # trouxe 23 falhas e hoje tem 10, com 7 causas de produto/robustez fechadas no caminho
+    # (separador de caminho, CRLF, handle de SQLite vazado, forma do caminho do nó). O inventário do
+    # que resta, causa por causa e com arquivo:linha, está em specs/v6-quality-gates/spec.md. A célula
+    # continua informando — o X aparece no PR — mas não segura o merge enquanto aquele inventário
+    # estiver aberto. **Tirar esta linha é o gate de que o inventário zerou**, não uma conveniência.
+    continue-on-error: ${{ matrix.os == 'windows-latest' }}
     strategy:
+      fail-fast: false
       matrix:
         # O job `test` roda o código-FONTE (.ts desde SPEC-012 Fase 2), com strip-types nativo
         # (Node ≥22.6). O pacote PUBLICADO (dist/*.js, engines >=22) é provado pelo job
         # `release-gate`, que instala o tarball e percorre a jornada do usuário nele (ADR-0086).
+        #
+        # SPEC-056: o framework é usado em macOS e Windows (paths, `bin:` shells, cópia de skills) e
+        # o CI era 100% ubuntu — regressão de plataforma só aparecia na máquina do usuário. As células
+        # de plataforma rodam só no Node 24: o que elas caçam é separador de caminho e shell, não
+        # versão de runtime, e cada célula paga um build do better-sqlite3.
+        os: [ubuntu-latest, macos-latest, windows-latest]
         node-version: [22.x, 24.x]
+        exclude:
+          - os: macos-latest
+            node-version: 22.x
+          - os: windows-latest
+            node-version: 22.x
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v6
@@ -23,7 +42,17 @@ jobs:
       - run: npm ci
       - name: Type-check (checkJs on-ramp, SPEC-012 Fase 1)
         run: npm run types:check
-      - run: npm test
+
+      # SPEC-056: no ubuntu a suíte roda já com o piso de cobertura cobrado — `quality:coverage` é a
+      # mesma suíte (`node --test --experimental-test-coverage`) mais a régua de
+      # lib/core/quality-budget.json, então não há custo extra nem segunda máquina de teste. A régua
+      # é uma só: medir cobertura em três SOs não prova mais que medir em um.
+      - name: Testes + piso de cobertura
+        if: matrix.os == 'ubuntu-latest'
+        run: node bin/forja.ts quality:coverage
+      - name: Testes
+        if: matrix.os != 'ubuntu-latest'
+        run: npm test
       - name: Core smoke test
         run: |
           node bin/forja.ts

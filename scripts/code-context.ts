@@ -3,7 +3,9 @@
  * code:context — entrega o pacote de contexto mínimo de um domínio (SPEC-016, ADR-0009).
  *
  *   forja code:context <domínio>            só o mapa (context.md) — o contexto barato
- *   forja code:context <domínio> --code     + o código da fatia (para editar)
+ *   forja code:context <domínio> --code     + o código da fatia (para editar), por relevância
+ *   forja code:context <domínio> <termo> --code   prioriza os arquivos que casam com o termo
+ *   forja code:context <domínio> --code --full    a fatia inteira, sem orçamento (SPEC-057)
  *   forja code:context <domínio> --project <path>   aponta para outro projeto
  *
  * O −61% do `token:economy` virado ferramenta: o mapa que substitui a exploração, pronto para colar.
@@ -31,8 +33,10 @@ function main() {
     positional.push(argv[i]);
   }
   const domain = positional[0];
+  const query = positional.slice(1).join(' ');
   const projectRoot = path.resolve(arg('--project') || process.cwd());
   const includeCode = process.argv.includes('--code');
+  const full = process.argv.includes('--full');
 
   const available = domainsOf(projectRoot);
 
@@ -42,12 +46,12 @@ function main() {
       console.error('Rode dentro de um projeto gerado, ou aponte com --project <path>.');
       process.exit(1);
     }
-    console.log('Uso: forja code:context <domínio> [--code] [--project <path>]\n');
+    console.log('Uso: forja code:context <domínio> [termo] [--code] [--full] [--project <path>]\n');
     console.log(`Domínios disponíveis: ${available.join(', ')}`);
     return;
   }
 
-  const pack = buildContextPack({ projectRoot, domain, includeCode });
+  const pack = buildContextPack({ projectRoot, domain, includeCode, query, full });
 
   if (!pack.found) {
     console.error(`Domínio "${domain}" não tem context.md em ${projectRoot}.`);
@@ -73,6 +77,11 @@ function main() {
   console.error(''); // separa do stdout colável
   if (includeCode) {
     console.error(`— pacote completo: ${pack.totalTokens} tokens (mapa ${pack.mapTokens} + código ${pack.codeTokens}, ${pack.code.length} arquivos).`);
+    if (pack.codeOmitted.length) {
+      const omitidos = pack.codeOmitted.reduce((acc, c) => acc + c.tokens, 0);
+      console.error(`— fora do orçamento: ${pack.codeOmitted.length} arquivos (${omitidos} tokens) · --full traz a fatia inteira.`);
+      for (const c of pack.codeOmitted) console.error(`    ${c.path} (${c.tokens} tokens)`);
+    }
   } else {
     console.error(`— só o mapa: ${pack.mapTokens} tokens. Para editar, adicione o código com --code, ou o blast radius com \`forja code:impact <símbolo>\`.`);
   }

@@ -47,7 +47,9 @@ function projectMode(projectRoot: string): void {
   say('Para cada domínio: ler o mapa (context.md) vs ler todo o código da fatia.\n');
   const rows: any[] = [];
   for (const domain of domains) {
-    const pack = buildContextPack({ projectRoot, domain, includeCode: true });
+    // `full: true` de propósito: este eixo mede o custo de ler a fatia INTEIRA no frio. Com o
+    // orçamento da SPEC-057 ligado, mediríamos o pacote cortado e o −61% viraria ficção.
+    const pack = buildContextPack({ projectRoot, domain, includeCode: true, full: true });
     const economy = pack.codeTokens === 0 ? '—' : `−${Math.round(((pack.codeTokens - pack.mapTokens) / pack.codeTokens) * 100)}%`;
     rows.push({ domínio: domain, mapa_tok: pack.mapTokens, código_tok: pack.codeTokens, mapa_vs_código: economy });
     say(`■ ${domain}`);

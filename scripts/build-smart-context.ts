@@ -4,6 +4,7 @@
  *   forja context:smart                         global (missão, padrões, ADRs)
  *   forja context:smart --mode domain           + visão/design/regras do projeto
  *   forja context:smart --mode task --task pix  + nós do projeto que casam com a tarefa (FTS5)
+ *   forja context:smart --full-context          nós inteiros, sem trecho (opt-out da SPEC-057)
  *   forja context:smart <projeto> [keyword]     forma posicional antiga (studio) — ainda aceita
  *
  * O projeto é inferido de onde o comando roda: no modo embedded é o próprio projeto; no studio,
@@ -15,6 +16,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { ContextBuilder } from '../lib/context-builder.ts';
+import { COMMANDS } from '../lib/core/registry.ts';
 import { getDbPath, ensureSchema } from './memory-schema.ts';
 import { getForjaMode, getProjectsDir, getWorkspaceContextDir, getWorkspaceRoot, initWorkspace, resolveProject } from '../lib/workspace.ts';
 
@@ -23,18 +25,21 @@ type Mode = typeof MODES[number];
 
 function fail(msg: string): never {
   console.error(msg);
-  console.error('Uso: forja context:smart [--mode global|domain|task] [--task <termo>] [--project <nome>]');
+  // O usage do registro, não um texto à parte: foi assim que o help prometeu três modos que o comando
+  // ignorava — duas fontes da mesma frase, e só uma delas era verdade.
+  console.error(`Uso: ${COMMANDS['context:smart'].usage}`);
   process.exit(1);
 }
 
 export function parseArgs(argv: readonly string[]) {
-  const opts: { mode?: string; task?: string; project?: string; positional: string[] } = { positional: [] };
+  const opts: { mode?: string; task?: string; project?: string; full?: boolean; positional: string[] } = { positional: [] };
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i];
     const val = () => { const v = argv[++i]; if (v === undefined || v.startsWith('--')) fail(`${a} exige um valor`); return v; };
     if (a === '--mode') opts.mode = val();
     else if (a === '--task' || a === '--domain' || a === '--keyword') opts.task = val();
     else if (a === '--project') opts.project = val();
+    else if (a === '--full-context') opts.full = true;
     else if (a.startsWith('--')) fail(`Opção desconhecida: ${a}`);
     else opts.positional.push(a);
   }
@@ -66,7 +71,7 @@ function main() {
   ensureSchema({ silent: true });
   const builder = new ContextBuilder(process.cwd(), getDbPath());
   try {
-    const content = builder.build(mode, project ?? 'global', keyword);
+    const content = builder.build(mode, project ?? 'global', keyword, { full: opts.full === true });
     const outDir = embedded
       ? path.join(getWorkspaceRoot(), '.context')
       : project ? path.join(resolveProject(project), '.context') : getWorkspaceContextDir();
@@ -74,8 +79,11 @@ function main() {
     const outFile = path.join(outDir, 'smart-context.md');
     builder.save(content, outFile);
     const files = (content.match(/^\*\*Path\*\*:/gm) || []).length;
+    const excerpts = /- \*\*Excerpts\*\*: (\d+)\/(\d+)/.exec(content);
+    const cortados = excerpts ? Number(excerpts[1]) : 0;
     console.log(`✓ contexto ${mode}${keyword ? ` ("${keyword}")` : ''}${project ? ` de ${project}` : ''}: ${outFile}`);
-    console.log(`  ${files} arquivo(s) · ~${Math.round(content.length / 4)} tokens`);
+    console.log(`  ${files} arquivo(s) · ~${Math.round(content.length / 4)} tokens` +
+      (cortados ? ` · ${cortados} nó(s) em trecho (--full-context injeta inteiro)` : ''));
     if (files === 0) console.log('  nada indexado ainda — rode: forja sync:universal');
   } catch (e) {
     fail(`Erro ao gerar contexto: ${(e as Error).message}`);

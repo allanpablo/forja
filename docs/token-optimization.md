@@ -59,7 +59,7 @@ Caps em `.memoryrc.json::hooks.userPromptCap` (default 4KB). Cache em `/tmp/fram
 **Cost**: $0.0001 per request
 
 ```bash
-node lib/context-builder.js global my-project
+forja context:smart --mode global --project my-project
 ```
 
 ---
@@ -79,7 +79,7 @@ node lib/context-builder.js global my-project
 **Cost**: $0.005 per request
 
 ```bash
-node lib/context-builder.js domain my-project
+forja context:smart --mode domain --project my-project
 ```
 
 ---
@@ -97,8 +97,11 @@ node lib/context-builder.js domain my-project
 **Cost**: $0.008 per request
 
 ```bash
-node lib/context-builder.js task my-project "auth backend"
+forja context:smart --mode task --task "auth backend" --project my-project
 ```
+
+Nó longo entra como **trecho casado** (especificado pelo `snippet()` do FTS5), não por inteiro; o rodapé do
+pacote diz quantos nós vieram cortados, e `--full-context` traz a fatia inteira quando o corte atrapalha.
 
 ---
 
@@ -360,11 +363,12 @@ nodes = nodes.slice(0, maxFiles); // Keep top N
 ### For Backend Worker
 
 ```javascript
-import ContextBuilder from '../lib/context-builder.js';
+import ContextBuilder from '../lib/context-builder.ts';
 
 // On task start
 const builder = new ContextBuilder(process.cwd(), dbPath);
-const context = builder.build('task', 'my-project', 'backend auth');
+const context = builder.build('task', 'my-project', 'backend auth');            // nós longos em trecho
+const integral = builder.build('task', 'my-project', 'backend auth', { full: true });
 const stats = builder.stats('task', 'my-project', 'backend auth');
 
 console.log(`📊 Using ${stats.tokens} tokens (cost: $${stats.estimatedCost})`);
@@ -394,7 +398,7 @@ const context = builder.build('global', 'my-project');
 ## 📋 Pre-Flight Checklist
 
 - [ ] `.memoryrc.json` created with token limits
-- [ ] `lib/context-builder.js` integrated
+- [ ] `lib/context-builder.ts` integrated
 - [ ] `scripts/compress-memory.mjs` tested
 - [ ] Cache directory created: `.context/cache/`
 - [ ] Archive directory created: `.memory/archive/`

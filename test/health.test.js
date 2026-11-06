@@ -3,6 +3,8 @@ import assert from 'node:assert/strict';
 import path from 'node:path';
 
 import { CHECKS, runChecks, worstStatus } from '../lib/core/health.ts';
+import { COMMANDS } from '../lib/core/registry.ts';
+import { declaredFlags, renderCommandsDoc, skillsCount } from '../lib/docs-reference.ts';
 
 const checkById = (id) => CHECKS.find((c) => c.id === id);
 
@@ -409,6 +411,55 @@ test('memory-fresh: índice em dia → ok', async () => {
   assert.equal(r.status, 'ok');
 });
 
+test('memory-fresh: o sync registrado vence o mtime do arquivo (WAL esconde escrita pequena)', async () => {
+  // O banco abre em WAL: um sync que pulou tudo escreve uma linha e o `.db` pode nem mudar de mtime.
+  // Ler o arquivo fazia o índice em dia parecer velho — e o sync incremental (SPEC-057) tornou isso
+  // o caso comum, não a exceção.
+  const memoryDir = path.join(process.cwd(), 'memory');
+  const env = {
+    root: process.cwd(),
+    workspace: workspaceStub,
+    fs: fsStub({
+      dbMtime: 1_000, // arquivo "velho"
+      files: {
+        [memoryDir]: { dir: true, entries: ['adr.md'] },
+        [path.join(memoryDir, 'adr.md')]: { mtime: 50_000 },
+      },
+    }),
+    importModule: async () => fakeSqlite({ rows: { value: JSON.stringify({ at: new Date(99_000_000).toISOString() }) } }),
+  };
+
+  const [r] = await runChecks({ checks: [fresh()], env });
+  assert.equal(r.status, 'ok', 'sync registrado depois de memory/ não é defasagem');
+});
+
+test('memory-fresh: índice antigo sem sync_meta cai no mtime e continua avisando', async () => {
+  const memoryDir = path.join(process.cwd(), 'memory');
+  const env = {
+    root: process.cwd(),
+    workspace: workspaceStub,
+    fs: fsStub({
+      dbMtime: 1_000,
+      files: {
+        [memoryDir]: { dir: true, entries: ['adr.md'] },
+        [path.join(memoryDir, 'adr.md')]: { mtime: 99_000_000 },
+      },
+    }),
+    // `prepare()` estourando simula o índice de versão anterior, sem a tabela: a leitura não pode
+    // propagar o erro, só cair no mtime.
+    importModule: async () => ({
+      default: class {
+        prepare() { throw new Error('no such table: sync_meta'); }
+        close() {}
+      },
+    }),
+  };
+
+  const [r] = await runChecks({ checks: [fresh()], env });
+  assert.equal(r.status, 'warn', 'sem sync registrado, o mtime ainda é a aproximação');
+  assert.equal(r.fix, 'npm run sync:universal');
+});
+
 // ---------------------------------------------------------------------------
 // workspace / node-engines
 // ---------------------------------------------------------------------------
@@ -479,12 +530,16 @@ function repoStub(files, { git = true } = {}) {
       return files[key(p)];
     },
     statSync: (p) => ({ isDirectory: () => dirs.has(key(p)), mtimeMs: 0 }),
-    readdirSync: (p) => {
+    readdirSync: (p, opts) => {
       const out = new Set();
       for (const f of [...Object.keys(files), ...dirs]) {
         if (path.posix.dirname(f) === key(p)) out.add(path.posix.basename(f));
       }
-      return [...out];
+      const names = [...out];
+      if (opts?.withFileTypes) {
+        return names.map((name) => ({ name, isDirectory: () => dirs.has(`${key(p)}/${name}`) }));
+      }
+      return names;
     },
   };
 }
@@ -827,4 +882,209 @@ test('docs-commands: script npm do checkout é reconhecido sem liberar nomes ine
   const [fail] = await runChecks({ checks: [docsCommands()], env: docEnv(files) });
   assert.equal(fail.status, 'fail');
   assert.match(fail.detail, /unknown:check/);
+});
+
+// ---------------------------------------------------------------------------
+// SPEC-055 — a doc que instrui execução não pode inventar interface
+// ---------------------------------------------------------------------------
+
+const docsFlags = () => checkById('docs-flags');
+const coreInReadme = () => checkById('core-in-readme');
+const docsSkillsCount = () => checkById('docs-skills-count');
+const commandsRef = () => checkById('commands-ref');
+
+test('docs-flags: flag inventada numa invocação reprova (critical)', async () => {
+  const [r] = await runChecks({
+    checks: [docsFlags()],
+    env: docEnv({ '/repo/docs/x.md': 'Rode `forja release:check --publicar`.' }),
+  });
+  assert.equal(r.status, 'fail');
+  assert.match(r.detail, /release:check --publicar \(docs\/x\.md:1\)/, 'aponta arquivo:linha');
+  assert.equal(worstStatus([r]), 'fail', 'doc que manda executar flag inexistente bloqueia');
+});
+
+test('docs-flags: flag do usage e flag global do dispatcher passam', async () => {
+  const env = docEnv({ '/repo/docs/x.md': 'Rode `forja release:check --publish` ou `forja spec:new a --json`.' });
+  const [r] = await runChecks({ checks: [docsFlags()], env });
+  assert.equal(r.status, 'ok');
+});
+
+test('docs-flags: flag que a linha atribui a outro comando citado não é drift', async () => {
+  // Forma exata da célula gerada: a descrição de project:templates fala do --template de project:new.
+  const linha = '| `forja project:templates` | Lista os boilerplates (project:new --template) | `forja project:templates [--json]` |';
+  const [r] = await runChecks({ checks: [docsFlags()], env: docEnv({ '/repo/docs/commands.md': linha }) });
+  assert.equal(r.status, 'ok');
+});
+
+test('docs-flags: citação sem `forja`/`npm run` não é invocação — prosa não reprova', async () => {
+  const env = docEnv({ '/repo/docs/x.md': '- `llm:probe` executa `--version` e o help do provedor.' });
+  const [r] = await runChecks({ checks: [docsFlags()], env });
+  assert.equal(r.status, 'ok', 'a flag é do binário do provedor, não do Forja');
+});
+
+test('docs-flags: comando desconhecido é ignorado (quem julga é docs-commands)', async () => {
+  const env = docEnv({ '/repo/docs/x.md': 'Rode `forja capabilities:list --saida`.' });
+  const [r] = await runChecks({ checks: [docsFlags()], env });
+  assert.equal(r.status, 'ok');
+});
+
+test('docs-flags: clítico do português não vira flag', async () => {
+  const env = docEnv({ '/repo/docs/x.md': 'Rode `forja risk:assess`; o PolicyEngine pode consultá-lo.' });
+  const [r] = await runChecks({ checks: [docsFlags()], env });
+  assert.equal(r.status, 'ok', '"consultá-lo" não é a flag -lo');
+});
+
+const CORE = Object.entries(COMMANDS).filter(([, spec]) => spec.tier === 'core').map(([name]) => name);
+const citar = (names) => names.map((n) => `forja ${n}`).join('\n');
+
+test('core-in-readme: core ausente de um dos READMEs reprova e nomeia o arquivo', async () => {
+  const [r] = await runChecks({
+    checks: [coreInReadme()],
+    env: docEnv({
+      '/repo/README.md': citar(CORE),
+      '/repo/README.pt-BR.md': citar(CORE.slice(1)),
+    }),
+  });
+  assert.equal(r.status, 'fail');
+  assert.match(r.detail, new RegExp(`${CORE[0].replace(/[-]/g, '\\-')} \\(README\\.pt-BR\\.md\\)`));
+});
+
+test('core-in-readme: os dois READMEs ensinando todo core passa', async () => {
+  const [r] = await runChecks({
+    checks: [coreInReadme()],
+    env: docEnv({ '/repo/README.md': citar(CORE), '/repo/README.pt-BR.md': citar(CORE) }),
+  });
+  assert.equal(r.status, 'ok');
+});
+
+const SKILLS = {
+  '/repo/templates/project/skills/alpha/SKILL.md': 'a',
+  '/repo/templates/project/skills/beta/SKILL.md': 'b',
+  '/repo/templates/project/skills/README.md': 'índice da pasta não é skill',
+};
+
+test('docs-skills-count: contagem divergente vira warn e diz o número real', async () => {
+  const [r] = await runChecks({
+    checks: [docsSkillsCount()],
+    env: docEnv({ ...SKILLS, '/repo/docs/x.md': 'São 3 skills distribuídas.' }),
+  });
+  assert.equal(r.status, 'warn');
+  assert.match(r.detail, /2 pastas reais/);
+  assert.equal(worstStatus([r]), 'warn', 'número errado atrapalha, não impede');
+});
+
+test('docs-skills-count: contagem certa passa (README da pasta não conta)', async () => {
+  const [r] = await runChecks({
+    checks: [docsSkillsCount()],
+    env: docEnv({ ...SKILLS, '/repo/docs/x.md': 'São 2 skills distribuídas.' }),
+  });
+  assert.equal(r.status, 'ok');
+});
+
+test('commands-ref: referência editada à mão reprova e prescreve docs:gen', async () => {
+  const [r] = await runChecks({
+    checks: [commandsRef()],
+    env: docEnv({ ...SKILLS, '/repo/docs/commands.md': '# Referência de comandos\n\neditado à mão\n' }),
+  });
+  assert.equal(r.status, 'fail');
+  assert.match(r.fix, /docs:gen/);
+});
+
+test('commands-ref: conteúdo gerado do registry passa', async () => {
+  const [r] = await runChecks({
+    checks: [commandsRef()],
+    env: docEnv({ ...SKILLS, '/repo/docs/commands.md': renderCommandsDoc(COMMANDS, 2) }),
+  });
+  assert.equal(r.status, 'ok');
+});
+
+test('commands-ref: referência ausente reprova', async () => {
+  const [r] = await runChecks({ checks: [commandsRef()], env: docEnv({ ...SKILLS }) });
+  assert.equal(r.status, 'fail');
+  assert.match(r.detail, /não existe/);
+});
+
+test('coerência: os 4 checks novos não se aplicam fora do repo do framework', async () => {
+  const env = docEnv({ '/repo/docs/x.md': 'Rode `forja release:check --publicar`.' }, { git: false });
+  const results = await runChecks({ checks: [docsFlags(), coreInReadme(), docsSkillsCount(), commandsRef()], env });
+  assert.ok(results.every((r) => r.status === 'ok'), 'instalação forjajs não é o repo do framework');
+  assert.ok(results.every((r) => /não se aplica/.test(r.detail)));
+});
+
+test('declaredFlags: usage + examples + flags globais do dispatcher', () => {
+  const flags = declaredFlags({
+    domain: 'd', desc: 'x', node: 'n',
+    usage: 'forja a:b [--foo <v>]',
+    examples: ['forja a:b --bar'],
+  });
+  for (const esperada of ['--foo', '--bar', '--json', '-h']) assert.ok(flags.has(esperada), esperada);
+});
+
+test('skillsCount: só diretórios contam e pasta ausente é zero', () => {
+  const fsLike = repoStub(SKILLS);
+  assert.equal(skillsCount(fsLike, '/repo/templates/project/skills'), 2);
+  assert.equal(skillsCount(fsLike, '/repo/nao-existe'), 0);
+});
+
+test('renderCommandsDoc: agrupa por domínio, escapa | e supre usage ausente', () => {
+  const doc = renderCommandsDoc({
+    'a:one': { domain: 'd1', desc: 'tem | pipe', node: 'n', usage: 'forja a:one' },
+    'b:two': { domain: 'd2', desc: 'x', node: 'n' },
+  }, 7);
+  assert.match(doc, /2 comandos · 7 skills/);
+  assert.match(doc, /tem \\\| pipe/);
+  assert.match(doc, /`forja b:two`/);
+  assert.ok(doc.indexOf('## d1') < doc.indexOf('## d2'), 'ordem de primeira aparição');
+});
+
+// ---------------------------------------------------------------------------
+// SPEC-056 — ratchet de dívida de tipos: o teto versionado só desce
+// ---------------------------------------------------------------------------
+
+const typeDebt = () => checkById('type-debt');
+const BUDGET = (anyCeiling) => ({ '/repo/lib/core/quality-budget.json': JSON.stringify({ anyCeiling, coverageLineFloor: 0 }) });
+const FONTE = { '/repo/lib/a.ts': 'const x: any = 1;\nconst y = z as any;\n' };
+
+test('type-debt: dívida acima do teto reprova (critical) e nomeia os maiores arquivos', async () => {
+  const [r] = await runChecks({ checks: [typeDebt()], env: docEnv({ ...BUDGET(1), ...FONTE }) });
+  assert.equal(r.status, 'fail');
+  assert.match(r.detail, /2 `any` explícitos, teto é 1/);
+  assert.match(r.detail, /lib\/a\.ts \(2\)/, 'aponta onde está, com separador portável');
+  assert.equal(worstStatus([r]), 'fail');
+});
+
+test('type-debt: dívida no teto passa', async () => {
+  const [r] = await runChecks({ checks: [typeDebt()], env: docEnv({ ...BUDGET(2), ...FONTE }) });
+  assert.equal(r.status, 'ok');
+});
+
+test('type-debt: folga no teto vira warn mandando descer o número', async () => {
+  const [r] = await runChecks({ checks: [typeDebt()], env: docEnv({ ...BUDGET(5), ...FONTE }) });
+  assert.equal(r.status, 'warn');
+  assert.match(r.fix, /baixe anyCeiling para 2/, 'ratchet que não desce não trava nada');
+});
+
+test('type-debt: orçamento ausente ou sem anyCeiling reprova com a receita', async () => {
+  const [semArquivo] = await runChecks({ checks: [typeDebt()], env: docEnv({ ...FONTE }) });
+  assert.equal(semArquivo.status, 'fail');
+  assert.match(semArquivo.fix, /quality-budget\.json/);
+
+  const [semCampo] = await runChecks({
+    checks: [typeDebt()],
+    env: docEnv({ ...FONTE, '/repo/lib/core/quality-budget.json': '{"coverageLineFloor": 86}' }),
+  });
+  assert.equal(semCampo.status, 'fail');
+  assert.match(semCampo.detail, /sem anyCeiling numérico/);
+});
+
+test('type-debt: `any` dentro de template literal não conta (gerador escreve código alheio)', async () => {
+  const gerador = { '/repo/lib/gen.ts': 'const tpl = `const x: any = 1;`;\n' };
+  const [r] = await runChecks({ checks: [typeDebt()], env: docEnv({ ...BUDGET(0), ...gerador }) });
+  assert.equal(r.status, 'ok');
+});
+
+test('type-debt: não se aplica fora do repo do framework', async () => {
+  const [r] = await runChecks({ checks: [typeDebt()], env: docEnv({ ...BUDGET(0), ...FONTE }, { git: false }) });
+  assert.equal(r.status, 'ok');
+  assert.match(r.detail, /não se aplica/);
 });
