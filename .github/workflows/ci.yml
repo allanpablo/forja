@@ -8,12 +8,12 @@ on:
 jobs:
   test:
     runs-on: ${{ matrix.os }}
-    # AC-4 de SPEC-056, na primeira execução da célula: macOS passou inteira, Windows trouxe 23
-    # falhas. As portáveis já estão consertadas aqui (separador de caminho no pack, CRLF no
-    # frontmatter das skills, EPERM no `rmSync` do temp); o inventário do que resta, com a causa de
-    # cada uma, está em specs/v6-quality-gates/spec.md. A célula continua informando — o X aparece no
-    # PR — mas não segura o merge enquanto aquele inventário estiver aberto. **Tirar esta linha é o
-    # gate de que o inventário zerou**, não uma conveniência.
+    # AC-4 de SPEC-056, medido nas quatro primeiras rodadas da célula: macOS passou inteira; Windows
+    # trouxe 23 falhas e hoje tem 10, com 7 causas de produto/robustez fechadas no caminho
+    # (separador de caminho, CRLF, handle de SQLite vazado, forma do caminho do nó). O inventário do
+    # que resta, causa por causa e com arquivo:linha, está em specs/v6-quality-gates/spec.md. A célula
+    # continua informando — o X aparece no PR — mas não segura o merge enquanto aquele inventário
+    # estiver aberto. **Tirar esta linha é o gate de que o inventário zerou**, não uma conveniência.
     continue-on-error: ${{ matrix.os == 'windows-latest' }}
     strategy:
       fail-fast: false
