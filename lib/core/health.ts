@@ -724,7 +724,9 @@ const commandsRef: Check = {
     if (atual === null) {
       return { status: 'fail', detail: 'docs/commands.md não existe', fix: 'forja docs:gen' };
     }
-    if (atual !== esperado) {
+    // CRLF não é deriva: no checkout Windows o arquivo lido chega com `\r\n` e o gerado com `\n`, e a
+    // comparação literal reprovaria uma doc que está exatamente no dia.
+    if (atual.replace(/\r\n/g, '\n') !== esperado) {
       return {
         status: 'fail',
         detail: `docs/commands.md diverge do registry (${Object.keys(COMMANDS).length} comandos esperados)`,

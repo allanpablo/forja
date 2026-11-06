@@ -104,9 +104,16 @@ test('sync:universal pula o que não mudou, reprocessa o que mudou e ainda marca
     assert.match(primeiro, /indexados/, 'primeiro sync não indexou nada');
 
     const dbPath = path.join(ws, 'memory/sqlite/universal.db');
-    const antes = new Database(dbPath, { readonly: true })
-      .prepare("SELECT content_hash, updated_at FROM memory_nodes WHERE path LIKE '%estavel.md'")
-      .get();
+    // Conexão de leitura que fecha na hora: segurada até o fim do teste ela tranca o `.db` no Windows,
+    // e o `rmSync` do temp vira EPERM permanente — retry não resolve um handle do próprio processo.
+    const antes = (() => {
+      const leitor = new Database(dbPath, { readonly: true });
+      try {
+        return leitor.prepare("SELECT content_hash, updated_at FROM memory_nodes WHERE path LIKE '%estavel.md'").get();
+      } finally {
+        leitor.close();
+      }
+    })();
 
     // mtime novo com conteúdo igual: o pulo tem que ser por hash, não por data de modificação.
     fs.utimesSync(path.join(ws, 'memory/30-projects/mutavel.md'), new Date(), new Date());

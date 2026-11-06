@@ -8,7 +8,12 @@ import { fileURLToPath } from 'node:url';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 
-test('apps/server/src/main.ts fecha o banco sqlite em SIGTERM em vez de deixar o handle aberto', async () => {
+// AC-4 de SPEC-056: o sinal não existe em Windows, e o `tsx` do probe é opção de runtime do repo —
+// em Windows ele não resolve. O contrato (o handle sqlite fecha antes do processo sair) continua
+// provado nas células unix; aqui o caso se declara inaplicável em vez de falhar.
+test('apps/server/src/main.ts fecha o banco sqlite em SIGTERM em vez de deixar o handle aberto', {
+  skip: process.platform === 'win32' && 'SIGTERM é POSIX; o probe roda com --import tsx, que o runner Windows não resolve',
+}, async () => {
   const workspace = fs.mkdtempSync(path.join(os.tmpdir(), 'forja-shutdown-'));
   try {
     const child = spawn(process.execPath, ['--import', 'tsx', 'test/server-shutdown-probe.mjs'], {
