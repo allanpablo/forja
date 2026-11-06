@@ -252,27 +252,47 @@ const tally = { indexados: 0, pulados: 0, falhas: 0 };
 interface StoredNode { content_hash: string; project_id: number | null }
 
 /**
- * Caminho do nó relativo à raiz certa. No Windows as duas partes podem ser grafias diferentes do
- * mesmo diretório — `os.tmpdir()` devolve o nome 8.3 (`RUNNER~1`) e o caminho descoberto é o longo —
- * e o `relative()` entre elas sobe a árvore inteira, gravando o mesmo arquivo com dois formatos de
- * caminho. Se subir, tenta a forma canônica dos dois lados antes de desistir.
+ * `abs` está mesmo dentro de `base`? `startsWith('..')` não basta: em Windows, `path.relative()` entre
+ * unidades diferentes devolve o caminho **absoluto** de `abs` — que não começa por `..` e seria lido
+ * como "está dentro".
  */
-function relOf(base: string, abs: string): string {
-  const direct = path.relative(base, abs);
-  if (!direct.startsWith('..')) return direct;
-  try {
-    return path.relative(fs.realpathSync(base), fs.realpathSync(abs));
-  } catch {
-    return direct;
+function inside(base: string, abs: string): boolean {
+  const rel = path.relative(base, abs);
+  return rel !== '' && !rel.startsWith('..') && !path.isAbsolute(rel);
+}
+
+const realCache = new Map<string, string>();
+function realOf(p: string): string {
+  let v = realCache.get(p);
+  if (v === undefined) {
+    try {
+      v = fs.realpathSync(p);
+    } catch {
+      v = p;
+    }
+    realCache.set(p, v);
   }
+  return v;
+}
+
+/**
+ * Caminho do nó: relativo à raiz cujo conteúdo ele é, na mesma forma em qualquer máquina. Dois
+ * atalhos unix-cêntricos gravavam o mesmo arquivo com duas identidades no Windows — `relative()`
+ * entre unidade diferente devolve caminho absoluto, e `os.tmpdir()` chega como nome 8.3
+ * (`RUNNER~1`) enquanto o walk devolve a forma longa, o que faz o `relative()` subir a árvore toda e
+ * cair na raiz errada. Se a forma direta não contém o arquivo, tenta a canônica dos dois lados.
+ */
+function nodePathOf(abs: string): string {
+  for (const base of [contentRoot, operationRoot]) {
+    if (inside(base, abs)) return path.relative(base, abs);
+    if (inside(realOf(base), realOf(abs))) return path.relative(realOf(base), realOf(abs));
+  }
+  return path.relative(contentRoot, abs);
 }
 
 function syncFiles(files: any, projectId = null) {
   for (const abs of files) {
-    let rel = relOf(contentRoot, abs);
-    if (rel.startsWith('..')) {
-      rel = relOf(operationRoot, abs);
-    }
+    const rel = nodePathOf(abs);
     const raw = fs.readFileSync(abs, 'utf8');
     const hash = crypto.createHash('sha256').update(raw).digest('hex');
 
