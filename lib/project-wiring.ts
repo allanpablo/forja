@@ -56,7 +56,8 @@ export function templateSkills(): string[] {
 /** Valida o frontmatter de um SKILL.md: devolve o problema ou null. */
 export function skillProblem(name: string, text: string | null): string | null {
   if (text == null) return 'ausente';
-  const m = text.match(/^---\nname: ([^\n]+)\ndescription: ([^\n]+)\n/);
+  // `\r?\n`: no Windows o checkout traz CRLF, e uma skill perfeitamente válida seria lida como inválida.
+  const m = text.match(/^---\r?\nname: ([^\r\n]+)\r?\ndescription: ([^\r\n]+)\r?\n/);
   if (!m) return 'frontmatter sem name/description';
   if (m[1].trim() !== name) return `name "${m[1].trim()}" ≠ pasta`;
   return null;

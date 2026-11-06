@@ -313,7 +313,7 @@ export class ContextBuilder {
       shown++;
 
       md += `## 📄 ${node.title}\n`;
-      md += `**Path**: \`${node.path}\`\n\n`;
+      md += `**Path**: \`${node.path.split(path.sep).join('/')}\`\n\n`;
       md += `${body.text}\n\n`;
       md += `---\n\n`;
     }

@@ -10,6 +10,9 @@ import { fileURLToPath } from 'node:url';
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const root = path.resolve(__dirname, '..');
 
+/** No Windows o `rmSync` de um diretório com SQLite volta EPERM por um instante; a retry é o fim. */
+const rmTmp = (dir) => fs.rmSync(dir, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
+
 function sync(ws) {
   const res = spawnSync(process.execPath, [path.join(root, 'bin/forja.ts'), 'sync:universal'], {
     cwd: root,
@@ -81,7 +84,7 @@ test('sync:universal mantém search_idx alinhado após um insert seguido de upda
     );
     assert.equal(depois.orfaos, 0, `${depois.orfaos} linhas órfãs no search_idx`);
   } finally {
-    fs.rmSync(ws, { recursive: true, force: true });
+    rmTmp(ws);
   }
 });
 
@@ -139,6 +142,6 @@ test('sync:universal pula o que não mudou, reprocessa o que mudou e ainda marca
       db.close();
     }
   } finally {
-    fs.rmSync(ws, { recursive: true, force: true });
+    rmTmp(ws);
   }
 });

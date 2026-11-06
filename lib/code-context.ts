@@ -43,6 +43,15 @@ export interface CodeFile {
 }
 
 /**
+ * Caminho relativo como o pacote o mostra: com `/`. O pack é texto colado no contexto de um agente —
+ * no Windows o separador nativo faria o mesmo domínio produzir dois pacotes diferentes (e quebraria
+ * a igualdade que os testes de contrato dependem).
+ */
+function relFrom(root: string, target: string): string {
+  return path.relative(root, target).split(path.sep).join('/');
+}
+
+/**
  * Ordem de leitura da fatia: quem casa com o termo vem primeiro (caminho pesa mais que conteúdo —
  * `order.entity.ts` é sobre a entidade, um arquivo que só a menciona não), desempate por camada e
  * depois por caminho, para a mesma consulta dar sempre o mesmo pacote.
@@ -183,7 +192,7 @@ export function buildContextPack(
       } catch {
         continue;
       }
-      files.push({ path: path.relative(projectRoot, file), tokens: estimateTokens(content), content });
+      files.push({ path: relFrom(projectRoot, file), tokens: estimateTokens(content), content });
     }
     const ordered = byRelevance(files, query.toLowerCase().split(/\s+/).filter(Boolean));
     const cut = full ? { kept: ordered, omitted: [] } : withinBudget(ordered, budget);
@@ -197,7 +206,7 @@ export function buildContextPack(
   return {
     domain,
     found: map != null,
-    mapPath: map != null ? path.relative(projectRoot, mapPath) : null,
+    mapPath: map != null ? relFrom(projectRoot, mapPath) : null,
     map,
     mapTokens,
     code,
