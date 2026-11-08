@@ -17,11 +17,18 @@ app com o mesmo workspace (dois terminais):
 
 ```bash
 npm --prefix apps/dashboard install
-FORJA_WORKSPACE=~/forja-demo-workspace npm run dashboard:api   # API local em 127.0.0.1:3000
-npm run dashboard:dev                                          # app em http://localhost:3001
+FORJA_WORKSPACE=~/forja-demo-workspace FORJA_AUTH_TOKEN=local-demo npm run dashboard:api   # API em 127.0.0.1:3000
+FORJA_API_URL=http://127.0.0.1:3000 FORJA_API_TOKEN=local-demo FORJA_DASHBOARD_TOKEN=demo-local npm run dashboard:dev   # app em http://localhost:3001
 ```
 
-No Windows PowerShell, defina `$env:FORJA_WORKSPACE = "$HOME\forja-demo-workspace"` antes de `npm run dashboard:api`.
+No Windows PowerShell, defina `$env:FORJA_WORKSPACE = "$HOME\forja-demo-workspace"` e
+`$env:FORJA_AUTH_TOKEN = "local-demo"` antes de `npm run dashboard:api`; no segundo terminal,
+`$env:FORJA_API_URL`, `$env:FORJA_API_TOKEN = "local-demo"` e `$env:FORJA_DASHBOARD_TOKEN = "demo-local"`.
+
+Ao abrir `http://localhost:3001` o painel pede o `FORJA_DASHBOARD_TOKEN` (`demo-local` acima) e guarda
+um cookie de sessão. Os dois tokens são locais e descartáveis: `FORJA_API_TOKEN` é a credencial do
+proxy para a API, `FORJA_DASHBOARD_TOKEN` é a de quem acessa o painel. Sem o segundo, o proxy recusa
+toda requisição — não existe modo aberto.
 
 O dashboard mostra o estado vazio apenas se a API não estiver recebendo a variável `FORJA_WORKSPACE`
 do cenário.
@@ -32,8 +39,10 @@ do cenário.
    estado do projeto, spec aprovada, plano, tarefas e a próxima ação com o comando exato.
 2. `forja project:wire --check`: a IA, os hooks e o MCP estão conectados ao projeto.
 3. `forja context:smart --mode task --task pix`: o pack mínimo da tarefa, com a contagem de tokens.
-4. No dashboard (**Control Plane**): **GraphLoop** mostra specs, ADRs e evidências ligadas;
-   **Approvals** e **Atividade recente** mostram as decisões e execuções auditadas.
+4. No dashboard (**Forja Control Plane**), cinco abas: **Visão** (próxima ação com o comando copiável,
+   sprint, specs e execuções recentes), **Rastreio** (cobertura de critérios de aceite por spec),
+   **Custo** (USD acumulado por modelo), **Gates** (veredito do núcleo e ferramentas) e **Operação**
+   (**Aprovações**, **GraphLoop** com impacto por nó e **Atividade recente** auditada).
 5. Mostre `forja demo:autonomy` separadamente para a prova de sandbox Git, aprovação e promoção real.
 
 ## Regras de uso

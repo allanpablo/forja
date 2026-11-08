@@ -88,8 +88,7 @@ export const CLI_CAPABILITY_SPECS: readonly CliCapabilitySpec<InputRecord>[] = [
     permissions: ['read'],
     risk: 'low',
     sideEffects: [],
-    params: [],
-    validateInput: emptyInput,
+    params: [{ name: 'json', kind: 'flag' }],
   },
   {
     id: 'code.impact' as CapabilityId,
@@ -285,7 +284,7 @@ export const CLI_CAPABILITY_SPECS: readonly CliCapabilitySpec<InputRecord>[] = [
     permissions: ['read'],
     risk: 'low',
     sideEffects: [],
-    params: [],
+    params: [{ name: 'json', kind: 'flag' }],
   },
   {
     id: 'forja.next' as CapabilityId,
@@ -295,7 +294,33 @@ export const CLI_CAPABILITY_SPECS: readonly CliCapabilitySpec<InputRecord>[] = [
     permissions: ['read'],
     risk: 'low',
     sideEffects: [],
-    params: [],
+    params: [{ name: 'json', kind: 'flag' }],
+  },
+
+  // --- SPEC-057: os dois relatórios read-only que só existiam como script (dashboard/MCP) ---
+  {
+    id: 'spec.trace' as CapabilityId,
+    command: 'spec:trace',
+    description: 'Critérios de aceite × testes que os citam: cobertos, sem teste e órfãos.',
+    categories: ['read'],
+    permissions: ['read'],
+    risk: 'low',
+    sideEffects: [],
+    params: [
+      { name: 'slug', kind: 'positional' },
+      { name: 'strict', kind: 'flag' },
+      { name: 'json', kind: 'flag' },
+    ],
+  },
+  {
+    id: 'cost.economy' as CapabilityId,
+    command: 'cost:economy',
+    description: 'Custo real acumulado (USD) das execuções LLM registradas, por modelo.',
+    categories: ['read', 'database'],
+    permissions: ['read'],
+    risk: 'low',
+    sideEffects: [],
+    params: [{ name: 'json', kind: 'flag' }],
   },
 ];
 
@@ -452,12 +477,6 @@ function registerCliCapability(
 
 function categoriesFor(id: CapabilityId): readonly PolicyCategory[] {
   return CLI_CAPABILITY_SPECS.find((spec) => spec.id === id)?.categories ?? ['read'];
-}
-
-function emptyInput(value: unknown): InputRecord {
-  if (value === undefined || value === null) return {};
-  if (!isRecord(value) || Object.keys(value).length > 0) throw new Error('Input must be an empty object');
-  return {};
 }
 
 function validateCodeImpactInput(value: unknown): InputRecord {

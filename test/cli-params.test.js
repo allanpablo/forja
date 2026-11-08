@@ -80,6 +80,8 @@ const ARGV_FIXTURE = {
   'drift:check': ['--domain', 'pagamentos'],
   'status': [],
   'next': [],
+  'spec:trace': ['pagamentos', '--strict', '--json'],
+  'cost:economy': ['--json'],
 };
 
 for (const spec of CLI_CAPABILITY_SPECS) {

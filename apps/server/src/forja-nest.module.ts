@@ -65,6 +65,9 @@ export class ForjaNestController {
   @Post('api/tasks') taskCreate(@Req() request: Request, @Res({ passthrough: true }) response: Response): Promise<unknown> { return this.route(request, response, 'POST', '/api/tasks', request.body); }
   @Post('api/tasks/:id/start') taskStart(@Req() request: Request, @Res({ passthrough: true }) response: Response): Promise<unknown> { return this.route(request, response, 'POST', `/api/tasks/${request.params.id}/start`); }
   @Post('api/tasks/:id/block') taskBlock(@Req() request: Request, @Res({ passthrough: true }) response: Response): Promise<unknown> { return this.route(request, response, 'POST', `/api/tasks/${request.params.id}/block`); }
+  @Get('api/approvals') approvalList(@Req() request: Request, @Res({ passthrough: true }) response: Response): Promise<unknown> { return this.route(request, response, 'GET', '/api/approvals'); }
+  @Get('api/control-plane/metrics') metrics(@Req() request: Request, @Res({ passthrough: true }) response: Response): Promise<unknown> { return this.route(request, response, 'GET', '/api/control-plane/metrics'); }
+  @Get('api/observability/observations') observations(@Req() request: Request, @Res({ passthrough: true }) response: Response): Promise<unknown> { return this.route(request, response, 'GET', '/api/observability/observations'); }
   @Get('api/approvals/:id') approvalGet(@Req() request: Request, @Res({ passthrough: true }) response: Response): Promise<unknown> { return this.route(request, response, 'GET', `/api/approvals/${request.params.id}`); }
   @Post('api/approvals/:id/decide') approvalDecide(@Req() request: Request, @Res({ passthrough: true }) response: Response): Promise<unknown> { return this.route(request, response, 'POST', `/api/approvals/${request.params.id}/decide`, request.body); }
   @Get('mcp/tools') tools(@Req() request: Request, @Res({ passthrough: true }) response: Response): Promise<unknown> { return this.route(request, response, 'GET', '/mcp/tools'); }

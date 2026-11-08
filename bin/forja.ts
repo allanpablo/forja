@@ -535,8 +535,9 @@ if (gateErrors.length) {
 
 // SPEC-046: alguns comandos são capability (para o MCP) mas têm script próprio que já trata
 // `--json` e a saída de texto (`status`, `next`, `engineer`). No CLI eles rodam direto — a
-// camada de capability só serve o MCP e os comandos sem `--json` nativo.
-const NATIVE_JSON_CAPABILITIES = new Set(['status', 'next', 'engineer']);
+// camada de capability só serve o MCP e os comandos sem `--json` nativo. Passar um desses pelo
+// roteador embrulha o JSON do script num `{stdout: "..."}` e quebra o contrato do ADR-0082.
+const NATIVE_JSON_CAPABILITIES = new Set(['status', 'next', 'engineer', 'tools:doctor', 'spec:trace', 'cost:economy']);
 if (capabilityIdForCommand(name) !== undefined && !NATIVE_JSON_CAPABILITIES.has(name)) {
   process.exit(await runCapabilityCommand(name, rest));
 }
