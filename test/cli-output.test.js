@@ -41,10 +41,10 @@ test('emitRejected: {status:"rejected", ...fields}, exit 2', () => {
   assert.equal(d.recommendation, 'discard');
 });
 
-// Achado real da SPEC-056: `process.stdout.write` + `process.exit()` truncava a saída no tamanho do
-// buffer do pipe (64KB). `forja spec:trace --json` devolvia JSON cortado **com exit 0** — quem fazia
-// parse recebia "Unterminated string", e o contrato do ADR-0082 prometia um único objeto íntegro.
-// O payload do fixture tem ~400KB, 6× o buffer: sem a escrita síncrona, este teste falha.
+// Achado real da SPEC-056 AC-6: `process.stdout.write` + `process.exit()` truncava a saída no
+// tamanho do buffer do pipe (64KB). `forja spec:trace --json` devolvia JSON cortado **com exit 0** —
+// quem fazia parse recebia "Unterminated string", e o contrato do ADR-0082 prometia um único objeto
+// íntegro. O payload do fixture tem ~400KB, 6× o buffer: sem a escrita síncrona, este teste falha.
 test('emitOk: payload maior que o buffer do pipe chega inteiro', () => {
   const r = run('big');
   assert.equal(r.code, 0);

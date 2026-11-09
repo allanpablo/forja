@@ -27,7 +27,7 @@ const longo = (termo, sentinela) =>
   'trecho a ser calculado em vez de injectado por inteiro. '.repeat(24) +
   `\n\n${sentinela}\n`;
 
-// --- política de trecho (unidades puras, sem banco) ---------------------------
+// --- SPEC-057 AC-1: política de trecho (unidades puras, sem banco) -----------
 
 test('nodeBody: nó abaixo do limite entra inteiro, sem marcador de omissão', () => {
   const content = 'texto curto';
@@ -86,7 +86,7 @@ test('excerptAround sem ocorrência cai na cabeça do nó', () => {
   assert.equal(excerptAround(content, 'inexistente'), headExcerpt(content));
 });
 
-// --- pack real (FTS5 + LIKE sobre um workspace temporário) --------------------
+// --- SPEC-057 AC-1 no pack real (FTS5 + LIKE sobre um workspace temporário) ---
 
 /**
  * Um workspace com projeto indexado, construído uma vez para o arquivo inteiro: cada `sync:universal`
@@ -136,6 +136,10 @@ test('modo task injeta o trecho casado com marcador, não o nó inteiro', () => 
   assert.match(md, /- \*\*Excerpts\*\*: [1-9]\d*\/\d+ nodes/);
 });
 
+// SPEC-057 AC-5: cortar o conteúdo não pode mudar a letra do pacote. Quem consome o pack (o agente que
+// o cola no contexto, e `docs/commands.md`) parseia `**Path**: \`…\`` — e o caminho tem que ser POSIX em
+// qualquer SO, porque um texto colado no contexto de um agente não pode variar conforme a máquina. Foi
+// exatamente isso que a célula Windows achou: `path.relative()` cru emitia `backend\src\…` lá.
 test('modo task continua achando o nó pelo caminho (contrato do pack preservado)', () => {
   const md = pack('pagamentos');
   assert.match(md, /\*\*Path\*\*: `projects\/demo\/memory\/30-domains\/pedidos\/nota-pagamentos\.md`/);

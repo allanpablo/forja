@@ -1038,7 +1038,7 @@ test('renderCommandsDoc: agrupa por domínio, escapa | e supre usage ausente', (
 });
 
 // ---------------------------------------------------------------------------
-// SPEC-056 — ratchet de dívida de tipos: o teto versionado só desce
+// SPEC-056 AC-2 — ratchet de dívida de tipos: o teto versionado só desce
 // ---------------------------------------------------------------------------
 
 const typeDebt = () => checkById('type-debt');
