@@ -32,7 +32,8 @@ import { fileURLToPath } from 'node:url';
 import { getWorkspaceDbPath, getWorkspaceInfo } from '../workspace.ts';
 import { runChecks as run, worstStatus, stripTemplateLiterals, asErrno } from './checks.ts';
 import { COMMANDS } from './registry.ts';
-import { scanCommands, scanLinks, projectCommands, scanAdrRefs, adrNumbers, commandCited } from './doc-graph.ts';
+import { scanCommands, scanLinks, projectCommands, scanAdrRefs, adrNumbers, commandCited, scanFlags, scanSkillCounts } from './doc-graph.ts';
+import { declaredFlags, renderCommandsDoc, skillsCount } from '../docs-reference.ts';
 import { topologyIssues } from '../agent-topology.ts';
 import { CLI_INTERFACE_COMMANDS } from '../../apps/cli/src/index.ts';
 
@@ -233,6 +234,32 @@ function newestMarkdownMtime(env: any, dir: any, acc = { t: 0 }) {
 }
 
 /**
+ * Quando o último sync rodou, dito pelo próprio sync (`sync_meta.last_sync`). O mtime do arquivo não
+ * serve de fonte: o banco abre em WAL e uma escrita pequena fica no `-wal` sem tocar o `.db`, então o
+ * índice em dia parecia velho. Achado da SPEC-057 — o sync passou a pular o que não mudou, ou seja, a
+ * não escrever quase nada, e a mentira do mtime virou rotina.
+ */
+async function lastSyncAt(env: any, dbPath: string): Promise<number | null> {
+  try {
+    const { default: Database } = await env.importModule('better-sqlite3');
+    const db = new Database(dbPath, { readonly: true });
+    try {
+      const row = db.prepare("SELECT value FROM sync_meta WHERE name = 'last_sync'").get() as
+        | { value: string }
+        | undefined;
+      const at = row ? Date.parse(JSON.parse(row.value).at) : Number.NaN;
+      return Number.isNaN(at) ? null : at;
+    } finally {
+      db.close();
+    }
+  } catch {
+    // Índice de versão anterior (sem `sync_meta`) ou banco que não abre: `memory-db` já classifica a
+    // causa. Aqui só cai no mtime, que é a aproximação antiga — melhor que avisar errado.
+    return null;
+  }
+}
+
+/**
  * Índice defasado é a falha mais barata de corrigir e a mais cara de ignorar: `query:universal`
  * é o primeiro passo da economia de tokens (ADR-0009), então um índice velho alimenta os agentes
  * com o documento errado — sem erro, sem log, sem sintoma.
@@ -245,7 +272,7 @@ const memoryFresh: Check = {
   severity: 'warn',
   scope: 'runtime',
   dependsOn: 'memory-db',
-  probe(env: any) {
+  async probe(env: any) {
     const dbPath = env.workspace.dbPath();
 
     // `memory-db` passa com aviso quando o banco nunca foi indexado, então a cascata não nos pula:
@@ -254,11 +281,12 @@ const memoryFresh: Check = {
       return { status: 'skipped', detail: 'não há índice para comparar', fix: null };
     }
 
-    const dbMtime = env.fs.statSync(dbPath).mtimeMs;
+    const syncedAt = await lastSyncAt(env, dbPath);
+    const dbTime = syncedAt ?? env.fs.statSync(dbPath).mtimeMs;
     const newest = newestMarkdownMtime(env, path.join(env.root, 'memory'));
 
-    if (newest > dbMtime) {
-      const horas = Math.round((newest - dbMtime) / 36e5);
+    if (newest > dbTime) {
+      const horas = Math.round((newest - dbTime) / 36e5);
       return {
         status: 'warn',
         detail:
@@ -554,6 +582,265 @@ const commandsDocumented: Check = {
   },
 };
 
+/**
+ * Flag que o comando não declara faz o agente executar algo que falha — ou, pior, que é ignorado em
+ * silêncio e produz um resultado diferente do pedido. `critical`, mesma família de `docs-commands`:
+ * a doc instrui execução. O juízo compara contra `usage`/`examples` do registry (fonte única);
+ * quando o registry não declara `usage`, a flag documentada é o sintoma de um `usage` faltando.
+ */
+const docsFlags: Check = {
+  id: 'docs-flags',
+  title: 'flags citadas na doc existem no comando',
+  severity: 'critical',
+  scope: 'repo',
+  probe(env: any) {
+    if (!isFrameworkRepo(env)) {
+      return { status: 'ok', detail: 'fora do repo do framework — não se aplica', fix: null };
+    }
+
+    const invalidas = scanFlags(env).filter((h: any) => {
+      const spec = COMMANDS[h.command];
+      // Comando que o registry não conhece não é deste check — quem julga citação inexistente é
+      // `docs-commands` (docs/2x/* descreve superfície planejada, não implementada).
+      if (!spec) return false;
+      const declara = (name: string) => {
+        const other = COMMANDS[name];
+        return other ? declaredFlags(other).has(h.flag) : false;
+      };
+      // A linha pode atribuir a flag a outro comando do Forja citado nela ("... (project:new
+      // --template)" na célula de project:templates) — isso é prosa correta, não drift.
+      return !declaredFlags(spec).has(h.flag) && !h.mentions.some((m: string) => declara(m));
+    });
+
+    if (invalidas.length) {
+      const amostra = invalidas.slice(0, 5).map((h: any) => `${h.command} ${h.flag} (${h.file}:${h.line})`).join(', ');
+      return {
+        status: 'fail',
+        detail: `${invalidas.length} flag(s) documentadas que o comando não declara: ${amostra}`,
+        fix: 'declare a flag no usage/examples em lib/core/registry.ts, ou corrija a citação no arquivo:linha indicado',
+      };
+    }
+
+    return { status: 'ok', detail: 'toda flag citada na doc resolve no usage do comando', fix: null };
+  },
+};
+
+/**
+ * Comando `tier: 'core'` é o caminho feliz que o README ensina — diferente de `commands-documented`
+ * (warn, qualquer superfície): aqui a fronteira é o onboarding nos dois READMEs, que é o que um
+ * usuário novo e o agente que chega frio leem primeiro. `critical`: core ausente é onboarding quebrado.
+ */
+const coreInReadme: Check = {
+  id: 'core-in-readme',
+  title: 'todo comando core aparece nos dois READMEs',
+  severity: 'critical',
+  scope: 'repo',
+  probe(env: any) {
+    if (!isFrameworkRepo(env)) {
+      return { status: 'ok', detail: 'fora do repo do framework — não se aplica', fix: null };
+    }
+
+    const faltando: string[] = [];
+    for (const rel of ['README.md', 'README.pt-BR.md']) {
+      let src: string;
+      try {
+        src = env.fs.readFileSync(path.join(env.root, rel), 'utf8');
+      } catch {
+        faltando.push(`(README ausente: ${rel})`);
+        continue;
+      }
+      for (const [name, spec] of Object.entries(COMMANDS)) {
+        if (spec.tier !== 'core') continue;
+        const citado = new RegExp(`\\bforja[ \\t]+${name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`).test(src);
+        if (!citado) faltando.push(`${name} (${rel})`);
+      }
+    }
+
+    if (faltando.length) {
+      return {
+        status: 'fail',
+        detail: `${faltando.length} comando(s) core fora do README: ${faltando.slice(0, 6).join(', ')}`,
+        fix: 'documente cada um no quick start/comandos essenciais dos dois READMEs, ou rebaixe o tier no registry',
+      };
+    }
+
+    return { status: 'ok', detail: 'os dois READMEs ensinam todos os comandos core', fix: null };
+  },
+};
+
+/**
+ * Contagem de skills afirmada na doc vs pastas reais de `templates/project/skills/`. Número errado é
+ * fato falso entregue a quem avalia o produto. `warn`: não impede trabalho, mas o gate de release lê.
+ */
+const docsSkillsCount: Check = {
+  id: 'docs-skills-count',
+  title: 'contagem de skills da doc confere com o template',
+  severity: 'warn',
+  scope: 'repo',
+  probe(env: any) {
+    if (!isFrameworkRepo(env)) {
+      return { status: 'ok', detail: 'fora do repo do framework — não se aplica', fix: null };
+    }
+
+    const real = skillsCount(env.fs, path.join(env.root, 'templates', 'project', 'skills'));
+    const erradas = scanSkillCounts(env).filter((h: any) => h.claimed !== real);
+
+    if (erradas.length) {
+      const amostra = erradas.slice(0, 5).map((h: any) => `${h.claimed} em ${h.file}:${h.line}`).join(', ');
+      return {
+        status: 'warn',
+        detail: `${erradas.length} contagem(ns) de skills divergem das ${real} pastas reais: ${amostra}`,
+        fix: 'atualize o número nos arquivos indicados — a fonte real é templates/project/skills/ (só diretórios contam)',
+      };
+    }
+
+    return { status: 'ok', detail: `doc fala em ${real} skills, que é o que o template tem`, fix: null };
+  },
+};
+
+/**
+ * `docs/commands.md` é derivada do registry — se diverge, alguém adicionou/renomeou comando e não
+ * regenerou. `critical` porque a correção é um comando só e a referência é a superfície que promete
+ * completude (os READMEs ensinam o caminho feliz, não os 100+ comandos).
+ */
+const commandsRef: Check = {
+  id: 'commands-ref',
+  title: 'docs/commands.md é o que o registry gera',
+  severity: 'critical',
+  scope: 'repo',
+  probe(env: any) {
+    if (!isFrameworkRepo(env)) {
+      return { status: 'ok', detail: 'fora do repo do framework — não se aplica', fix: null };
+    }
+
+    const esperado = renderCommandsDoc(COMMANDS, skillsCount(env.fs, path.join(env.root, 'templates', 'project', 'skills')));
+    let atual: string | null = null;
+    try {
+      atual = env.fs.readFileSync(path.join(env.root, 'docs', 'commands.md'), 'utf8');
+    } catch {
+      atual = null;
+    }
+
+    if (atual === null) {
+      return { status: 'fail', detail: 'docs/commands.md não existe', fix: 'forja docs:gen' };
+    }
+    // CRLF não é deriva: no checkout Windows o arquivo lido chega com `\r\n` e o gerado com `\n`, e a
+    // comparação literal reprovaria uma doc que está exatamente no dia.
+    if (atual.replace(/\r\n/g, '\n') !== esperado) {
+      return {
+        status: 'fail',
+        detail: `docs/commands.md diverge do registry (${Object.keys(COMMANDS).length} comandos esperados)`,
+        fix: 'forja docs:gen',
+      };
+    }
+
+    return { status: 'ok', detail: `referência completa em dia (${Object.keys(COMMANDS).length} comandos)`, fix: null };
+  },
+};
+
+/**
+ * Ratchet de dívida de tipos (SPEC-056). Sem ESLint de propósito: o repo não tem toolchain de lint, e
+ * adotar `typescript-eslint` só para contar o que uma regex conta é importar uma segunda máquina —
+ * o defeito que a SPEC-058 ataca. O teto vive versionado em `lib/core/quality-budget.json`: descer o
+ * número é um diff visível no PR, e é assim que a dívida só diminui.
+ *
+ * `critical` quando cresce: `any` é onde o on-ramp do checkJs (SPEC-012) deixa de proteger, e código
+ * sem tipos que roda em três SOs é o que quebra na máquina do usuário, não na nossa.
+ * Abaixo do teto é `warn` (não `ok`): teto folgado é teto esquecido.
+ */
+/**
+ * `any` explícito: anotação, cast, argumento de genérico ou array. Sem lookbehind na frente do grupo —
+ * o caractere antes de `: any` é quase sempre parte do identificador (`probe(env: any)`), e a âncora
+ * errada fazia o ratchet contar 37 de 300. `\b` antes de `as` impede "was any" de virar cast.
+ */
+const ANY_RE = /(?:\bas\s+any\b|:\s*any\b|<any>|\bany\[\])/g;
+const QUALITY_BUDGET = ['lib', 'core', 'quality-budget.json'];
+const budgetLabel = QUALITY_BUDGET.join('/');
+const budgetPath = (root: any) => path.join(root, ...QUALITY_BUDGET);
+
+/** `any` explícito por arquivo, nos diretórios de código-fonte do framework. */
+function explicitAnyByFile(env: any): Map<string, number> {
+  const skip = new Set(['node_modules', 'dist', '.next', 'archive']);
+  const out = new Map();
+  const walk = (dir: any) => {
+    let entries;
+    try {
+      entries = env.fs.readdirSync(dir);
+    } catch {
+      return;
+    }
+    for (const entry of entries) {
+      if (skip.has(entry) || entry.startsWith('.')) continue;
+      const p = path.join(dir, entry);
+      let st;
+      try {
+        st = env.fs.statSync(p);
+      } catch {
+        continue;
+      }
+      if (st.isDirectory()) {
+        walk(p);
+        continue;
+      }
+      if (!/\.tsx?$/.test(entry) || entry.endsWith('.d.ts')) continue;
+      // Sem apagar template literals, os geradores de boilerplate acusam a si mesmos: eles *escrevem*
+      // TS com `any` para o projeto gerado, e aquele código não é tipado por nós (mesma razão do
+      // `runtime-deps`).
+      const hits = stripTemplateLiterals(env.fs.readFileSync(p, 'utf8')).match(ANY_RE);
+      if (hits?.length) out.set(path.relative(env.root, p).replaceAll(path.sep, '/'), hits.length);
+    }
+  };
+  for (const d of ['bin', 'lib', 'scripts', 'apps']) walk(path.join(env.root, d));
+  return out;
+}
+
+const typeDebt: Check = {
+  id: 'type-debt',
+  title: 'dívida de `any` explícito não cresce',
+  severity: 'critical',
+  scope: 'repo',
+  probe(env: any) {
+    if (!isFrameworkRepo(env)) {
+      return { status: 'ok', detail: 'fora do repo do framework — não se aplica', fix: null };
+    }
+
+    let teto: unknown;
+    try {
+      teto = JSON.parse(env.fs.readFileSync(budgetPath(env.root), 'utf8')).anyCeiling;
+    } catch (err) {
+      return {
+        status: 'fail',
+        detail: `orçamento de qualidade ilegível (${budgetLabel}): ${asErrno(err).message}`,
+        fix: `crie ${budgetLabel} com { "anyCeiling": <contagem atual>, "coverageLineFloor": <piso> }`,
+      };
+    }
+    if (typeof teto !== 'number') {
+      return { status: 'fail', detail: `${budgetLabel} sem anyCeiling numérico`, fix: `declare "anyCeiling" em ${budgetLabel}` };
+    }
+
+    const porArquivo = explicitAnyByFile(env);
+    const total = [...porArquivo.values()].reduce((a, b) => a + b, 0);
+    const maiores = [...porArquivo].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0])).slice(0, 3)
+      .map(([f, n]) => `${f} (${n})`).join(', ');
+
+    if (total > teto) {
+      return {
+        status: 'fail',
+        detail: `${total} \`any\` explícitos, teto é ${teto} — maiores: ${maiores}`,
+        fix: 'tipue o que o PR adicionou (o teto não sobe); se a dívida for inevitável, suba o teto num commit próprio e justificado',
+      };
+    }
+    if (total < teto) {
+      return {
+        status: 'warn',
+        detail: `${total} \`any\` explícitos contra teto ${teto} — folga de ${teto - total}`,
+        fix: `baixe anyCeiling para ${total} em ${budgetLabel}: ratchet que não desce não trava nada`,
+      };
+    }
+    return { status: 'ok', detail: `${total} \`any\` explícitos, no teto (${teto})`, fix: null };
+  },
+};
+
 /** Link relativo para o nada é step obscuro. `warn`: atrapalha a navegação, não impede trabalho. */
 const docsLinks: Check = {
   id: 'docs-links',
@@ -681,8 +968,13 @@ export const CHECKS = [
   mcpJson,
   docsCommands,
   commandsDocumented,
+  docsFlags,
+  coreInReadme,
+  docsSkillsCount,
+  commandsRef,
   docsLinks,
   adrRefs,
+  typeDebt,
   agentTopology,
   handoffOrphans,
 ];

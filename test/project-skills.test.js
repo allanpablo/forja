@@ -15,6 +15,15 @@ test('skills do projeto: 34, cada uma com frontmatter válido e name = pasta', (
   for (const n of names) assert.equal(skillProblem(n, read(n)), null, n);
 });
 
+// SPEC-056 AC-4: no Windows o checkout traz CRLF, e a validação lia skill perfeita como inválida —
+// o que derrubava project:new/project:wire (e a jornada inteira) só por causa do separador de linha.
+test('frontmatter: CRLF é tão válido quanto LF', () => {
+  const lf = '---\nname: api-design\ndescription: Use quando projetar uma API.\n---\n\ncorpo\n';
+  assert.equal(skillProblem('api-design', lf), null);
+  assert.equal(skillProblem('api-design', lf.replace(/\n/g, '\r\n')), null);
+  assert.equal(skillProblem('outra-pasta', lf.replace(/\n/g, '\r\n')), 'name "api-design" ≠ pasta');
+});
+
 test('skills do projeto: descrição em pt-BR dizendo quando usar', () => {
   for (const n of names) assert.match(read(n), /^description: Use (quando|depois|antes)/m, n);
 });

@@ -132,7 +132,10 @@ process followed?", the answer is a file, not a promise.
 npm install -g forjajs
 forja                    # help grouped by domain
 
-# Prepare the production workspace (the fixed home for your projects)
+# First run: creates the workspace and indexes the memory, confirming each step
+forja setup              # add --yes to accept every default
+
+# Or prepare the production workspace by hand (the fixed home for your projects)
 forja workspace:init
 
 # Create a new project (generated in ~/forja-workspace/projects/<name>, already wired to your AI)
@@ -412,6 +415,7 @@ The docs are written in **Brazilian Portuguese** — that's part of the project'
 output, code, and ADRs are readable regardless of language.
 
 - [`DOC-MAP.md`](DOC-MAP.md) — map by role and by topic (start here)
+- [`docs/commands.md`](docs/commands.md) — full command reference, generated from the registry (never hand-edited)
 - [`docs/processo-projeto.md`](docs/processo-projeto.md) — create vs update a project
 - [`docs/fluxo.md`](docs/fluxo.md) — the CLI-first cycle map
 - [`AGENTS.md`](AGENTS.md) — the 6 roles and the topology

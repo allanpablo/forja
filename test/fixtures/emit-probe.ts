@@ -5,7 +5,9 @@ const which = process.argv[2];
 if (which === 'ok') emitOk({ foo: 1 });
 else if (which === 'error') emitError('deu ruim', { code: 'BOOM', detail: 'rastro no stderr' });
 else if (which === 'rejected') emitRejected({ recommendation: 'discard' });
+// 6× o buffer do pipe (64KB): prova que a saída não é truncada pelo process.exit() seguinte.
+else if (which === 'big') emitOk({ big: 'x'.repeat(400_000) });
 else {
-  process.stderr.write('uso: emit-probe <ok|error|rejected>\n');
+  process.stderr.write('uso: emit-probe <ok|error|rejected|big>\n');
   process.exit(3);
 }

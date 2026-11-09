@@ -99,7 +99,10 @@ E cada comando acima ficou gravado em `.context/forja-runs.jsonl` — quando a g
 npm install -g forjajs
 forja                    # help agrupado por domínio
 
-# Preparar o workspace de produção (canto fixo dos projetos)
+# Primeiro uso: cria o workspace e indexa a memória, confirmando cada passo
+forja setup              # com --yes aceita todos os padrões
+
+# Ou preparar o workspace de produção à mão (canto fixo dos projetos)
 forja workspace:init
 
 # Criar um projeto novo (gera em ~/forja-workspace/projects/<nome>, já conectado à sua IA)
@@ -204,6 +207,11 @@ Os scripts npm do repo são aliases finos que roteiam pelo core.
 ## Comandos essenciais
 
 ```bash
+# Orientação — o caminho feliz
+forja status                               # onde estou: workspace, sprint, specs, runs, handoffs
+forja next                                 # o que agora: uma linha — a próxima ação + o comando exato
+forja help [<comando>|--all]               # os essenciais, ou uso/args/exemplos de um comando
+
 # Workspace & projetos
 forja workspace:init                       # cria ~/forja-workspace
 forja project:new <nome> --ai claude,copilot  # cria projeto no workspace, conectado à IA
@@ -325,6 +333,7 @@ A parte gerenciada pelo Forja em cada arquivo de instrução fica entre `<!-- fo
 ## Documentação
 
 - [`DOC-MAP.md`](DOC-MAP.md) — mapa por papel e por tópico (comece aqui)
+- [`docs/commands.md`](docs/commands.md) — referência completa de comandos, gerada do registry (nunca editada à mão)
 - [`docs/processo-projeto.md`](docs/processo-projeto.md) — criar vs atualizar projeto
 - [`docs/fluxo.md`](docs/fluxo.md) — mapa do ciclo CLI-first
 - [`AGENTS.md`](AGENTS.md) — os 6 papéis e a topologia

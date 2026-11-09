@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 
 import { parseArgv, argvFor, makeValidator } from '../apps/cli/src/params.ts';
 import { CLI_CAPABILITY_SPECS } from '../apps/cli/src/index.ts';
+import { COMMANDS } from '../lib/core/registry.ts';
 
 // --- unidade: os kinds --------------------------------------------------------
 
@@ -70,7 +71,7 @@ const ARGV_FIXTURE = {
   'spec:new': ['pagamentos-pix'],
   'spec:plan': ['pagamentos-pix'],
   'spec:tasks': ['pagamentos-pix'],
-  'code:context': ['orders', '--code'],
+  'code:context': ['orders', 'refund', '--code', '--full', '--project', '/tmp/p'],
   'query:universal': ['handoff 7 campos'],
   'engineer': ['adicionar rate limit', '--ref', 'HEAD', '--role', 'worker'],
   'risk:assess': ['HEAD~1'],
@@ -89,3 +90,27 @@ for (const spec of CLI_CAPABILITY_SPECS) {
     assert.deepEqual(roundtrip, argv);
   });
 }
+
+// --- o help não pode prometer flag que o roteador joga fora -------------------
+
+/**
+ * Um comando-capability não recebe o argv do usuário: o roteador o parseia contra `params`, e
+ * `argvFor` reconstrói. Flag não declarada é descartada em silêncio — `forja code:context x --full`
+ * rodando como se não tivesse pedido nada (achado da SPEC-057, visto no smoke, não na suíte).
+ * `--json` fica de fora: o roteador trata dele antes, e ele é o contrato, não um parâmetro.
+ */
+test('toda flag anunciada no usage de um comando-capability está declarada nos params', () => {
+  const violacoes = [];
+  for (const spec of CLI_CAPABILITY_SPECS) {
+    const usage = COMMANDS[spec.command]?.usage;
+    if (!usage) continue;
+    const declaradas = new Set(
+      spec.params.map((p) => (p.kind === 'flag-value' ? p.flag : p.kind === 'flag' ? `--${p.name}` : null)).filter(Boolean),
+    );
+    for (const flag of usage.match(/--[a-z][a-z0-9-]*/g) ?? []) {
+      if (flag === '--json' || declaradas.has(flag)) continue;
+      violacoes.push(`${spec.command}: ${flag}`);
+    }
+  }
+  assert.deepEqual(violacoes, [], `usage anuncia flag que o roteador descarta:\n  ${violacoes.join('\n  ')}`);
+});

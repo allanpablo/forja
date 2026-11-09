@@ -54,7 +54,6 @@ npm run project:new meu-projeto
 # Com flags
 npm run project:new meu-projeto -- --ai claude,copilot
 npm run project:new meu-projeto -- --skip-backend
-npm run project:new meu-projeto -- --verbose
 
 # Dentro do projeto: conferir a conexão com a IA
 forja project:wire --check

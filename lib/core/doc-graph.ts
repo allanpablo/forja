@@ -32,6 +32,7 @@ export const DOC_SURFACES = [
   'AGENTS.md',
   'CLAUDE.md',
   'README.md',
+  'README.pt-BR.md',
   'README.en.md',
   'DOC-MAP.md',
 ];
@@ -291,4 +292,87 @@ export function defaultEnv(overrides = {}) {
     fs,
     ...overrides,
   };
+}
+
+/**
+ * Flag CLI: `--long` ou `-h`. Duas restrições de propósito:
+ * - lookbehind (e não classe de chars) para pegar `[--ai <lista>]` dentro de um usage;
+ * - traço simples só casa com UMA letra — senão o pronome clítico do português ("consultá-lo",
+ *   "rode-o") vira flag `-lo`/`-o`.
+ */
+const FLAG_RE = /(?<![A-Za-z0-9_-])(--[a-z][a-z0-9-]*|-[a-z])(?![a-z0-9-])/g;
+const SKILL_COUNT_RE = /(\d+)[ \t]+skills?\b/gi;
+
+/**
+ * Tokens de flag de um trecho (`usage` do registry, linha de doc). Único tokenizer de flags do
+ * framework: quem precisa dos índices usa `scanFlags`; quem precisa só do conjunto chama isto.
+ */
+export function flagTokens(text: string): string[] {
+  return [...text.matchAll(FLAG_RE)].map((m) => m[1]);
+}
+
+/** Citação de comando sem o prefixo `forja`/`npm run` — contexto da linha, nunca dono de flag. */
+const MENTION_RE = /\b([a-z][a-z0-9]*(?::[a-z0-9-]+)+)\b/g;
+
+/** Corta o comentário de fim de linha — ali a prosa fala, não documenta uso. */
+function executablePart(line: string): string {
+  const at = line.search(/\s#/);
+  return at === -1 ? line : line.slice(0, at);
+}
+
+/**
+ * Flags citadas junto de uma *invocação* de comando do Forja nas superfícies de instrução.
+ *
+ * Duas decisões que valem o comentário:
+ * - **Dono = última invocação prefixada antes da flag** (`forja x:y`, `npm run x:y`). Citação sem
+ *   prefixo não é invocação: na prosa ("`llm:run --profile claude` → `claude -p …`") a flag pertence
+ *   ao binário do provedor, e atribuí-la ao Forja é falso positivo.
+ * - **`mentions` devolve toda citação da linha**, com ou sem prefixo, para o check poder absolver a
+ *   flag que a linha atribui a outro comando do Forja ("Lista os boilerplates (project:new
+ *   --template)" na célula de `project:templates`).
+ *
+ * Comentário de fim de linha é cortado: ali a prosa cita flag de *outro* comando.
+ *
+ * Leitura pura — quem decide se a flag existe é o check `docs-flags`, contra o registry.
+ * @returns {{ file: string, line: number, command: string, flag: string, mentions: string[] }[]}
+ */
+export function scanFlags(env: any) {
+  const hits: { file: string; line: number; command: string; flag: string; mentions: string[] }[] = [];
+  for (const rel of docFiles(env)) {
+    const src = safeRead(env, path.join(env.root, rel));
+    if (src == null) continue;
+    src.split('\n').forEach((raw: any, i: any) => {
+      const text = executablePart(String(raw));
+      const invoked: { at: number; name: string }[] = [];
+      for (const m of text.matchAll(COMMAND_RE)) invoked.push({ at: m.index ?? 0, name: m[1] });
+      if (invoked.length === 0) return;
+      const mentions = [...new Set([...text.matchAll(MENTION_RE)].map((m) => m[1]))];
+      for (const m of text.matchAll(FLAG_RE)) {
+        const at = m.index ?? 0;
+        const owner = [...invoked].reverse().find((c) => c.at < at);
+        if (!owner) continue;
+        hits.push({ file: rel, line: i + 1, command: owner.name, flag: m[1], mentions });
+      }
+    });
+  }
+  return hits;
+}
+
+/**
+ * Contagens de skills afirmadas na doc (`# 34 skills …`), para comparar com as pastas reais de
+ * `templates/project/skills/`. Leitura pura — o juízo é do check `docs-skills-count`.
+ * @returns {{ file: string, line: number, claimed: number }[]}
+ */
+export function scanSkillCounts(env: any) {
+  const hits: { file: string; line: number; claimed: number }[] = [];
+  for (const rel of docFiles(env)) {
+    const src = safeRead(env, path.join(env.root, rel));
+    if (src == null) continue;
+    src.split('\n').forEach((text: any, i: any) => {
+      for (const m of String(text).matchAll(SKILL_COUNT_RE)) {
+        hits.push({ file: rel, line: i + 1, claimed: Number(m[1]) });
+      }
+    });
+  }
+  return hits;
 }
