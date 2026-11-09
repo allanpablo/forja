@@ -133,11 +133,13 @@ supervisionada, governança e memória em uma trilha auditável.
 
 ## Estado das superfícies visuais
 
-- **Dashboard 2.x:** superfície de supervisão parcial via API; não é requisito do fluxo CLI-first.
-- **Dashboard React/Vite legado:** útil para demonstração local de telas e navegação. Em 2026-08-17,
-  ele inicia em Node 24 com `better-sqlite3` 12 e expõe API local em `127.0.0.1:7777`; o frontend
-  Vite fica em `http://127.0.0.1:5173`. Um workspace sem projetos ou handoffs mostra coleções vazias,
-  não dados de demonstração inventados.
+- **Dashboard 2.x (`apps/dashboard`):** superfície de supervisão via API; não é requisito do fluxo
+  CLI-first. O dashboard React/Vite legado foi removido (ADR-0087). Em 2026-11-08 o app Next sobe com
+  `npm run dashboard:api` (API em `127.0.0.1:3000`) e `npm run dashboard:dev` (app em
+  `http://localhost:3001`), com cinco abas: Visão, Rastreio, Custo, Gates e Operação. Um workspace sem
+  projetos ou handoffs mostra coleções vazias, não dados de demonstração inventados.
+- O painel só executa capacidades que o servidor declara como leitura sem efeito colateral, e o proxy
+  falha fechado: sem `FORJA_DASHBOARD_TOKEN` nenhuma requisição é encaminhada.
 - O dashboard não executa LLMs diretamente: essa ação foi direcionada para `forja llm:run` para manter
   policy, auditoria e privacidade.
 

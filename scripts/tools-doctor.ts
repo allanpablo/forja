@@ -23,6 +23,8 @@ import { spawnSync } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
 import { runChecks, worstStatus, bucketFor, BUCKET_LABEL } from '../lib/core/health.ts';
+import { emitError, emitOk } from '../lib/cli-output.ts';
+import type { Result } from '../lib/core/checks.ts';
 import { COMMANDS } from '../lib/core/registry.ts';
 import { checkProjectWiring } from '../lib/project-wiring.ts';
 import { isInsideFrameworkRepo } from '../lib/workspace.ts';
@@ -67,9 +69,27 @@ const TOOLS = [
 
 function detect(cmd: any, args: any) {
   const res = spawnSync(cmd, args, { encoding: 'utf8' });
-  if (res.error && (res.error as any).code === 'ENOENT') return { ok: false };
+  if (res.error && (res.error as any).code === 'ENOENT') return { ok: false, version: null };
   const version = (res.stdout || res.stderr || '').trim().split('\n')[0] || 'instalado';
   return { ok: true, version };
+}
+
+export interface ToolState {
+  readonly name: string;
+  readonly role: string;
+  readonly gate: string;
+  readonly install: string;
+  readonly ok: boolean;
+  readonly version: string | null;
+}
+
+/** Sondar e imprimir eram uma coisa só; o ramo `--json` precisa do resultado sem o texto. */
+function detectTools(): ToolState[] {
+  return TOOLS.map((tool) => {
+    const [cmd, args] = tool.probe;
+    const { ok, version } = detect(cmd, args);
+    return { name: tool.name, role: tool.role, gate: tool.gate, install: tool.install, ok, version };
+  });
 }
 
 const TAG = {
@@ -95,45 +115,59 @@ function printCore(results: any) {
   }
 }
 
-function printTools() {
+function printTools(tools: readonly ToolState[]) {
   console.log(`— ${BUCKET_LABEL.optional} —  potencializam o harness, nunca travam (ADR-0018)\n`);
 
   let installed = 0;
-  for (const tool of TOOLS) {
-    const [cmd, args] = tool.probe;
-    const { ok, version } = detect(cmd, args);
-    if (ok) installed += 1;
-    console.log(`${ok ? TAG.ok : 'FALTA'} ${tool.name.padEnd(13)} ${ok ? version : '(ausente)'}`);
+  for (const tool of tools) {
+    if (tool.ok) installed += 1;
+    console.log(`${tool.ok ? TAG.ok : 'FALTA'} ${tool.name.padEnd(13)} ${tool.ok ? tool.version : '(ausente)'}`);
     console.log(`      papel: ${tool.role}`);
     console.log(`      gate:  ${tool.gate}`);
-    if (!ok) console.log(`      instalar: ${tool.install}`);
+    if (!tool.ok) console.log(`      instalar: ${tool.install}`);
     console.log('');
   }
 
-  console.log(`${installed}/${TOOLS.length} ferramentas disponíveis.`);
+  console.log(`${installed}/${tools.length} ferramentas disponíveis.`);
   console.log('Ferramentas ausentes apenas desativam seus gates — o fluxo nunca trava por elas.\n');
 }
 
+export interface ProjectWiring {
+  readonly status: 'ok' | 'warn' | 'fail';
+  readonly checks: readonly { id: string; status: string; detail: string }[];
+}
+
 /** Num projeto (fora do repo do framework): a IA, os hooks e o MCP estão ligados a ele? */
-function printProject(): 'ok' | 'warn' | 'fail' | null {
+function collectProject(): ProjectWiring | null {
   const cwd = process.cwd();
   if (isInsideFrameworkRepo(cwd) || !fs.existsSync(path.join(cwd, 'AGENTS.md'))) return null;
-  console.log('Projeto — a IA enxerga o Forja aqui? (forja project:wire --check)\n');
   const checks = checkProjectWiring(cwd, { commands: COMMANDS });
-  for (const c of checks) console.log(`${(TAG as any)[c.status]} ${c.id.padEnd(13)} ${c.detail}`);
+  return { status: checks.some((c) => c.status === 'fail') ? 'fail' : checks.some((c) => c.status === 'warn') ? 'warn' : 'ok', checks };
+}
+
+function printProject(project: ProjectWiring | null): 'ok' | 'warn' | 'fail' | null {
+  if (project === null) return null;
+  console.log('Projeto — a IA enxerga o Forja aqui? (forja project:wire --check)\n');
+  for (const c of project.checks) console.log(`${(TAG as any)[c.status]} ${c.id.padEnd(13)} ${c.detail}`);
   console.log('');
-  return checks.some((c) => c.status === 'fail') ? 'fail' : checks.some((c) => c.status === 'warn') ? 'warn' : 'ok';
+  return project.status;
 }
 
 async function main() {
+  const asJson = process.argv.includes('--json');
+  const core = await runChecks();
+  const tools = detectTools();
+  const project = collectProject();
+
+  if (asJson) emitJson(core, project, tools);
+
   console.log('\nForja doctor\n');
 
-  const core = await runChecks();
   printCore(core);
-  const project = printProject();
-  printTools();
+  const projectVerdict = printProject(project);
+  printTools(tools);
 
-  if (project === 'fail') {
+  if (projectVerdict === 'fail') {
     console.log('Projeto desconectado da IA — corrija com: forja project:wire');
     process.exit(1);
   }
@@ -155,6 +189,30 @@ async function main() {
   }
 
   console.log('Núcleo saudável.');
+}
+
+/**
+ * O registry anuncia `tools:doctor [--json]` e o script ignorava a flag: quem pedia JSON recebia o
+ * texto humano de volta. Mesmo contrato do ADR-0082 (um objeto no stdout, diagnóstico no stderr) e
+ * os mesmos exit codes do ramo de texto — 1 para núcleo quebrado ou projeto desconectado.
+ */
+function emitJson(core: readonly Result[], project: ProjectWiring | null, tools: readonly ToolState[]): never {
+  if (project?.status === 'fail') return emitError('Projeto desconectado da IA — corrija com: forja project:wire', { code: 'PROJECT_UNWIRED' });
+  const criticas = core.filter((r) => r.status === 'fail' && r.severity === 'critical');
+  if (criticas.length > 0) {
+    return emitError(`Núcleo quebrado — ${criticas.length} ${criticas.length === 1 ? 'falha' : 'falhas'} crítica(s)`, {
+      code: 'CORE_UNHEALTHY',
+      detail: criticas.map((r) => `${r.id}: ${r.fix || 'sem correção automática'}`).join('\n'),
+    });
+  }
+  return emitOk({
+    verdict: worstStatus(core),
+    core: core.map((r) => ({ id: r.id, status: r.status, severity: r.severity ?? null, detail: r.detail ?? null, fix: r.fix ?? null })),
+    ...(project === null ? {} : { project: { status: project.status, checks: project.checks } }),
+    tools,
+    toolsAvailable: tools.filter((tool) => tool.ok).length,
+    toolsTotal: tools.length,
+  });
 }
 
 main();

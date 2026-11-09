@@ -90,8 +90,9 @@ npm run start:prod
 # Health check
 curl http://localhost:3000/api/health
 
-# Dashboard legado/opcional
-npm run dashboard
+# Dashboard opcional (dois terminais; ver docs/produto/roteiro-demo.md para os tokens)
+npm run dashboard:api    # API em 127.0.0.1:3000
+npm run dashboard:dev    # app em http://localhost:3001
 ```
 
 ---

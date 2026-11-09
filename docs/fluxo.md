@@ -1,8 +1,8 @@
 # Fluxo do 2-projeto-agents — mapa operacional
 
 **Princípio:** CLI-first. Todo o ciclo roda por linha de comando. O dashboard web
-(`npm run dashboard`, porta 7777) é **visão opcional read-only** — nunca é gate de
-spec, handoff, sprint ou entrega.
+(`npm run dashboard:api` + `npm run dashboard:dev`, app na porta 3001) é **visão opcional
+read-only** — nunca é gate de spec, handoff, sprint ou entrega.
 
 As 3 capacidades externas (ADR-0016) entram em pontos específicos do ciclo, sem mudar
 o pipeline SDD+GSD existente:
@@ -35,7 +35,7 @@ flowchart LR
     end
 
     ENTREGA(["✅ Entrega"])
-    VISAO["👁 dashboard 7777 (opcional)"]
+    VISAO["👁 dashboard 3001 (opcional)"]
 
     IDEIA --> E1
     E6 --> ENTREGA
@@ -54,7 +54,7 @@ flowchart LR
         codegraph       product          sdd-arch          tasks         worker          governance
         ai-eng (ref)    spec:new         spec:plan+ADR     spec:tasks    codegraph MCP   spec:check
                                          harness (time)                  handoffs        project:check
-                                        ──────────────► 👁 dashboard 7777 (opcional, read-only)
+                                        ──────────────► 👁 dashboard 3001 (opcional, read-only)
 ```
 
 ---
@@ -95,9 +95,13 @@ então *opera* esses agentes pelos handoffs existentes — harness desenha, GSD 
 
 ## Front (opcional)
 
-O dashboard sobe com `npm run dashboard` em `http://127.0.0.1:7777` e oferece uma visão
-read-only de specs, handoffs e agentes (`/api/health`, `/api/specs`, `/api/handoffs`,
-`/api/agents`). É conveniência de leitura — se não subir, **o fluxo segue 100% pela CLI**.
+O dashboard sobe em dois terminais — `npm run dashboard:api` (API em `127.0.0.1:3000`) e
+`npm run dashboard:dev` (app em `http://localhost:3001`) — e oferece cinco abas read-only:
+Visão, Rastreio, Custo, Gates e Operação. A leitura passa por `POST /api/capabilities/:id/execute`
+(só capacidades que o servidor declara sem escrita nem efeito colateral), `GET /api/graph/query`,
+`GET /api/control-plane/metrics`, `GET /api/observability/observations` e `GET /api/approvals`.
+É conveniência de leitura — se não subir, **o fluxo segue 100% pela CLI**. Tokens e roteiro:
+`docs/produto/roteiro-demo.md`.
 
 Ver também: `docs/cli-first-operacao.md` (comandos), `docs/capacidades-externas.md`
 (detalhe das 3 capacidades), `AGENTS.md` (papéis), ADR-0016.

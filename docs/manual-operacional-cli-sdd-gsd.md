@@ -736,10 +736,11 @@ Nao use design como etapa obrigatoria para:
 - Checks.
 - Refatoracoes sem interface.
 
-Dashboard:
+Dashboard (dois terminais; tokens em `docs/produto/roteiro-demo.md`):
 
 ```bash
-npm run dashboard
+npm run dashboard:api    # API em 127.0.0.1:3000
+npm run dashboard:dev    # app em http://localhost:3001
 ```
 
 Use somente para consulta visual ou depuracao de telas. Nao trate como fonte primaria de operacao.
