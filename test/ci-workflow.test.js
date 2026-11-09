@@ -15,7 +15,11 @@ import path from 'node:path';
 // ---------------------------------------------------------------------------
 
 const RAIZ = path.resolve(import.meta.dirname, '..');
-const CI = fs.readFileSync(path.join(RAIZ, '.github/workflows/ci.yml'), 'utf8');
+// `.gitattributes` tem `* text=auto` e o runner Windows faz checkout com CRLF. Todo padrão aqui tem
+// `\n` e o recorte de job compara linhas inteiras, então sem normalizar o teste viraria um falso
+// negativo justamente na célula que existe para caçar diferença de plataforma — a mesma armadilha da
+// causa 5 do inventário da SPEC-056, que `lib/core/health.ts` resolve do mesmo jeito.
+const CI = fs.readFileSync(path.join(RAIZ, '.github/workflows/ci.yml'), 'utf8').replace(/\r\n/g, '\n');
 
 /** Recorta um job do `jobs:` — termina na primeira linha com recuo menor que 3 (outro job, ou comentário). */
 function job(nome) {
