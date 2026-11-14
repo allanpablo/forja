@@ -13,6 +13,7 @@ import { registerCliCapabilities } from '../apps/cli/src/index.ts';
 import { createDefaultControlPlane, createDefaultPolicy, createDefaultServerServices } from '../apps/server/src/main.ts';
 
 import { GraphLoop, GraphExecutionMemory } from '../packages/graph/src/index.ts';
+import { InMemoryOrchestrationStore, OrchestrationError } from '../packages/orchestration/src/index.ts';
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from '../apps/server/src/app.module.ts';
 
@@ -86,6 +87,32 @@ test('servidor: política padrão compartilha ledger e continua negando escrita'
   assert.equal(blocked.state, 'blocked');
   assert.equal(blocked.error.code, 'POLICY_DENIED');
   assert.equal(called, false);
+});
+
+for (const categories of [['read'], ['read', 'write'], [], undefined, ['write']]) {
+  test(`servidor: escrita não passa pela política somente leitura com categorias ${JSON.stringify(categories)}`, async () => {
+    let calls = 0;
+    const registry = new CapabilityRegistry();
+    registerCliCapabilities(registry, () => { calls += 1; return { exitCode: 0, stdout: 'fixture', stderr: '' }; });
+    const control = await controlFor(registry, createDefaultPolicy());
+    const run = await start(control, [{ capabilityId: 'spec.create', payload: { slug: 'fixture' }, estimatedTokens: 1, categories }]);
+    const blocked = await control.runtimeExecute(run.runId);
+    assert.equal(blocked.state, 'blocked');
+    assert.equal(blocked.error.code, 'POLICY_DENIED');
+    assert.equal(calls, 0);
+    assert.deepEqual(await control.approvalList(), []);
+  });
+}
+
+test('servidor: leitura legítima dispensa categorias enviadas pelo cliente', async () => {
+  let calls = 0;
+  const registry = new CapabilityRegistry();
+  registerCliCapabilities(registry, () => { calls += 1; return { exitCode: 0, stdout: 'fixture', stderr: '' }; });
+  const control = await controlFor(registry, createDefaultPolicy());
+  const run = await start(control, [{ capabilityId: 'spec.validate', payload: { feature: 'fixture' }, estimatedTokens: 1 }]);
+  const result = await control.runtimeExecute(run.runId);
+  assert.equal(calls, 1);
+  assert.equal(result.validation.status, 'inconclusive');
 });
 
 const planningBudget = { inputTokens: 6000, outputTokens: 2000, totalTokens: 8000, usedTokens: 20 };
@@ -402,6 +429,79 @@ async function tasksFor(control) {
   const handoff = await control.handoffCreate({ taskId: first.id, from: 'planner', to: 'developer', nextAgent: agent.id, intent: 'implement', objective: first.objective, completedWork: [], decisions: [], constraints: [], pending: ['Write fixture'], evidenceIds: ['scope'], acceptance: first.acceptanceCriteria, blockers: [] });
   return { sprint, first, second, handoff };
 }
+
+for (const [initialState, action] of [['planning', 'runtimeExecute'], ['awaiting_approval', 'runtimeExecute'], ['awaiting_approval', 'runtimeResume']]) {
+  test(`tarefas integradas: sprint pausada impede ${action} de ${initialState} sem consumir a execução`, async () => {
+    const store = new InMemoryOrchestrationStore();
+    let calls = 0;
+    const registry = registryFor(() => { calls += 1; return { capabilityId: definition.id, payload: {}, evidence: [] }; });
+    const control = await controlFor(registry, policyFor(initialState === 'awaiting_approval' ? 'REQUIRE_APPROVAL' : 'ALLOW'), undefined, undefined, store);
+    const { sprint, first, handoff } = await tasksFor(control);
+    const run = await control.runtimeStart({ objective: first.objective, agent, budget, steps: [step], taskId: first.id, handoffId: handoff.id });
+    if (initialState === 'awaiting_approval') {
+      assert.equal((await control.runtimeExecute(run.runId)).state, initialState);
+      const [approval] = await control.approvalList();
+      await control.approvalDecide(approval.id, { decision: 'approved', approverId: 'reviewer', decidedAt: now });
+    }
+    await control.sprintPause(sprint.id);
+    const before = { run: await control.runtimeGet(run.runId), task: store.getTask(first.id), handoff: store.getHandoff(handoff.id), approvals: await control.approvalList() };
+    await assert.rejects(control[action](run.runId), OrchestrationError);
+    assert.equal(calls, 0);
+    assert.deepEqual(await control.runtimeGet(run.runId), before.run);
+    assert.deepEqual(store.getTask(first.id), before.task);
+    assert.deepEqual(store.getHandoff(handoff.id), before.handoff);
+    assert.deepEqual(await control.approvalList(), before.approvals);
+    await control.sprintStart(sprint.id);
+    const result = await control[action](run.runId);
+    assert.equal(calls, 1);
+    assert.equal(result.validation.status, 'inconclusive');
+  });
+}
+
+test('tarefas integradas: sprint pausada impede retomar run pausado entre etapas', async () => {
+  const started = Promise.withResolvers();
+  const release = Promise.withResolvers();
+  let calls = 0;
+  const registry = registryFor(async () => {
+    calls += 1;
+    if (calls === 1) { started.resolve(); await release.promise; }
+    return { capabilityId: definition.id, payload: {}, evidence: [] };
+  });
+  const control = await controlFor(registry, policyFor());
+  const { sprint, first, handoff } = await tasksFor(control);
+  const run = await control.runtimeStart({ objective: first.objective, agent, budget, steps: [step, step], taskId: first.id, handoffId: handoff.id });
+  const execution = control.runtimeExecute(run.runId);
+  try {
+    await started.promise;
+    await control.runtimePause(run.runId);
+  } finally { release.resolve(); }
+  assert.equal((await execution).state, 'paused');
+  await control.sprintPause(sprint.id);
+  const before = await control.runtimeGet(run.runId);
+  await assert.rejects(control.runtimeResume(run.runId), OrchestrationError);
+  assert.equal(calls, 1);
+  assert.deepEqual(await control.runtimeGet(run.runId), before);
+  await control.sprintStart(sprint.id);
+  const result = await control.runtimeResume(run.runId);
+  assert.equal(calls, 2);
+  assert.equal(result.validation.status, 'inconclusive');
+});
+
+test('tarefas integradas: cancelamento e reconciliação terminal continuam disponíveis com sprint pausada', async () => {
+  const store = new InMemoryOrchestrationStore();
+  const registry = registryFor(() => assert.fail('Cancelled execution must not dispatch'));
+  const control = await controlFor(registry, policyFor(), undefined, undefined, store);
+  const { sprint, first, handoff } = await tasksFor(control);
+  const run = await control.runtimeStart({ objective: first.objective, agent, budget, steps: [step], taskId: first.id, handoffId: handoff.id });
+  await control.sprintPause(sprint.id);
+  const cancelled = await control.runtimeCancel(run.runId);
+  assert.equal(cancelled.state, 'cancelled');
+  assert.equal(store.getTask(first.id).status, 'cancelled');
+  assert.equal(store.getHandoff(handoff.id).status, 'cancelled');
+  assert.deepEqual(await control.runtimeGet(run.runId), cancelled);
+  assert.deepEqual(await control.runtimeExecute(run.runId), cancelled);
+  assert.deepEqual(await control.runtimeResume(run.runId), cancelled);
+});
 
 for (const outcome of ['accepted', 'rejected', 'inconclusive']) {
   test(`tarefas integradas: restart e checker ${outcome} controlam liberação`, async () => {

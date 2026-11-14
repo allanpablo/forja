@@ -62,6 +62,23 @@ test('registry: policy bloqueia sem chamar handler', async () => {
   assert.equal(called, false);
 });
 
+for (const categories of [undefined, ['write', 'database'], []]) {
+  test(`registry: categorias confiáveis ${JSON.stringify(categories)} não podem ser sobrescritas pelo cliente`, async () => {
+    const value = new CapabilityRegistry();
+    const permissions = ['read'];
+    const declared = categories === undefined ? undefined : [...categories];
+    const expected = categories ?? permissions;
+    value.register({ definition: { ...definition, permissions }, categories: declared, validateInput: (input) => input, validateOutput: (output) => output, handler: () => ({ capabilityId: definition.id, payload: '', evidence: [] }) });
+    const snapshot = [...expected];
+    permissions.push('execution');
+    declared?.push('read');
+    let authorizedCategories;
+    const result = await value.execute({ input: { capabilityId: definition.id, payload: {} }, agent, categories: ['read', 'write', 'untrusted'], policy: { authorize(request) { authorizedCategories = request.categories; return { effect: 'ALLOW', reason: 'test', policyId: 'test' }; } } });
+    assert.equal(result.status, 'succeeded');
+    assert.deepEqual(authorizedCategories, snapshot);
+  });
+}
+
 test('registry: executa handler permitido e normaliza saída', async () => {
   const result = await registry().execute({ input: { capabilityId: 'workspace:status', payload: 'src' }, agent, policy });
   assert.equal(result.status, 'succeeded');

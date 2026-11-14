@@ -48,6 +48,30 @@ test('graph.sync é descobrível, idempotente e retorna evidência', async () =>
   assert.equal(repeat.output.payload.skipped, 1);
 });
 
+for (const [capabilityId, payload, expected] of [
+  ['code.impact', { symbol: 'CapabilityRegistry' }, ['read', 'execution']],
+  ['context.budget', { target: 'fixture' }, ['read', 'database']],
+  ['handoff.create', { phase: 'implement', slug: 'fixture' }, ['write', 'database']],
+]) {
+  test(`CLI adapter: ${capabilityId} preserva categorias do catálogo sem confiar no cliente`, async () => {
+    const runtime = createCliCapabilityRuntime(success);
+    let categories;
+    const result = await runtime.registry.execute({ input: { capabilityId, payload }, agent: runtime.agent, categories: ['untrusted'], policy: { authorize(request) { categories = request.categories; return { effect: 'ALLOW', reason: 'test', policyId: 'test' }; } } });
+    assert.equal(result.status, 'succeeded');
+    assert.deepEqual(categories, expected);
+  });
+}
+
+test('CLI adapter: graph.sync continua sendo escrita mesmo com categoria read enviada pelo helper', async () => {
+  const runtime = createCliCapabilityRuntime(success);
+  let categories;
+  runtime.policy = { authorize(request) { categories = request.categories; return { effect: 'DENY', reason: 'Read only', policyId: 'test' }; } };
+  registerGraphSyncCapability(runtime.registry, new GraphLoop(), { listDocuments() { assert.fail('Graph source must not run'); } });
+  const result = await executeCliCapability(runtime, 'graph.sync', {});
+  assert.equal(result.status, 'blocked');
+  assert.deepEqual(categories, ['write']);
+});
+
 test('CLI adapter preserves legacy arguments and returns ExecutionResult', async () => {
   const calls = [];
   const runtime = createCliCapabilityRuntime((command, args) => {

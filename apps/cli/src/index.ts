@@ -437,6 +437,7 @@ function registerCliCapability(
   };
   const registration: CapabilityRegistration<InputRecord, CliExecutionPayload> = {
     definition,
+    categories: spec.categories,
     validateInput: spec.validateInput ?? makeValidator(spec.params),
     validateOutput: validateCliPayload,
     handler: async (input) => {

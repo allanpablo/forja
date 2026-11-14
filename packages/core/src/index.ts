@@ -24,6 +24,7 @@ export interface CapabilityExecutionContext {
 
 export interface CapabilityRegistration<Input, Output> {
   readonly definition: CapabilityDefinition;
+  readonly categories?: readonly string[];
   readonly validateInput: (value: unknown) => Input;
   readonly validateOutput: (value: unknown) => Output;
   readonly handler: (input: Input, context: CapabilityExecutionContext) => CapabilityOutput | Promise<CapabilityOutput>;
@@ -124,6 +125,7 @@ export class CapabilityRegistry {
 
     const stored: CapabilityRegistration<unknown, unknown> = {
       definition,
+      categories: [...(registration.categories ?? definition.permissions)],
       validateInput: registration.validateInput as (value: unknown) => unknown,
       validateOutput: registration.validateOutput as (value: unknown) => unknown,
       handler: registration.handler as (input: unknown, context: CapabilityExecutionContext) => CapabilityOutput | Promise<CapabilityOutput>,
@@ -173,7 +175,7 @@ export class CapabilityRegistry {
         operationId: timestamps.operationId,
         projectId: request.projectId,
         environment: request.environment ?? 'local',
-        categories: request.categories ?? [],
+        categories: registration.categories ?? registration.definition.permissions,
         files: request.files ?? [],
         budget: request.budget,
         now: timestamps.createdAt,

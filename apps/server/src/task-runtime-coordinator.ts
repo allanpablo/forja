@@ -104,7 +104,9 @@ export class TaskRuntimeCoordinator {
 
   async execute(runId: RunId): Promise<RuntimeRun> {
     await this.load(runId);
-    await this.assertBinding(this.runtime.get(runId));
+    const current = this.runtime.get(runId);
+    const linked = await this.assertBinding(current);
+    if (linked !== undefined && !this.terminal(current)) await this.tasks.assertEligible(linked.task);
     const run = await this.runtime.execute(runId);
     await this.project(run);
     return run;
@@ -113,7 +115,8 @@ export class TaskRuntimeCoordinator {
   async resume(runId: RunId): Promise<RuntimeRun> {
     await this.load(runId);
     const current = this.runtime.get(runId);
-    await this.assertBinding(current);
+    const linked = await this.assertBinding(current);
+    if (linked !== undefined && !this.terminal(current)) await this.tasks.assertEligible(linked.task);
     const run = this.terminal(current) ? current : await this.runtime.resume(runId, this.policy);
     await this.project(run);
     return run;
