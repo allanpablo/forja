@@ -2,7 +2,8 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { CapabilityRegistry } from '../packages/core/src/index.ts';
 import { McpServer } from '../packages/mcp/src/index.ts';
-import { ForjaNestAdapter, InMemoryEventStream, isLoopbackAddress } from '../packages/adapter-nest/src/index.ts';
+import { ForjaNestAdapter, InMemoryEventStream, isLoopbackAddress, planningOpenApiPaths } from '../packages/adapter-nest/src/index.ts';
+import { PlanningError } from '../packages/planner/src/proposal-store.ts';
 import { createForjaServer } from '../apps/server/src/index.ts';
 import { ControlPlane } from '../packages/observability/src/index.ts';
 
@@ -16,6 +17,188 @@ function adapter() {
   const mcp = new McpServer({ registry, policy, agent });
   return { adapter: new ForjaNestAdapter(mcp, undefined, undefined, new ControlPlane()), stream: new InMemoryEventStream(), mcp };
 }
+
+const planningRoutes = [
+  { method: 'POST', path: '/api/plans', body: { taskId: 'task-1' } },
+  { method: 'GET', path: '/api/plans/plan-1' },
+  { method: 'POST', path: '/api/plans/plan-1/review', body: { decision: 'approved', expectedDigest: 'digest-1', reason: 'checked' } },
+];
+
+function planningAdapter(planning, authenticator) {
+  return new ForjaNestAdapter(adapter().mcp, undefined, authenticator, new ControlPlane(undefined, { planning }));
+}
+
+test('adapter-nest: planning delega proposta, consulta e review sem passar pelo MCP', async () => {
+  const calls = [];
+  const proposal = { id: 'plan-1', status: 'draft', digest: 'digest-1' };
+  const reviewed = { ...proposal, status: 'approved' };
+  const http = planningAdapter({
+    propose: async (input) => { calls.push(['propose', input]); return proposal; },
+    get: async (id) => { calls.push(['get', id]); return proposal; },
+    review: async (id, input) => { calls.push(['review', id, input]); return reviewed; },
+  });
+  for (const [index, route] of planningRoutes.entries()) {
+    const result = await http.handle({ ...route, query: {}, headers: { 'x-correlation-id': 'planning-corr' } });
+    assert.equal(result.status, 200);
+    assert.deepEqual(result.body, index === 2 ? reviewed : proposal);
+    assert.equal(result.correlationId, 'planning-corr');
+    assert.equal(result.headers['x-correlation-id'], 'planning-corr');
+    assert.equal(result.headers['content-type'], 'application/json; charset=utf-8');
+  }
+  assert.deepEqual(calls, [
+    ['propose', { taskId: 'task-1', correlationId: 'planning-corr' }],
+    ['get', 'plan-1'],
+    ['review', 'plan-1', planningRoutes[2].body],
+  ]);
+});
+
+test('adapter-nest: proposta preserva payload e prioriza correlation id do transporte', async () => {
+  const inputs = [];
+  const http = planningAdapter({ propose: (input) => { inputs.push(input); return { id: 'plan-1' }; } });
+  const body = { taskId: 'task-1', handoffId: 'handoff-1', correlationId: 'body-corr', budget: { inputTokens: 20, outputTokens: 10, totalTokens: 30, usedTokens: 0 } };
+  for (const [correlationId, headers, expected, responseCorrelation] of [
+    ['request-corr', { 'x-correlation-id': 'header-corr' }, 'request-corr', 'request-corr'],
+    [undefined, { 'x-correlation-id': 'header-corr' }, 'header-corr', 'header-corr'],
+    [undefined, {}, 'body-corr', 'http:POST:/api/plans'],
+  ]) {
+    const result = await http.handle({ method: 'POST', path: '/api/plans', query: {}, headers, correlationId, body });
+    assert.equal(result.status, 200);
+    assert.equal(result.correlationId, responseCorrelation);
+    assert.equal(result.headers['x-correlation-id'], responseCorrelation);
+    assert.deepEqual(inputs.at(-1), { ...body, correlationId: expected });
+    assert.equal(body.correlationId, 'body-corr');
+  }
+});
+
+test('adapter-nest: planning exige provider e Control Plane configurados', async () => {
+  for (const controlPlane of [undefined, {}, new ControlPlane()]) {
+    const http = new ForjaNestAdapter(adapter().mcp, undefined, undefined, controlPlane);
+    for (const route of planningRoutes) {
+      const result = await http.handle({ ...route, query: {}, headers: {}, correlationId: 'missing-corr' });
+      assert.equal(result.status, 500, route.path);
+      assert.deepEqual(result.body, { error: { code: 'PLANNING_UNAVAILABLE', message: 'Planning service unavailable' } });
+      assert.equal(result.correlationId, 'missing-corr');
+      assert.equal(result.headers['x-correlation-id'], 'missing-corr');
+    }
+  }
+});
+
+for (const [code, status] of [
+  ['PLANNING_INVALID_INPUT', 400], ['PLANNING_NOT_FOUND', 404], ['PLANNING_DENIED', 403],
+  ['PLANNING_CONFLICT', 409], ['PLANNING_STALE', 409], ['PLANNING_INVALID_SCOPE', 409],
+  ['PLANNING_INVALID_REVIEW', 409], ['PLANNING_REVIEWER_UNAVAILABLE', 503],
+  ['UNKNOWN_PLANNING_CODE', 500], [undefined, 500],
+]) {
+  test(`adapter-nest: planning mapeia ${code ?? 'erro inesperado'} para ${status}`, async () => {
+    const failure = async () => { throw code === undefined ? new Error('private provider detail') : new PlanningError(code, 'private provider detail'); };
+    const http = planningAdapter({ propose: failure, get: failure, review: failure });
+    for (const route of planningRoutes) {
+      const result = await http.handle({ ...route, query: {}, headers: { 'x-correlation-id': 'error-corr' } });
+      assert.equal(result.status, status, route.path);
+      assert.equal(result.body.error.code, status === 500 ? 'PLANNING_UNAVAILABLE' : code);
+      assert.equal(result.correlationId, 'error-corr');
+      assert.equal(result.headers['x-correlation-id'], 'error-corr');
+      assert.equal(result.headers['content-type'], 'application/json; charset=utf-8');
+      if (status === 500) assert.deepEqual(result.body, { error: { code: 'PLANNING_UNAVAILABLE', message: 'Planning service unavailable' } });
+    }
+  });
+}
+
+test('adapter-nest: planning rejeita corpos não-objeto e rotas ou métodos inválidos antes do provider', async () => {
+  const calls = [];
+  const unexpected = (...args) => { calls.push(args); return {}; };
+  const http = planningAdapter({ propose: unexpected, get: unexpected, review: unexpected });
+  for (const body of [undefined, null, [], 'task-1', 1, false]) {
+    const result = await http.handle({ method: 'POST', path: '/api/plans', query: {}, headers: {}, body });
+    assert.equal(result.status, 400);
+    assert.equal(result.body.error.code, 'PLANNING_INVALID_INPUT');
+  }
+  for (const [method, path] of [
+    ['GET', '/api/plans'], ['POST', '/api/plans/plan-1'], ['GET', '/api/plans/plan-1/review'],
+    ['DELETE', '/api/plans/plan-1'], ['POST', '/api/plans/plan-1/execute'],
+    ['GET', '/api/plans/plan-1/extra'], ['POST', '/api/plans/plan-1/review/extra'], ['GET', '/api/plans/'],
+  ]) {
+    const result = await http.handle({ method, path, query: {}, headers: {}, body: {} });
+    assert.equal(result.status, 404, `${method} ${path}`);
+    assert.equal(result.body.error.code, 'PLANNING_NOT_FOUND');
+  }
+  assert.deepEqual(calls, []);
+});
+
+test('adapter-nest: autenticação bloqueia todas as rotas planning antes do dispatch', async () => {
+  const calls = [];
+  const handler = (...args) => { calls.push(args); return { id: 'plan-1' }; };
+  const planning = { propose: handler, get: handler, review: handler };
+  const http = planningAdapter(planning, { authenticate: async (headers) => headers.authorization === 'Bearer local-token' });
+  for (const route of planningRoutes) {
+    for (const headers of [{}, { authorization: 'Bearer wrong' }]) {
+      const denied = await http.handle({ ...route, query: {}, headers, correlationId: 'auth-corr' });
+      assert.equal(denied.status, 401);
+      assert.equal(denied.body.error.code, 'UNAUTHENTICATED');
+      assert.equal(denied.headers['www-authenticate'], 'Bearer');
+      assert.equal(denied.headers['x-correlation-id'], 'auth-corr');
+      assert.equal(denied.correlationId, 'auth-corr');
+    }
+    const remote = await planningAdapter(planning).handle({ ...route, query: {}, headers: {}, remoteAddress: '203.0.113.5' });
+    assert.equal(remote.status, 401);
+  }
+  assert.deepEqual(calls, []);
+  for (const route of planningRoutes) {
+    const allowed = await http.handle({ ...route, query: {}, headers: { authorization: 'Bearer local-token' }, remoteAddress: '203.0.113.5' });
+    assert.equal(allowed.status, 200);
+  }
+  assert.equal(calls.length, 3);
+});
+
+test('adapter-nest: OpenAPI publica operações planning concretas e as integra ao documento', () => {
+  const paths = planningOpenApiPaths();
+  const http = adapter().adapter;
+  const document = http.openApi();
+  assert.deepEqual(Object.keys(paths).sort(), ['/api/plans', '/api/plans/{id}', '/api/plans/{id}/review']);
+  assert.equal(document.openapi, '3.1.0');
+  assert.ok(document.paths['/health']);
+  assert.equal(document.paths['/api/plans/:id'], undefined);
+  assert.equal(document.paths['/api/plans/:id/review'], undefined);
+  assert.deepEqual(http.modules().find((module) => module.name === 'PlanningModule').routes, ['/api/plans', '/api/plans/:id', '/api/plans/:id/review']);
+  for (const [path, method, operationId] of [
+    ['/api/plans', 'post', 'planPropose'], ['/api/plans/{id}', 'get', 'planGet'], ['/api/plans/{id}/review', 'post', 'planReview'],
+  ]) {
+    assert.deepEqual(document.paths[path], paths[path]);
+    assert.deepEqual(Object.keys(paths[path]), [method]);
+    const operation = paths[path][method];
+    assert.equal(operation.operationId, operationId);
+    if (path.includes('{id}')) assert.deepEqual(operation.parameters, [{ name: 'id', in: 'path', required: true, schema: { type: 'string', minLength: 1 } }]);
+    assert.deepEqual(Object.keys(operation.responses).sort(), ['200', '400', '401', '403', '404', '409', '500', '503']);
+    const proposal = operation.responses['200'].content['application/json'].schema;
+    assert.equal(proposal.type, 'object');
+    assert.deepEqual(proposal.required, ['id', 'version', 'digest', 'status', 'snapshot', 'budget', 'blockers']);
+    assert.deepEqual(proposal.properties.version, { const: 1 });
+    assert.deepEqual(proposal.properties.status.enum, ['draft', 'blocked', 'approved', 'rejected']);
+    assert.deepEqual(proposal.properties.blockers.items.required, ['code', 'message']);
+    for (const status of ['400', '401', '403', '404', '409', '500', '503']) {
+      assert.deepEqual(operation.responses[status].content['application/json'].schema, {
+        type: 'object', required: ['error'], properties: { error: { type: 'object', required: ['code', 'message'], properties: { code: { type: 'string' }, message: { type: 'string' } } } },
+      });
+    }
+  }
+  assert.equal(paths['/api/plans/{id}'].get.requestBody, undefined);
+  const proposeBody = paths['/api/plans'].post.requestBody;
+  assert.equal(proposeBody.required, true);
+  const propose = proposeBody.content['application/json'].schema;
+  assert.deepEqual(Object.keys(propose.properties).sort(), ['budget', 'correlationId', 'handoffId', 'taskId']);
+  assert.deepEqual(propose.required, ['taskId']);
+  assert.equal(propose.additionalProperties, false);
+  assert.deepEqual(propose.properties.taskId, { type: 'string', minLength: 1 });
+  assert.equal(propose.properties.budget.additionalProperties, false);
+  assert.deepEqual(propose.properties.budget.required, ['inputTokens', 'outputTokens', 'totalTokens', 'usedTokens']);
+  for (const field of propose.properties.budget.required) assert.deepEqual(propose.properties.budget.properties[field], { type: 'integer', minimum: 0, maximum: Number.MAX_SAFE_INTEGER });
+  const reviewBody = paths['/api/plans/{id}/review'].post.requestBody;
+  assert.equal(reviewBody.required, true);
+  assert.deepEqual(reviewBody.content['application/json'].schema, {
+    type: 'object', properties: { decision: { type: 'string', enum: ['approved', 'rejected'] }, expectedDigest: { type: 'string', minLength: 1 }, reason: { type: 'string', minLength: 1 } },
+    required: ['decision', 'expectedDigest', 'reason'], additionalProperties: false,
+  });
+});
 
 test('adapter-nest: roteia REST, correlation id e módulos sem regra de domínio', async () => {
   const fixture = adapter();

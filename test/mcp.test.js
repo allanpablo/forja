@@ -1,5 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import Ajv from 'ajv';
 import { CapabilityRegistry } from '../packages/core/src/index.ts';
 import { ContextEngine } from '../packages/context/src/index.ts';
 import { GraphLoop } from '../packages/graph/src/index.ts';
@@ -21,6 +22,89 @@ function server(overrides = {}) {
 }
 
 server.auditEvents = [];
+
+test('mcp: delega proposta e consulta ao planning, sem expor review', async () => {
+  const calls = [];
+  const events = [];
+  const proposal = { id: 'plan-1', status: 'draft', digest: 'digest-1' };
+  const mcp = server({
+    planning: {
+      propose: async (input) => { calls.push(['propose', input]); return proposal; },
+      get: async (id) => { calls.push(['get', id]); return proposal; },
+    },
+    audit: { append: (event) => events.push(event) },
+  });
+  assert.deepEqual(mcp.listTools().filter((tool) => tool.name.startsWith('forja_plan_')).map((tool) => tool.name).sort(), ['forja_plan_get', 'forja_plan_propose']);
+  const input = { taskId: 'task-1', handoffId: 'handoff-1', correlationId: 'plan-corr', budget: { inputTokens: 20, outputTokens: 10, totalTokens: 30, usedTokens: 0 } };
+  for (const [name, args] of [['forja_plan_propose', input], ['forja_plan_get', { id: 'plan-1' }]]) {
+    const result = await mcp.callTool(name, args);
+    assert.deepEqual(result, { isError: false, structuredContent: proposal, content: [{ type: 'text', text: JSON.stringify(proposal) }] });
+  }
+  const review = await mcp.callTool('forja_plan_review', { id: 'plan-1', decision: 'approved', expectedDigest: 'digest-1', reason: 'checked' });
+  assert.equal(review.isError, true);
+  assert.equal(review.structuredContent.code, 'TOOL_NOT_FOUND');
+  assert.deepEqual(calls, [['propose', input], ['get', 'plan-1']]);
+  assert.equal(events[0].correlationId, 'plan-corr');
+  assert.equal(events[0].outcome, 'success');
+});
+
+test('mcp: planning ausente ou falhando retorna erro estruturado', async () => {
+  for (const planning of [undefined, { propose: async () => { throw new Error('provider failed'); }, get: async () => { throw new Error('provider failed'); } }]) {
+    const mcp = server({ planning, audit: undefined });
+    for (const [name, input] of [['forja_plan_propose', { taskId: 'task-1' }], ['forja_plan_get', { id: 'plan-1' }]]) {
+      const result = await mcp.callTool(name, input);
+      assert.equal(result.isError, true, name);
+      assert.equal(result.structuredContent.code, 'TOOL_FAILED');
+      assert.deepEqual(JSON.parse(result.content[0].text), result.structuredContent);
+    }
+  }
+});
+
+test('mcp: publica schemas estritos de proposta, budget e consulta', () => {
+  const tools = server().listTools();
+  const proposeSchema = tools.find((tool) => tool.name === 'forja_plan_propose').inputSchema;
+  const getSchema = tools.find((tool) => tool.name === 'forja_plan_get').inputSchema;
+  const ajv = new Ajv();
+  const propose = ajv.compile(proposeSchema);
+  const get = ajv.compile(getSchema);
+  assert.deepEqual(Object.keys(proposeSchema.properties).sort(), ['budget', 'correlationId', 'handoffId', 'taskId']);
+  assert.deepEqual(proposeSchema.required, ['taskId']);
+  assert.equal(proposeSchema.additionalProperties, false);
+  assert.deepEqual(getSchema, { type: 'object', properties: { id: { type: 'string' } }, required: ['id'], additionalProperties: false });
+  const budget = { inputTokens: 20, outputTokens: 10, totalTokens: 30, usedTokens: 0 };
+  assert.equal(propose({ taskId: 'task-1' }), true);
+  assert.equal(propose({ taskId: 'task-1', handoffId: 'handoff-1', correlationId: 'corr-1', budget }), true);
+  assert.equal(get({ id: 'plan-1' }), true);
+  for (const input of [{}, { taskId: '' }, { taskId: 1 }, { taskId: 'task-1', handoffId: '' }, { taskId: 'task-1', correlationId: 1 }, { taskId: 'task-1', reviewerId: 'spoofed' }]) {
+    assert.equal(propose(input), false, JSON.stringify(input));
+  }
+  for (const value of [null, [], 'budget', { ...budget, extra: 1 }]) {
+    assert.equal(propose({ taskId: 'task-1', budget: value }), false, JSON.stringify(value));
+  }
+  for (const field of Object.keys(budget)) {
+    const incomplete = { ...budget };
+    delete incomplete[field];
+    assert.equal(propose({ taskId: 'task-1', budget: incomplete }), false, `budget exige ${field}`);
+    for (const value of [-1, 0.5, '1', Number.MAX_SAFE_INTEGER + 1]) {
+      assert.equal(propose({ taskId: 'task-1', budget: { ...budget, [field]: value } }), false, `${field}: ${value}`);
+    }
+    for (const value of [0, Number.MAX_SAFE_INTEGER]) {
+      assert.equal(propose({ taskId: 'task-1', budget: { ...budget, [field]: value } }), true, `${field}: ${value}`);
+    }
+  }
+  for (const input of [{}, { id: 1 }, { id: 'plan-1', correlationId: 'unexpected' }]) assert.equal(get(input), false);
+});
+
+test('mcp: consulta rejeita id inválido e campos extras antes do provider', async () => {
+  const calls = [];
+  const mcp = server({ planning: { get: (id) => calls.push(id) }, audit: undefined });
+  for (const input of [{}, { id: '' }, { id: '  ' }, { id: 1 }, { id: 'plan-1', extra: true }, null]) {
+    const result = await mcp.callTool('forja_plan_get', input);
+    assert.equal(result.isError, true, JSON.stringify(input));
+    assert.equal(result.structuredContent.code, 'TOOL_FAILED');
+  }
+  assert.deepEqual(calls, []);
+});
 
 test('mcp: lista tools, executa capability/contexto/grafo e lê recurso estruturado', async () => {
   const mcp = server();

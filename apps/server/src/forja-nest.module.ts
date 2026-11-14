@@ -43,7 +43,7 @@ export class ForjaLocalAuthGuard implements CanActivate {
 @UseGuards(ForjaLocalAuthGuard)
 export class ForjaNestController {
   private readonly adapter: ForjaNestAdapter;
-  constructor(adapter: ForjaNestAdapter) { this.adapter = adapter; }
+  constructor(@Inject(ForjaNestAdapter) adapter: ForjaNestAdapter) { this.adapter = adapter; }
 
   @Get('health') health(@Req() request: Request, @Res({ passthrough: true }) response: Response): Promise<unknown> { return this.route(request, response, 'GET', '/health'); }
   @Get('api/capabilities') capabilities(@Req() request: Request, @Res({ passthrough: true }) response: Response): Promise<unknown> { return this.route(request, response, 'GET', '/api/capabilities'); }
@@ -53,6 +53,9 @@ export class ForjaNestController {
   @Get('api/graph/impact') graphImpact(@Req() request: Request, @Res({ passthrough: true }) response: Response): Promise<unknown> { return this.route(request, response, 'GET', '/api/graph/impact'); }
   @Get('api/tasks/next') taskNext(@Req() request: Request, @Res({ passthrough: true }) response: Response): Promise<unknown> { return this.route(request, response, 'GET', '/api/tasks/next'); }
   @Post('api/handoffs') handoff(@Req() request: Request, @Res({ passthrough: true }) response: Response): Promise<unknown> { return this.route(request, response, 'POST', '/api/handoffs', request.body); }
+  @Post('api/plans') planPropose(@Req() request: Request, @Res({ passthrough: true }) response: Response): Promise<unknown> { return this.route(request, response, 'POST', '/api/plans', request.body); }
+  @Get('api/plans/:id') planGet(@Req() request: Request, @Res({ passthrough: true }) response: Response): Promise<unknown> { return this.route(request, response, 'GET', `/api/plans/${request.params.id}`); }
+  @Post('api/plans/:id/review') planReview(@Req() request: Request, @Res({ passthrough: true }) response: Response): Promise<unknown> { return this.route(request, response, 'POST', `/api/plans/${request.params.id}/review`, request.body); }
   @Post('api/executions') runtimeStart(@Req() request: Request, @Res({ passthrough: true }) response: Response): Promise<unknown> { return this.route(request, response, 'POST', '/api/executions', request.body); }
   @Get('api/executions/:id') runtimeGet(@Req() request: Request, @Res({ passthrough: true }) response: Response): Promise<unknown> { return this.route(request, response, 'GET', `/api/executions/${request.params.id}`); }
   @Post('api/executions/:id/execute') runtimeExecute(@Req() request: Request, @Res({ passthrough: true }) response: Response): Promise<unknown> { return this.route(request, response, 'POST', `/api/executions/${request.params.id}/execute`); }

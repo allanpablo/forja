@@ -9,6 +9,8 @@ import {
   registerGraphSyncCapability,
 } from '../apps/cli/src/index.ts';
 import { GraphLoop } from '../packages/graph/src/index.ts';
+import { McpServer } from '../packages/mcp/src/index.ts';
+import { RuntimeEngine } from '../packages/runtime/src/index.ts';
 
 const success = (command, args) => ({
   exitCode: 0,
@@ -86,6 +88,41 @@ test('CLI adapter normalizes a non-zero legacy exit as a failed execution', asyn
   assert.equal(result.output.payload.exitCode, 2);
   assert.equal(result.evidence[0].status, 'contradicted');
 });
+
+for (const surface of ['registry', 'mcp', 'runtime']) {
+  test(`CLI adapter: falha preservada via ${surface}, sem retry`, async () => {
+    let calls = 0;
+    const runtime = createCliCapabilityRuntime(() => { calls += 1; return { exitCode: 2, stdout: 'diagnostic', stderr: 'failure' }; });
+    let result;
+    if (surface === 'registry') {
+      result = await runtime.registry.execute({ input: { capabilityId: 'spec.validate', payload: { feature: 'example' } }, agent: runtime.agent, policy: runtime.policy, categories: ['read'] });
+    } else if (surface === 'mcp') {
+      const mcp = new McpServer({ ...runtime, agent: { ...runtime.agent, capabilities: [], permissions: ['read'] } });
+      result = (await mcp.callTool('forja_capability_execute', { capabilityId: 'spec.validate', payload: { feature: 'example' }, categories: ['read'] })).structuredContent;
+    } else {
+      const saved = [];
+      const engine = new RuntimeEngine({
+        registry: runtime.registry,
+        planner: { plan: () => [{ capabilityId: 'spec.validate', payload: { feature: 'example' }, estimatedTokens: 1, categories: ['read'] }] },
+        validator: { validate: () => { assert.fail('Falha de execução não deve chegar ao aceite'); } },
+        persistence: { getRun() { return undefined; }, saveRun() {}, savePlan() {}, saveCursor() {}, saveResults(_id, results) { saved.splice(0, saved.length, ...results); } },
+      });
+      const started = await engine.start({ objective: 'validate', agent: runtime.agent, policy: runtime.policy, budget: { inputTokens: 10, outputTokens: 10, totalTokens: 20, usedTokens: 0 } });
+      const run = await engine.execute(started.runId);
+      assert.equal(run.state, 'failed');
+      assert.equal(run.error.code, 'LEGACY_COMMAND_FAILED');
+      result = saved[0];
+    }
+    assert.equal(result.status, 'failed');
+    assert.equal(result.error.code, 'LEGACY_COMMAND_FAILED');
+    assert.equal(result.error.retryable, false);
+    assert.equal(result.output.payload.exitCode, 2);
+    assert.equal(result.output.payload.stdout, 'diagnostic');
+    assert.equal(result.output.payload.stderr, 'failure');
+    assert.equal(result.evidence[0].status, 'contradicted');
+    assert.equal(calls, 1);
+  });
+}
 
 test('CLI adapter keeps policy as a gate before handler execution', async () => {
   let called = false;

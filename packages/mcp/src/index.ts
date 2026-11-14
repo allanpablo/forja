@@ -33,6 +33,11 @@ export interface McpAgentContext {
   readonly capabilities: readonly CapabilityId[];
 }
 
+export interface McpPlanning {
+  propose(input: unknown): unknown | Promise<unknown>;
+  get(id: string): unknown | Promise<unknown>;
+}
+
 export interface McpMemoryQuery {
   query(objective: string): unknown | Promise<unknown>;
 }
@@ -86,6 +91,7 @@ export interface McpServerDependencies {
   readonly policy: CapabilityPolicy;
   readonly agent: McpAgentContext;
   readonly context?: ContextEngine;
+  readonly planning?: McpPlanning;
   readonly graph?: GraphLoop;
   readonly memory?: McpMemoryQuery;
   readonly taskEngine?: TaskEngine;
@@ -103,7 +109,12 @@ export class McpAdapterError extends Error {
   constructor(message: string) { super(message); this.name = 'McpAdapterError'; }
 }
 
+export const PLANNING_PROPOSE_SCHEMA: McpInputSchema = { type: 'object', properties: { taskId: { type: 'string', minLength: 1 }, handoffId: { type: 'string', minLength: 1 }, correlationId: { type: 'string', minLength: 1 }, budget: { type: 'object', properties: Object.fromEntries(['inputTokens', 'outputTokens', 'totalTokens', 'usedTokens'].map((field) => [field, { type: 'integer', minimum: 0, maximum: Number.MAX_SAFE_INTEGER }])), required: ['inputTokens', 'outputTokens', 'totalTokens', 'usedTokens'], additionalProperties: false } }, required: ['taskId'], additionalProperties: false };
+export const PLANNING_REVIEW_SCHEMA: McpInputSchema = { type: 'object', properties: { decision: { type: 'string', enum: ['approved', 'rejected'] }, expectedDigest: { type: 'string', minLength: 1 }, reason: { type: 'string', minLength: 1 } }, required: ['decision', 'expectedDigest', 'reason'], additionalProperties: false };
+
 export const MCP_TOOLS: readonly McpToolDefinition[] = [
+  { name: 'forja_plan_propose', description: 'Gera proposta descritiva revisável sem executar capabilities.', inputSchema: PLANNING_PROPOSE_SCHEMA },
+  tool('forja_plan_get', 'Consulta uma proposta de planejamento persistida.', ['id']),
   tool('forja_workspace_status', 'Retorna o estado operacional mínimo do workspace.', []),
   tool('forja_capabilities_list', 'Lista capabilities visíveis para a identidade MCP.', []),
   tool('forja_capability_describe', 'Descreve uma capability pelo Registry.', ['capabilityId']),
@@ -167,6 +178,10 @@ export class McpServer {
 
   private async dispatch(name: string, input: Record<string, unknown>): Promise<unknown> {
     switch (name) {
+      case 'forja_plan_propose': return this.requirePlanning().propose(input);
+      case 'forja_plan_get':
+        if (Object.keys(input).some((key) => key !== 'id')) throw new McpAdapterError('Unexpected planning input fields');
+        return this.requirePlanning().get(this.string(input, 'id'));
       case 'forja_workspace_status': return { agent: this.dependencies.agent, capabilities: this.dependencies.registry.list({ agent: this.dependencies.agent }), resources: this.listResources().map((resource) => resource.uri) };
       case 'forja_capabilities_list': return this.dependencies.registry.list({ agent: this.dependencies.agent, policy: this.dependencies.policy });
       case 'forja_capability_describe': return this.dependencies.registry.describe(this.string(input, 'capabilityId'), { agent: this.dependencies.agent, policy: this.dependencies.policy });
@@ -198,7 +213,7 @@ export class McpServer {
     this.authorize('forja_handoff_create', 'write', 'medium', []);
     return this.requireHandoffs().create({
       from: this.string(input, 'from'), to: this.string(input, 'to'), intent: this.string(input, 'intent'), objective: this.string(input, 'objective'),
-      completedWork: this.strings(input, 'completedWork'), decisions: this.strings(input, 'decisions'), constraints: this.strings(input, 'constraints'), pending: this.strings(input, 'pending'), evidenceIds: this.entities(input, 'evidenceIds'), acceptance: this.strings(input, 'acceptance'), blockers: this.strings(input, 'blockers'), nextAgent: this.string(input, 'nextAgent'), correlationId: this.optionalString(input, 'correlationId'),
+      completedWork: this.strings(input, 'completedWork'), decisions: this.strings(input, 'decisions'), constraints: this.strings(input, 'constraints'), pending: this.strings(input, 'pending'), evidenceIds: this.entities(input, 'evidenceIds'), acceptance: this.strings(input, 'acceptance'), blockers: this.strings(input, 'blockers'), nextAgent: this.string(input, 'nextAgent'), correlationId: this.optionalString(input, 'correlationId'), taskId: input.taskId === undefined ? undefined : this.entity(input, 'taskId'),
     });
   }
 
@@ -235,6 +250,7 @@ export class McpServer {
   private entities(input: Record<string, unknown>, field: string): readonly EntityId[] { return this.strings(input, field) as readonly EntityId[]; }
   private number(input: Record<string, unknown>, field: string, fallback?: number): number { const value = input[field] ?? fallback; if (typeof value !== 'number' || !Number.isFinite(value)) throw new McpAdapterError(`${field} must be a finite number`); return value; }
   private optionalStatus(input: Record<string, unknown>, field: string): GraphQuery['status'] { const value = input[field]; if (value === undefined) return undefined; if (value !== 'verified' && value !== 'inferred' && value !== 'hypothesis' && value !== 'contradicted' && value !== 'unknown') throw new McpAdapterError(`${field} is an invalid knowledge status`); return value; }
+  private requirePlanning(): McpPlanning { if (this.dependencies.planning === undefined) throw new McpAdapterError('Planning service is not configured'); return this.dependencies.planning; }
   private requireContext(): ContextEngine { if (this.dependencies.context === undefined) throw new McpAdapterError('Context Engine is not configured'); return this.dependencies.context; }
   private requireGraph(): GraphLoop { if (this.dependencies.graph === undefined) throw new McpAdapterError('GraphLoop is not configured'); return this.dependencies.graph; }
   private requireMemory(): McpMemoryQuery { if (this.dependencies.memory === undefined) throw new McpAdapterError('Memory adapter is not configured'); return this.dependencies.memory; }

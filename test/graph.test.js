@@ -49,6 +49,40 @@ test('graph: arestas respeitam validade temporal', () => {
   assert.equal(value.path('a', 'b', 2, '2026-08-02T00:00:00.000Z').edges.length, 1);
 });
 
+for (const endpoint of ['from', 'to']) {
+  for (const invalid of [{ status: 'contradicted' }, { validTo: '2000-01-01T00:00:00.000Z' }, { validFrom: '9999-01-01T00:00:00.000Z' }]) {
+    test(`graph: contexto exclui endpoint ${endpoint} indisponível ${JSON.stringify(invalid)}`, () => {
+      const value = new GraphLoop();
+      value.upsertNode({ ...node('source'), ...(endpoint === 'from' ? invalid : {}) });
+      value.upsertNode({ ...node('target'), ...(endpoint === 'to' ? invalid : {}) });
+      value.addEvidence(evidence('current'));
+      value.upsertEdge({ from: 'source', to: 'target', type: 'DEPENDS_ON', status: 'inferred', confidence: 1, evidenceIds: ['current'] });
+      assert.deepEqual(value.contextRecords('source'), []);
+      assert.equal(value.path('source', 'target').edges.length, 1, 'seleção não muda outras consultas');
+    });
+  }
+}
+
+test('graph: contexto exclui evidência contradita e relação vencida', () => {
+  const value = new GraphLoop();
+  value.upsertNode(node('source')); value.upsertNode(node('target'));
+  value.addEvidence(evidence('current'));
+  value.addEvidence({ ...evidence('bad'), status: 'contradicted' });
+  value.upsertEdge({ from: 'source', to: 'target', type: 'DEPENDS_ON', status: 'inferred', confidence: 1, evidenceIds: ['current', 'bad'] });
+  value.upsertEdge({ from: 'source', to: 'target', type: 'CALLS', status: 'inferred', confidence: 1, evidenceIds: ['current'], validTo: '2000-01-01T00:00:00.000Z' });
+  assert.deepEqual(value.contextRecords('source'), []);
+});
+
+test('graph: contexto preserva incerteza dos nós sem mudar status persistido da relação', () => {
+  const value = new GraphLoop();
+  value.upsertNode({ ...node('source'), status: 'hypothesis' });
+  value.upsertNode(node('target'));
+  value.addEvidence({ ...evidence('trusted'), source: 'sandbox' });
+  value.upsertEdge({ from: 'source', to: 'target', type: 'DEPENDS_ON', status: 'verified', confidence: 1, evidenceIds: ['trusted'] });
+  assert.equal(value.contextRecords('source')[0].status, 'hypothesis');
+  assert.equal(value.path('source', 'target').edges[0].status, 'verified');
+});
+
 test('graph: sync incremental é idempotente por source checksum', () => {
   const value = new GraphLoop();
   const mutation = { sourceKey: 'src/file.ts', sourceChecksum: 'checksum', nodes: [node('a'), node('b')], evidence: [evidence('e')], edges: [{ from: 'a', to: 'b', type: 'DEPENDS_ON', status: 'verified', confidence: 1, evidenceIds: ['e'] }] };
@@ -118,6 +152,10 @@ test('graph: memória de execução registra capability e evidência persistíve
   memory.remember({ runId: 'run-graph', objective: 'fix test', agent: { id: 'agent-1', name: 'agent', role: 'developer', autonomy: 'supervised' }, policy: { effect: 'ALLOW', reason: 'test', policyId: 'policy-1' }, budget: { inputTokens: 10, outputTokens: 10, totalTokens: 20, usedTokens: 1 }, state: 'running', steps: 1, evidence: [], changedFiles: ['tests/failing.test.js'], metrics: { attempts: 1, retries: 0, durationMs: 1, inputTokens: 1, outputTokens: 0 }, ...{ schemaVersion: '2.0', createdAt: now, updatedAt: now, correlationId: 'run-graph' } }, { schemaVersion: '2.0', createdAt: now, updatedAt: now, correlationId: 'result-graph', runId: 'run-graph', status: 'succeeded', output: { capabilityId: 'fixture.fix-test', payload: {}, evidence: [evidenceItem] }, evidence: [evidenceItem] });
   assert.equal(value.path('execution:run-graph', 'capability:fixture.fix-test').edges.length, 1);
   assert.equal(value.query({ type: 'Execution' }).length, 1);
+  const record = value.contextRecords('fix test')[0];
+  assert.match(record.content, /handler/i);
+  assert.match(record.content, /not independent acceptance/i);
+  assert.equal(value.query({ type: 'Execution' })[0].label, 'fix test');
 });
 
 test('graph: indexador aplica documentos e pula checksum repetido', async () => {
