@@ -33,6 +33,9 @@ export interface ObservationStore {
 export interface ControlPlanePort {
   metrics(): ControlPlaneMetrics | Promise<ControlPlaneMetrics>;
   observations(): readonly Observation[] | Promise<readonly Observation[]>;
+  planPropose?(input: unknown): unknown | Promise<unknown>;
+  planGet?(id: string): unknown | Promise<unknown>;
+  planReview?(id: string, input: unknown): unknown | Promise<unknown>;
   runtimeStart?(input: unknown): unknown | Promise<unknown>;
   runtimeGet?(id: string): unknown | Promise<unknown>;
   runtimeExecute?(id: string): unknown | Promise<unknown>;
@@ -62,6 +65,7 @@ export interface ControlPlaneEvent {
 export interface ControlPlaneEventSink { publish(event: ControlPlaneEvent): void; }
 
 export interface ControlPlaneServices {
+  readonly planning?: { readonly propose: (input: unknown) => unknown | Promise<unknown>; readonly get: (id: string) => unknown | Promise<unknown>; readonly review: (id: string, input: unknown) => unknown | Promise<unknown> };
   readonly runtime?: { readonly start: (input: unknown) => unknown | Promise<unknown>; readonly get: (input: unknown) => unknown | Promise<unknown>; readonly execute: (input: unknown) => unknown | Promise<unknown>; readonly pause: (input: unknown) => unknown | Promise<unknown>; readonly resume: (input: unknown) => unknown | Promise<unknown>; readonly cancel: (input: unknown) => unknown | Promise<unknown> };
   readonly sprint?: { readonly create: (input: unknown) => unknown | Promise<unknown>; readonly start: (input: unknown) => unknown | Promise<unknown>; readonly pause: (input: unknown) => unknown | Promise<unknown> };
   readonly task?: { readonly create: (input: unknown) => unknown | Promise<unknown>; readonly start: (input: unknown) => unknown | Promise<unknown>; readonly block: (input: unknown) => unknown | Promise<unknown> };
@@ -119,6 +123,9 @@ export class ControlPlane implements ControlPlanePort {
   metrics(): Promise<ControlPlaneMetrics> { return this.recorder.metrics(); }
   observations(): Promise<readonly Observation[]> { return this.recorder.observations(); }
   async record(input: ObservationInput): Promise<Observation> { const observation = await this.recorder.record(input); this.services.events?.publish({ id: observation.id, type: 'observation.recorded', aggregateId: observation.runId ?? observation.traceId, data: observation, correlationId: observation.correlationId }); return observation; }
+  planPropose(input: unknown): Promise<unknown> { return this.delegate(this.services.planning?.propose, input, 'planPropose'); }
+  planGet(id: string): Promise<unknown> { const service = this.services.planning; return this.delegate(service === undefined ? undefined : () => service.get(id), id, 'planGet'); }
+  planReview(id: string, input: unknown): Promise<unknown> { const service = this.services.planning; return this.delegate(service === undefined ? undefined : () => service.review(id, input), input, 'planReview'); }
   runtimeStart(input: unknown): Promise<unknown> { return this.delegate(this.services.runtime?.start, input, 'runtimeStart'); }
   runtimeGet(id: string): Promise<unknown> { return this.delegate(this.services.runtime?.get, id, 'runtimeGet'); }
   runtimeExecute(id: string): Promise<unknown> { return this.delegate(this.services.runtime?.execute, id, 'runtimeExecute'); }

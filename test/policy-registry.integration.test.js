@@ -24,6 +24,31 @@ test('registry + policy: contexto de execução chega ao Policy Engine', async (
   assert.equal(result.status, 'succeeded');
 });
 
+test('registry + policy: aprovação vincula a entrada validada e a capability canônica', async () => {
+  const registry = new CapabilityRegistry();
+  const policy = new PolicyEngine({ rules: [{ id: 'review', priority: 1, effect: 'REQUIRE_APPROVAL', reason: 'Review', scope: {} }] });
+  const inputs = [];
+  registry.register({
+    definition: { ...definition, aliases: ['read-alias'] },
+    validateInput: (input) => ({ value: input.value.trim() }),
+    validateOutput: (output) => output,
+    handler: (input) => { inputs.push(input); return { capabilityId: definition.id, payload: input, evidence: [] }; },
+  });
+  const request = { agent, policy, correlationId: 'validated-input', categories: ['read'], approval: { action: 'read', justification: 'test', impact: 'read only', expiresAt: '2099-01-01T00:00:00.000Z' } };
+  const pending = await registry.execute({ ...request, input: { capabilityId: 'read-alias', payload: { value: ' content ', ignored: true } } });
+  assert.equal(pending.status, 'blocked');
+  const [approval] = policy.approvals.list();
+  policy.approvals.decide(approval.id, { decision: 'approved', approverId: 'human', decidedAt: now });
+  const approved = await registry.execute({ ...request, input: { capabilityId: definition.id, payload: { value: 'content' } } });
+  assert.equal(approved.status, 'succeeded');
+  assert.deepEqual(inputs, [{ value: 'content' }]);
+  assert.equal(policy.approvals.list().length, 1);
+  const changed = await registry.execute({ ...request, input: { capabilityId: definition.id, payload: { value: 'different' } } });
+  assert.equal(changed.status, 'blocked');
+  assert.equal(changed.error.code, 'APPROVAL_REQUIRED');
+  assert.equal(inputs.length, 1);
+});
+
 test('registry + policy: ALLOW_WITH_LIMITS.maxFiles é aplicado, não só devolvido na decisão', async () => {
   const registry = new CapabilityRegistry();
   let handlerCalls = 0;

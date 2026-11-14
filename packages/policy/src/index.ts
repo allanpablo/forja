@@ -1,10 +1,11 @@
-import { randomUUID } from 'node:crypto';
+import { createHash, randomUUID } from 'node:crypto';
 import {
   CONTRACT_VERSION,
   isPathWithinRoot,
   type AgentIdentity,
   type ApprovalRequest,
   type CapabilityDefinition,
+  type CapabilityInput,
   type EntityId,
   type ISO8601,
   type PolicyDecision,
@@ -72,13 +73,10 @@ export interface ApprovalDetails {
 export interface PolicyRequest {
   readonly definition: CapabilityDefinition;
   readonly agent: AgentIdentity;
-  /**
-   * Identifies the run/action this decision belongs to. Required for approvals to actually
-   * resolve: without a stable key, every retry of the same step looks like a brand-new request
-   * and `authorize()` can never see that a human already approved it. Callers that omit this
-   * fall back to `agent.id`, which only works correctly for an agent with a single in-flight
-   * approval at a time.
-   */
+  /** Validated, canonical input supplied by the capability registry. Only its digest is persisted. */
+  readonly input?: CapabilityInput;
+  /** Stable action/step identity; falls back to correlationId, never to agent identity. */
+  readonly operationId?: string;
   readonly correlationId?: string;
   readonly projectId?: string;
   readonly environment: string;
@@ -101,6 +99,8 @@ export interface ApprovalDecision {
 
 export interface ApprovalInput extends ApprovalDetails {
   readonly correlationId: string;
+  readonly operationId?: string;
+  readonly fingerprint?: string;
 }
 
 export interface ApprovalStore {
@@ -116,6 +116,64 @@ export class PolicyError extends Error {
   }
 }
 
+// Round-trip the calendar to reject Date.parse's normalization of impossible dates.
+function approvalInstant(value: ISO8601): number {
+  const parts = typeof value === 'string' ? /^(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2})(?:\.(\d{1,3}))?(Z|[+-](?:[01]\d|2[0-3]):[0-5]\d)$/.exec(value) : null;
+  if (parts === null) throw new PolicyError('Approval date must be an unambiguous ISO timestamp');
+  const calendar = `${parts[1]}.${(parts[2] ?? '').padEnd(3, '0')}Z`;
+  const local = Date.parse(calendar);
+  const instant = Date.parse(value);
+  if (!Number.isFinite(local) || !Number.isFinite(instant) || new Date(local).toISOString() !== calendar) {
+    throw new PolicyError('Invalid approval date');
+  }
+  return instant;
+}
+
+// Tags distinguish absent/undefined/null; descriptors prevent executing getters or toJSON.
+function canonicalApprovalValue(value: unknown, ancestors = new Set<object>()): string {
+  if (value === undefined) return '["undefined"]';
+  if (value === null) return '["null"]';
+  if (typeof value === 'string' || typeof value === 'boolean') return JSON.stringify([typeof value, value]);
+  if (typeof value === 'number') {
+    if (!Number.isFinite(value)) throw new PolicyError('Non-finite approval value');
+    return JSON.stringify(['number', Object.is(value, -0) ? '-0' : value]);
+  }
+  if (typeof value !== 'object') throw new PolicyError('Unsupported approval value');
+  if (ancestors.has(value)) throw new PolicyError('Cyclic approval value');
+  const array = Array.isArray(value);
+  const prototype: unknown = Object.getPrototypeOf(value);
+  if (array ? prototype !== Array.prototype : prototype !== Object.prototype && prototype !== null) {
+    throw new PolicyError('Approval values must be plain objects or arrays');
+  }
+  ancestors.add(value);
+  try {
+    const keys = Reflect.ownKeys(value);
+    for (const key of keys) {
+      const descriptor = Object.getOwnPropertyDescriptor(value, key);
+      if (typeof key !== 'string' || descriptor === undefined || !('value' in descriptor) || (!descriptor.enumerable && !(array && key === 'length'))) {
+        throw new PolicyError('Ambiguous approval property');
+      }
+    }
+    if (array) {
+      if (keys.length !== value.length + 1) throw new PolicyError('Sparse or extended approval array');
+      const entries: string[] = [];
+      for (let index = 0; index < value.length; index += 1) {
+        const descriptor = Object.getOwnPropertyDescriptor(value, String(index));
+        if (descriptor === undefined) throw new PolicyError('Sparse approval array');
+        entries.push(canonicalApprovalValue(descriptor.value, ancestors));
+      }
+      return `["array",[${entries.join(',')}]]`;
+    }
+    const entries = Object.keys(value).sort().map((key) => {
+      const descriptor = Object.getOwnPropertyDescriptor(value, key);
+      return `[${JSON.stringify(key)},${canonicalApprovalValue(descriptor?.value, ancestors)}]`;
+    });
+    return `["object",[${entries.join(',')}]]`;
+  } finally {
+    ancestors.delete(value);
+  }
+}
+
 export class ApprovalLedger {
   private readonly requests = new Map<EntityId, ApprovalRequest>();
   private readonly store?: ApprovalStore;
@@ -126,6 +184,7 @@ export class ApprovalLedger {
     if (input.action.trim().length === 0) throw new PolicyError('Approval action is required');
     if (input.justification.trim().length === 0) throw new PolicyError('Approval justification is required');
     if (input.impact.trim().length === 0) throw new PolicyError('Approval impact is required');
+    if (approvalInstant(input.expiresAt) <= approvalInstant(now)) throw new PolicyError('Approval expiry must be in the future');
     const request: ApprovalRequest = {
       schemaVersion: CONTRACT_VERSION,
       id: randomUUID() as EntityId,
@@ -135,6 +194,8 @@ export class ApprovalLedger {
       expectedDiff: input.expectedDiff,
       expiresAt: input.expiresAt,
       correlationId: input.correlationId,
+      operationId: input.operationId,
+      fingerprint: input.fingerprint,
       createdAt: now,
       updatedAt: now,
     };
@@ -151,7 +212,7 @@ export class ApprovalLedger {
   decide(id: EntityId, decision: ApprovalDecision): ApprovalRequest {
     const current = this.get(id);
     if (current.decision !== undefined) throw new PolicyError(`Approval already decided: ${id}`);
-    if (current.expiresAt <= decision.decidedAt) throw new PolicyError(`Approval expired: ${id}`);
+    if (approvalInstant(current.expiresAt) <= approvalInstant(decision.decidedAt)) throw new PolicyError(`Approval expired: ${id}`);
     const updated: ApprovalRequest = { ...current, decision: decision.decision, approverId: decision.approverId, updatedAt: decision.decidedAt };
     this.requests.set(id, updated);
     void this.store?.save(updated);
@@ -159,9 +220,10 @@ export class ApprovalLedger {
   }
 
   expire(now: ISO8601): readonly ApprovalRequest[] {
+    const instant = approvalInstant(now);
     const expired: ApprovalRequest[] = [];
-    for (const current of this.requests.values()) {
-      if (current.decision === undefined && current.expiresAt <= now) {
+    for (const current of this.list()) {
+      if ((current.decision === undefined || current.decision === 'approved') && approvalInstant(current.expiresAt) <= instant) {
         const updated: ApprovalRequest = { ...current, decision: 'expired', updatedAt: now };
         this.requests.set(current.id, updated);
         void this.store?.save(updated);
@@ -171,21 +233,15 @@ export class ApprovalLedger {
     return expired;
   }
 
-  /** Most recent approval request recorded for this correlationId, if any. */
-  findByCorrelationId(correlationId: string): ApprovalRequest | undefined {
-    const matches = this.list().filter((request) => request.correlationId === correlationId);
+  /** Descriptive/historical records without both binding fields cannot authorize execution. */
+  findByOperation(operationId: string, fingerprint: string): ApprovalRequest | undefined {
+    const matches = this.list().filter((request) => request.operationId === operationId && request.fingerprint === fingerprint && request.decision !== 'expired');
     return matches.at(-1);
   }
 
   get(id: EntityId): ApprovalRequest {
-    const request = this.requests.get(id);
-    if (request === undefined && this.store !== undefined) {
-      const persisted = this.store.get(id);
-      if (persisted !== undefined) {
-        this.requests.set(id, persisted);
-        return persisted;
-      }
-    }
+    // A persistent store is authoritative, including deletion and decisions by another ledger.
+    const request = this.store === undefined ? this.requests.get(id) : this.store.get(id);
     if (request === undefined) throw new PolicyError(`Approval not found: ${id}`);
     return request;
   }
@@ -213,9 +269,9 @@ export class PolicyEngine {
     // approval just because a rule chose to bound it with limits instead of an unconditional ALLOW.
     const isGranting = decision.effect === 'ALLOW' || decision.effect === 'ALLOW_WITH_LIMITS';
     if (this.approvalRequiredRisks.includes(request.definition.risk) && isGranting) {
-      return this.withApproval(request, decision, 'Risk requires explicit approval');
+      return this.withApproval(request, decision, 'Risk requires explicit approval', match);
     }
-    if (decision.effect === 'REQUIRE_APPROVAL') return this.withApproval(request, decision, decision.reason);
+    if (decision.effect === 'REQUIRE_APPROVAL') return this.withApproval(request, decision, decision.reason, match);
     return decision;
   }
 
@@ -223,16 +279,34 @@ export class PolicyEngine {
     return this.approvalLedger;
   }
 
-  /**
-   * Resolves approval state for `request` instead of unconditionally demanding a fresh one.
-   * Keyed by `request.correlationId` (falling back to the agent id) so that resuming/retrying
-   * the same run recognizes a decision a human already made, rather than re-issuing an
-   * unresolvable `REQUIRE_APPROVAL` on every attempt — see ADR/finding on approval resume.
-   */
-  private withApproval(request: PolicyRequest, decision: PolicyDecision, reason: string): PolicyDecision {
-    const correlationId = request.correlationId ?? request.agent.id;
-    const existing = this.approvalLedger.findByCorrelationId(correlationId);
-    if (existing !== undefined) {
+  private withApproval(request: PolicyRequest, decision: PolicyDecision, reason: string, rule: PolicyRule | undefined): PolicyDecision {
+    const now = approvalInstant(request.now);
+    if (request.approval !== undefined) approvalInstant(request.approval.expiresAt);
+    const operationId = request.operationId ?? request.correlationId ?? randomUUID();
+    const correlationId = request.correlationId ?? operationId;
+    const { definition, agent, budget, approval } = request;
+    const fingerprint = `v1:${createHash('sha256').update(canonicalApprovalValue({
+      operationId,
+      agent: { id: agent.id, role: agent.role, autonomy: agent.autonomy },
+      capability: { id: definition.id, version: definition.version, risk: definition.risk, permissions: definition.permissions, sideEffects: definition.sideEffects },
+      payload: request.input?.payload,
+      projectId: request.projectId,
+      environment: request.environment,
+      files: [...new Set(request.files)].sort(),
+      categories: [...new Set(request.categories)].sort(),
+      approval: approval === undefined ? undefined : {
+        action: approval.action, justification: approval.justification, impact: approval.impact,
+        expectedDiff: approval.expectedDiff, expiresAt: approval.expiresAt,
+      },
+      decision,
+      rule,
+      approvalRequiredRisks: this.approvalRequiredRisks,
+      riskScore: request.riskScore,
+      anomalyScore: request.anomalyScore,
+      budget: budget === undefined ? undefined : { inputTokens: budget.inputTokens, outputTokens: budget.outputTokens, totalTokens: budget.totalTokens },
+    })).digest('hex')}`;
+    const existing = this.approvalLedger.findByOperation(operationId, fingerprint);
+    if (existing !== undefined && approvalInstant(existing.expiresAt) > now) {
       if (existing.decision === 'approved') {
         // `decision.effect` may already be ALLOW/ALLOW_WITH_LIMITS (gated only by the risk-level
         // approval requirement) — keep it as-is. But when the *rule itself* is REQUIRE_APPROVAL,
@@ -243,11 +317,10 @@ export class PolicyEngine {
       }
       if (existing.decision === 'rejected') return { ...decision, effect: 'DENY', reason: `Approval rejected: ${existing.id}`, approvalRequestId: existing.id };
       if (existing.decision === undefined) return { ...decision, effect: 'REQUIRE_APPROVAL', reason, approvalRequestId: existing.id };
-      // existing.decision === 'expired': falls through to issue a fresh request below.
     }
-    if (request.approval === undefined) return { ...decision, effect: 'REQUIRE_APPROVAL', reason };
-    const approval = this.approvalLedger.create({ ...request.approval, correlationId }, request.now);
-    return { ...decision, effect: 'REQUIRE_APPROVAL', reason, approvalRequestId: approval.id };
+    if (approval === undefined) return { ...decision, effect: 'REQUIRE_APPROVAL', reason };
+    const created = this.approvalLedger.create({ ...approval, correlationId, operationId, fingerprint }, request.now);
+    return { ...decision, effect: 'REQUIRE_APPROVAL', reason, approvalRequestId: created.id };
   }
 
   private matches(scope: PolicyScope, request: PolicyRequest): boolean {

@@ -1,6 +1,7 @@
 import { createHash, randomUUID } from 'node:crypto';
 import {
   CONTRACT_VERSION,
+  type ContextItem,
   type ContextMetrics,
   type ContextPackage,
   type EntityId,
@@ -36,6 +37,7 @@ export interface ContextBuildRequest {
   readonly objective: string;
   readonly budget: TokenBudget;
   readonly includeContent?: boolean;
+  readonly includeProvenanceInBudget?: boolean;
   readonly maxItems?: number;
   readonly requireEvidence?: boolean;
   readonly correlationId?: string;
@@ -102,26 +104,34 @@ export class ContextEngine {
     if (candidates.length === 0 && (request.requireEvidence ?? true)) throw new ContextEngineError('INSUFFICIENT_EVIDENCE', 'No current evidence matches the context objective');
 
     const ranked = candidates
-      .map((candidate) => ({ candidate, checksum: candidate.checksum ?? this.checksum(candidate.content) }))
-      .sort((left, right) => right.candidate.relevance - left.candidate.relevance || left.candidate.locator.localeCompare(right.candidate.locator) || left.checksum.localeCompare(right.checksum));
-    const unique = new Map<string, { candidate: ContextCandidate; checksum: string }>();
-    for (const item of ranked) if (!unique.has(item.checksum)) unique.set(item.checksum, item);
+      .map((candidate) => ({ candidate, item: this.contextItem(candidate, request.includeContent !== false) }))
+      .sort((left, right) => right.candidate.relevance - left.candidate.relevance
+        || left.item.locator.localeCompare(right.item.locator)
+        || left.item.checksum.localeCompare(right.item.checksum)
+        || JSON.stringify(left.item).localeCompare(JSON.stringify(right.item)));
+    const unique = new Map<string, typeof ranked[number]>();
+    for (const entry of ranked) if (!unique.has(entry.item.checksum)) unique.set(entry.item.checksum, entry);
 
     const availableTokens = request.budget.totalTokens - request.budget.usedTokens;
     let usedTokens = 0;
     let cacheHits = 0;
-    const selected: Array<{ candidate: ContextCandidate; checksum: string; tokens: number }> = [];
-    for (const item of [...unique.values()].slice(0, maxItems)) {
-      const tokens = this.estimateTokens(item.candidate.content);
+    const selected: typeof ranked = [];
+    for (const entry of [...unique.values()].slice(0, maxItems)) {
+      const { candidate, item } = entry;
+      const tokens = this.estimateTokens(request.includeProvenanceInBudget ? JSON.stringify(item) : candidate.content);
       if (usedTokens + tokens > availableTokens) continue;
-      if (this.dependencies.cache?.get(item.checksum) !== undefined) cacheHits += 1;
-      else this.dependencies.cache?.set(item.checksum, item.candidate.content);
-      selected.push({ ...item, tokens });
+      // Supplied keys remain valid for expand(), but never establish content freshness.
+      const cacheKey = candidate.checksum ?? item.checksum;
+      if (this.dependencies.cache?.get(cacheKey) === candidate.content) cacheHits += 1;
+      this.dependencies.cache?.set(cacheKey, candidate.content);
+      if (cacheKey !== item.checksum) this.dependencies.cache?.set(item.checksum, candidate.content);
+      selected.push(entry);
       usedTokens += tokens;
     }
     if (selected.length === 0 && (request.requireEvidence ?? true)) throw new ContextEngineError('CONTEXT_BUDGET_EXCEEDED', 'Context budget cannot fit any evidence');
 
-    const references = this.uniqueEvidence(selected.flatMap((item) => item.candidate.evidence));
+    const items = selected.map((entry) => entry.item);
+    const references = this.uniqueEvidence(items.flatMap((item) => item.evidence));
     const content = request.includeContent === false ? [] : selected.map((item) => item.candidate.content);
     const metrics: ContextMetrics = {
       candidateCount: candidates.length,
@@ -137,8 +147,9 @@ export class ContextEngine {
       id: randomUUID() as EntityId,
       references,
       content,
+      items,
       budget: { ...request.budget, usedTokens: request.budget.usedTokens + usedTokens },
-      checksum: this.checksum(JSON.stringify({ objective: request.objective, refs: selected.map((item) => item.checksum), includeContent: request.includeContent !== false })),
+      checksum: this.checksum(JSON.stringify({ objective: request.objective, items, includeContent: request.includeContent !== false })),
       metrics,
     };
   }
@@ -150,7 +161,19 @@ export class ContextEngine {
   }
 
   private isUsable(candidate: ContextCandidate): boolean {
-    return !candidate.obsolete && candidate.status !== 'contradicted' && candidate.content.trim().length > 0 && Number.isFinite(candidate.relevance) && candidate.evidence.length > 0;
+    return !candidate.obsolete && candidate.status !== 'contradicted' && candidate.content.trim().length > 0 && Number.isFinite(candidate.relevance) && candidate.evidence.length > 0 && candidate.evidence.every((item) => item.status !== 'contradicted');
+  }
+
+  private contextItem(candidate: ContextCandidate, includeContent: boolean): ContextItem {
+    return {
+      id: candidate.id,
+      source: candidate.source,
+      locator: candidate.locator,
+      ...(includeContent ? { content: candidate.content } : {}),
+      checksum: this.checksum(candidate.content),
+      status: candidate.status,
+      evidence: [...candidate.evidence].sort((left, right) => left.id.localeCompare(right.id) || JSON.stringify(left).localeCompare(JSON.stringify(right))),
+    };
   }
 
   private estimateTokens(content: string): number {
@@ -163,7 +186,8 @@ export class ContextEngine {
 
   private uniqueEvidence(evidence: readonly Evidence[]): readonly Evidence[] {
     const unique = new Map<EntityId, Evidence>();
-    for (const item of evidence) if (!unique.has(item.id)) unique.set(item.id, item);
+    const sorted = [...evidence].sort((left, right) => left.id.localeCompare(right.id) || JSON.stringify(left).localeCompare(JSON.stringify(right)));
+    for (const item of sorted) if (!unique.has(item.id)) unique.set(item.id, item);
     return [...unique.values()];
   }
 

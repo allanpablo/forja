@@ -125,6 +125,31 @@ process followed?", the answer is a file, not a promise.
   recommended agents, similar past incidents — before you start. Every score is information for a
   human/policy rule to consult, never an autonomous decision on its own.
 
+## What's new in 5.3.0
+
+- **Read-only supervision dashboard:** overview, acceptance-criteria traceability, observed costs,
+  gates and operations share the server's capability registry. The optional dashboard runs from
+  this checkout and requires an access token; see the [demo guide](docs/produto/roteiro-demo.md).
+  Installing the npm package remains a CLI-first workflow.
+- **Context-backed planning and linked execution:** server composition connects tasks, handoffs,
+  memory and budgets to persisted, reviewable proposals. Plan review does not authorize execution;
+  completion requires independent checks. The default server remains read-only: writable planning,
+  trusted review and validation require explicit host configuration.
+- **Authorization belongs to the host:** registered capability categories determine policy, not
+  request-supplied categories. Custom registrations can set `CapabilityRegistration.categories`;
+  otherwise classification uses `definition.permissions`. Preserve custom categories in the host
+  registration rather than passing them only with execution requests.
+- **Paused sprints reject new execute/resume requests** for linked runs, while cancellation and
+  terminal reconciliation remain available. This does not interrupt an in-flight handler or make
+  concurrent sprint changes atomic with dispatch.
+- **Smaller context and measurable quality:** FTS5 snippets, incremental memory indexing, generated
+  command documentation and a versioned coverage floor. Upgrading from 5.1.0 also includes session
+  checkpoints, acceptance-criteria tracing and agent evaluations documented in the changelog.
+
+Windows still has open agent-runtime, worktree simulation and `spec:trace` journey limitations;
+see the [quality-gates inventory](specs/v6-quality-gates/spec.md). Full Windows portability is not
+claimed. Details and upgrade notes: [CHANGELOG](CHANGELOG.md).
+
 ## ⚡ Quick start
 
 ```bash

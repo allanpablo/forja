@@ -92,6 +92,31 @@ E cada comando acima ficou gravado em `.context/forja-runs.jsonl` — quando a g
 - **3 capacidades integradas** (ADR-0016): **codegraph** (análise de código via MCP), **harness** (desenho de times de agentes), **ai-engineering** (base de conhecimento).
 - **Engineering Control Plane** (v3.0, ADR-0078) — o Engineering Graph vira ADRs/SPECs em nós de primeira classe consultáveis; a Architecture Constitution checa o código real contra decisões já registradas; o Change Risk Engine pontua uma mudança 0-100 com fatores nomeados e evidenciados; `forja simulate` testa um ref num worktree isolado e nunca promove sozinho. Uma façade só, `forja engineer "<objetivo>"`, compõe tudo isso — contexto, ADRs relevantes, checagem de arquitetura, risco, agentes recomendados, incidentes parecidos — antes de você começar. Todo score é informação pra um humano/regra de política consultar, nunca uma decisão autônoma por si só.
 
+## Novidades da 5.3.0
+
+- **Painel de supervisão somente leitura:** visão, rastreabilidade de critérios, custos observados,
+  gates e operação usam o registro de capacidades do servidor. O dashboard opcional roda pelo
+  checkout e exige token de acesso; veja o [roteiro de demonstração](docs/produto/roteiro-demo.md).
+  A instalação do pacote npm continua CLI-first.
+- **Planejamento com contexto e execução vinculada:** a composição do servidor conecta tarefas,
+  handoffs, memória e orçamento a propostas persistidas e revisáveis. Revisar um plano não autoriza
+  execução; concluir exige checks independentes. O servidor padrão continua somente leitura:
+  planejamento com escrita, revisão confiável e validação exigem configuração explícita do host.
+- **A autorização pertence ao host:** as categorias registradas da capacidade determinam a
+  política, não as categorias enviadas na requisição. Registros próprios podem declarar
+  `CapabilityRegistration.categories`; na ausência, a classificação usa `definition.permissions`.
+  Preserve categorias próprias no registro do host, em vez de enviá-las só nos pedidos de execução.
+- **Sprint pausada recusa novos pedidos de execução e retomada** de runs vinculados, preservando
+  cancelamento e reconciliação terminal. Isso não interrompe um handler em andamento nem torna
+  atômicas as mudanças concorrentes na sprint e o disparo de execução.
+- **Contexto menor e qualidade mensurável:** trechos FTS5, indexação incremental de memória,
+  documentação de comandos gerada e piso de cobertura versionado. Quem atualiza da 5.1.0 também
+  recebe checkpoints de sessão, rastreabilidade de critérios e avaliação de agentes descritos no changelog.
+
+O Windows ainda tem limitações abertas no runtime de agentes, na simulação por worktree e na
+jornada `spec:trace`; veja o [inventário de qualidade](specs/v6-quality-gates/spec.md). Não há
+promessa de portabilidade completa. Detalhes e notas de atualização: [CHANGELOG](CHANGELOG.md).
+
 ## ⚡ Quick start
 
 ```bash

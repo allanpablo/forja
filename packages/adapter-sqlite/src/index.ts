@@ -5,12 +5,14 @@ import type { ProvenanceRecord } from '../../engineering/provenance/src/index.ts
 import type { ApprovalStore } from '../../policy/src/index.ts';
 import type { CheckpointStore, RuntimePersistence, RuntimePlanStep } from '../../runtime/src/index.ts';
 import type { McpAuditEvent, McpAuditSink } from '../../mcp/src/index.ts';
-import type { OrchestrationStore } from '../../orchestration/src/index.ts';
+import { assertExecutionTransition, type ExecutionTransition, type OrchestrationStore } from '../../orchestration/src/index.ts';
 import type { SandboxStore } from '../../sandbox/src/index.ts';
 import type { ObservationStore } from '../../observability/src/index.ts';
 import type { GraphStore } from '../../graph/src/index.ts';
 import type { Evidence, GraphEdge, GraphNode } from '../../contracts/src/index.ts';
 import type { ContextCache } from '../../context/src/index.ts';
+import type { PlanningProposal, PlanningSnapshot } from '../../contracts/src/index.ts';
+import { assertPlanningCreate, assertPlanningReview, clonePlanningValue, type PlanningStore } from '../../planner/src/proposal-store.ts';
 
 export interface SqliteStatement {
   run(...parameters: readonly unknown[]): { readonly changes?: number; readonly lastInsertRowid?: number | bigint };
@@ -117,7 +119,24 @@ export class SqliteJsonRepository {
 
 export class SqliteOrchestrationStore implements OrchestrationStore {
   private readonly repository: SqliteJsonRepository;
-  constructor(db: SqliteConnection) { this.repository = new SqliteJsonRepository(db); }
+  private readonly db: SqliteConnection;
+  constructor(db: SqliteConnection) { this.db = db; this.repository = new SqliteJsonRepository(db); }
+
+  transitionExecution(input: ExecutionTransition): void {
+    // A savepoint also works inside an existing transaction. No handlers or awaits here.
+    this.db.exec('SAVEPOINT forja_execution_transition');
+    try {
+      assertExecutionTransition(input, this.getTask(input.beforeTask.id), input.beforeHandoff === undefined ? undefined : this.getHandoff(input.beforeHandoff.id));
+      this.saveTask(input.task);
+      if (input.handoff !== undefined) this.saveHandoff(input.handoff);
+      this.db.exec('RELEASE SAVEPOINT forja_execution_transition');
+    } catch (error) {
+      this.db.exec('ROLLBACK TO SAVEPOINT forja_execution_transition');
+      this.db.exec('RELEASE SAVEPOINT forja_execution_transition');
+      throw error;
+    }
+  }
+
   saveSprint(value: Sprint): void { this.repository.put('sprint', value.id, value, value.updatedAt); }
   getSprint(id: EntityId): Sprint | undefined { return this.repository.get<Sprint>('sprint', id); }
   listSprints(): readonly Sprint[] { return this.repository.list<Sprint>('sprint'); }
@@ -127,6 +146,51 @@ export class SqliteOrchestrationStore implements OrchestrationStore {
   saveHandoff(value: Handoff): void { this.repository.put('handoff', value.id, value, value.updatedAt); }
   getHandoff(id: EntityId): Handoff | undefined { return this.repository.get<Handoff>('handoff', id); }
   listHandoffs(): readonly Handoff[] { return this.repository.list<Handoff>('handoff'); }
+}
+
+export class SqlitePlanningStore implements PlanningStore {
+  private readonly db: SqliteConnection;
+  private readonly repository: SqliteJsonRepository;
+  private readonly reader: SqliteOrchestrationStore;
+  constructor(db: SqliteConnection) {
+    this.db = db;
+    this.repository = new SqliteJsonRepository(db);
+    this.reader = new SqliteOrchestrationStore(db);
+  }
+
+  create(proposal: PlanningProposal): void {
+    const next = clonePlanningValue(proposal);
+    this.transaction(() => {
+      assertPlanningCreate(next, this.get(next.id), this.reader);
+      this.repository.put('planning_proposal', next.id, next, next.updatedAt);
+    });
+  }
+
+  get(id: EntityId): PlanningProposal | undefined { return this.repository.get<PlanningProposal>('planning_proposal', id); }
+
+  review(before: PlanningProposal, after: PlanningProposal, expectedSnapshot?: PlanningSnapshot): void {
+    const previous = clonePlanningValue(before);
+    const next = clonePlanningValue(after);
+    const expected = clonePlanningValue(expectedSnapshot);
+    this.transaction(() => {
+      if (assertPlanningReview(previous, next, this.get(previous.id), expected, this.reader)) {
+        this.repository.put('planning_proposal', next.id, next, next.updatedAt);
+      }
+    });
+  }
+
+  private transaction(write: () => void): void {
+    // Snapshot reads, CAS and proposal write share the same short, synchronous transaction.
+    this.db.exec('SAVEPOINT forja_planning_proposal');
+    try {
+      write();
+      this.db.exec('RELEASE SAVEPOINT forja_planning_proposal');
+    } catch (error) {
+      this.db.exec('ROLLBACK TO SAVEPOINT forja_planning_proposal');
+      this.db.exec('RELEASE SAVEPOINT forja_planning_proposal');
+      throw error;
+    }
+  }
 }
 
 export class SqliteSandboxStore implements SandboxStore {

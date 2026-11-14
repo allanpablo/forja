@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { CapabilityRegistry, CapabilityRegistryError } from '../packages/core/src/index.ts';
+import { CapabilityExecutionFailure, CapabilityRegistry, CapabilityRegistryError } from '../packages/core/src/index.ts';
 
 const now = '2026-07-31T00:00:00.000Z';
 const definition = {
@@ -62,12 +62,57 @@ test('registry: policy bloqueia sem chamar handler', async () => {
   assert.equal(called, false);
 });
 
+for (const categories of [undefined, ['write', 'database'], []]) {
+  test(`registry: categorias confiáveis ${JSON.stringify(categories)} não podem ser sobrescritas pelo cliente`, async () => {
+    const value = new CapabilityRegistry();
+    const permissions = ['read'];
+    const declared = categories === undefined ? undefined : [...categories];
+    const expected = categories ?? permissions;
+    value.register({ definition: { ...definition, permissions }, categories: declared, validateInput: (input) => input, validateOutput: (output) => output, handler: () => ({ capabilityId: definition.id, payload: '', evidence: [] }) });
+    const snapshot = [...expected];
+    permissions.push('execution');
+    declared?.push('read');
+    let authorizedCategories;
+    const result = await value.execute({ input: { capabilityId: definition.id, payload: {} }, agent, categories: ['read', 'write', 'untrusted'], policy: { authorize(request) { authorizedCategories = request.categories; return { effect: 'ALLOW', reason: 'test', policyId: 'test' }; } } });
+    assert.equal(result.status, 'succeeded');
+    assert.deepEqual(authorizedCategories, snapshot);
+  });
+}
+
 test('registry: executa handler permitido e normaliza saída', async () => {
   const result = await registry().execute({ input: { capabilityId: 'workspace:status', payload: 'src' }, agent, policy });
   assert.equal(result.status, 'succeeded');
   assert.equal(result.output.payload, 'read:src');
   assert.equal(result.evidence.length, 0);
   assert.match(result.runId, /^[0-9a-f-]{36}$/);
+});
+
+for (const [name, output] of [
+  ['payload inválido', { capabilityId: definition.id, payload: 42, evidence: [] }],
+  ['capability divergente', { capabilityId: 'other.capability', payload: 'diagnostic', evidence: [] }],
+]) {
+  test(`registry: não preserva saída de falha com ${name}`, async () => {
+    const value = new CapabilityRegistry();
+    value.register({ definition, validateInput: (input) => input, validateOutput: (payload) => { if (typeof payload !== 'string') throw new TypeError('Invalid output'); return payload; }, handler() { throw new CapabilityExecutionFailure({ code: 'EXPECTED_FAILURE', message: 'failed', retryable: false }, output); } });
+    const result = await value.execute({ input: { capabilityId: definition.id, payload: {} }, agent, policy, operationId: 'operation' });
+    assert.equal(result.status, 'failed');
+    assert.equal(result.error.code, 'HANDLER_FAILED');
+    assert.equal(result.error.retryable, false);
+    assert.equal(result.operationId, 'operation');
+    assert.equal(result.output, undefined);
+    assert.deepEqual(result.evidence, []);
+  });
+}
+
+test('registry: falha tipada sem output preserva código e identidade', async () => {
+  const value = new CapabilityRegistry();
+  value.register({ definition, validateInput: (input) => input, validateOutput: (output) => output, handler() { throw new CapabilityExecutionFailure({ code: 'EXPECTED_FAILURE', message: 'failed', retryable: false }); } });
+  const result = await value.execute({ input: { capabilityId: definition.id, payload: {} }, agent, policy, operationId: 'operation' });
+  assert.equal(result.status, 'failed');
+  assert.equal(result.error.code, 'EXPECTED_FAILURE');
+  assert.equal(result.operationId, 'operation');
+  assert.equal(result.output, undefined);
+  assert.deepEqual(result.evidence, []);
 });
 
 test('registry: filtra descoberta por permissões declaradas do agente', () => {

@@ -34,7 +34,7 @@ const dbPath = path.join(root, 'runtime.db');
 try {
   const firstDatabase = new Database(dbPath);
   new SqliteMigrationRunner(firstDatabase).apply();
-  const firstControlPlane = makeControlPlane(firstDatabase, makeRegistry(), makePolicy(firstDatabase));
+  const firstControlPlane = await makeControlPlane(firstDatabase, makeRegistry(), makePolicy(firstDatabase));
   const budget = { inputTokens: 40, outputTokens: 20, totalTokens: 60, usedTokens: 0 };
   const started = await firstControlPlane.runtimeStart({ objective: 'restart persistence probe', agent, budget, steps: [{ capabilityId: definition.id, payload: {}, estimatedTokens: 10, categories: ['read'], environment: 'local', files: [], approval: { action: 'read.probe', justification: 'Prove approval persistence', impact: 'No files changed', expiresAt: '2099-01-01T00:00:00.000Z' } }] });
   const awaiting = await firstControlPlane.runtimeExecute(started.runId);
@@ -48,7 +48,7 @@ try {
   firstDatabase.close();
 
   const secondDatabase = new Database(dbPath);
-  const secondControlPlane = makeControlPlane(secondDatabase, makeRegistry(), makePolicy(secondDatabase));
+  const secondControlPlane = await makeControlPlane(secondDatabase, makeRegistry(), makePolicy(secondDatabase));
   const recovered = await secondControlPlane.runtimeGet(started.runId);
   const result = { ok: recovered.runId === started.runId && awaiting.state === 'awaiting_approval', state: recovered.state, approvals: (await secondControlPlane.approvalList()).length, context: new SqliteContextCache(secondDatabase).get('restart-context'), graphNodes: new GraphLoop(new SqliteGraphStore(secondDatabase)).query({ labelIncludes: 'restart persistence' }).length, events: (await new EventBus(new SqliteEventStore(secondDatabase)).list()).length, observations: (await secondControlPlane.observations()).length };
   secondDatabase.close();

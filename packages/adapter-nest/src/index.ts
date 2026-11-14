@@ -1,5 +1,6 @@
 import { timingSafeEqual } from 'node:crypto';
-import type { McpServer, McpToolResult } from '../../mcp/src/index.ts';
+import { PLANNING_PROPOSE_SCHEMA, PLANNING_REVIEW_SCHEMA, type McpServer, type McpToolResult } from '../../mcp/src/index.ts';
+import { PlanningError } from '../../planner/src/proposal-store.ts';
 import type { ControlPlanePort } from '../../observability/src/index.ts';
 
 export interface HttpRequest {
@@ -73,6 +74,7 @@ export const FORJA_NEST_MODULES: readonly NestModuleDefinition[] = [
   { name: 'WorkspaceModule', routes: ['/health', '/api/workspace/status'] },
   { name: 'CapabilityModule', routes: ['/api/capabilities', '/api/capabilities/:id/execute'] },
   { name: 'RuntimeModule', routes: ['/api/executions/:id'] },
+  { name: 'PlanningModule', routes: ['/api/plans', '/api/plans/:id', '/api/plans/:id/review'] },
   { name: 'GraphModule', routes: ['/api/graph/query', '/api/graph/impact'] },
   { name: 'ContextModule', routes: ['/api/context/build'] },
   { name: 'PolicyModule', routes: ['/api/policies'] },
@@ -85,6 +87,45 @@ export const FORJA_NEST_MODULES: readonly NestModuleDefinition[] = [
   { name: 'ControlPlaneModule', routes: ['/api/control-plane/metrics'] },
   { name: 'McpModule', routes: ['/mcp/tools', '/mcp/resources'] },
 ];
+
+export function planningOpenApiPaths(): OpenApiDocument['paths'] {
+  const string = { type: 'string' };
+  const strings = { type: 'array', items: string };
+  const timestamp = { type: 'string', format: 'date-time' };
+  const tokens = { type: 'integer', minimum: 0 };
+  const tokenBudget = PLANNING_PROPOSE_SCHEMA.properties.budget;
+  const knowledge = { type: 'string', enum: ['verified', 'inferred', 'hypothesis', 'contradicted', 'unknown'] };
+  const evidence = { type: 'object', required: ['id', 'source', 'locator', 'capturedAt', 'status'], properties: { id: string, source: string, locator: string, capturedAt: timestamp, status: knowledge, checksum: string } };
+  const evidenceItems = { type: 'array', items: evidence };
+  const contextItem = { type: 'object', required: ['id', 'source', 'locator', 'checksum', 'status', 'evidence'], properties: { id: string, source: { enum: ['memory', 'graph'] }, locator: string, content: string, checksum: string, status: knowledge, evidence: evidenceItems } };
+  const task = { type: 'object', required: ['id', 'sprintId', 'objective', 'acceptanceCriteria', 'allowedFiles', 'dependencyIds', 'budget', 'status'], properties: { id: string, sprintId: string, objective: string, acceptanceCriteria: strings, allowedFiles: strings, dependencyIds: strings, evidenceIds: strings, budget: tokenBudget, status: string } };
+  const step = { type: 'object', required: ['id', 'objective', 'acceptanceCriteria', 'allowedFiles', 'dependencyIds', 'evidenceIds', 'budget', 'status'], properties: { id: string, objective: string, acceptanceCriteria: strings, allowedFiles: strings, dependencyIds: strings, externalDependencyIds: strings, contextItemId: string, rationale: string, constraints: strings, evidenceIds: strings, risk: string, budget: tokenBudget, status: string } };
+  const proposal = {
+    type: 'object', required: ['id', 'version', 'digest', 'status', 'snapshot', 'budget', 'blockers'],
+    properties: {
+      id: string, version: { const: 1 }, digest: string, status: { type: 'string', enum: ['draft', 'blocked', 'approved', 'rejected'] },
+      schemaVersion: string, createdAt: timestamp, updatedAt: timestamp, correlationId: string, declaredEvidenceIds: strings,
+      executor: { type: 'object', required: ['id', 'name', 'role', 'autonomy'], properties: { id: string, name: string, role: string, autonomy: string } },
+      snapshot: { type: 'object', required: ['task', 'sprint', 'dependencies'], properties: {
+        task, dependencies: { type: 'array', items: task },
+        sprint: { type: 'object', properties: { id: string, objective: string, status: string, budget: tokenBudget, includedScope: strings, excludedScope: strings, completionCriteria: strings, taskIds: strings } },
+        handoff: { type: 'object', properties: { id: string, taskId: string, from: string, to: string, nextAgent: string, intent: string, objective: string, completedWork: strings, decisions: strings, constraints: strings, pending: strings, acceptance: strings, blockers: strings, evidenceIds: strings, status: string } },
+      } },
+      plan: { type: 'object', properties: { id: string, objective: string, steps: { type: 'array', items: step }, budget: tokenBudget, constraints: strings, decisions: strings, evidenceIds: strings } },
+      context: { type: 'object', properties: { id: string, checksum: string, references: evidenceItems, content: strings, items: { type: 'array', items: contextItem }, budget: tokenBudget } },
+      budget: { type: 'object', description: 'Conservative token estimates, not billed usage', required: ['limit', 'briefingTokens', 'contextTokens', 'allocation'], properties: { limit: tokenBudget, briefingTokens: tokens, contextTokens: tokens, allocation: tokenBudget } },
+      blockers: { type: 'array', items: { type: 'object', required: ['code', 'message'], properties: { code: string, message: string } } },
+      review: { type: 'object', required: ['decision', 'reviewerId', 'reason', 'digest', 'decidedAt'], properties: { decision: { enum: ['approved', 'rejected'] }, reviewerId: string, reason: string, digest: string, decidedAt: timestamp, sourcesVerifiedAt: timestamp } },
+    },
+  };
+  const responses = { '200': { description: 'Persisted planning proposal; never an execution', content: { 'application/json': { schema: proposal } } }, ...Object.fromEntries([400, 401, 403, 404, 409, 500, 503].map((status) => [String(status), { description: 'Planning error', content: { 'application/json': { schema: { type: 'object', required: ['error'], properties: { error: { type: 'object', required: ['code', 'message'], properties: { code: { type: 'string' }, message: { type: 'string' } } } } } } } }])) };
+  const parameters = [{ name: 'id', in: 'path', required: true, schema: { type: 'string', minLength: 1 } }];
+  return {
+    '/api/plans': { post: { operationId: 'planPropose', requestBody: { required: true, content: { 'application/json': { schema: PLANNING_PROPOSE_SCHEMA } } }, responses } },
+    '/api/plans/{id}': { get: { operationId: 'planGet', parameters, responses } },
+    '/api/plans/{id}/review': { post: { operationId: 'planReview', parameters, requestBody: { required: true, content: { 'application/json': { schema: PLANNING_REVIEW_SCHEMA } } }, responses } },
+  };
+}
 
 export class NestAdapterError extends Error {
   constructor(message: string) { super(message); this.name = 'NestAdapterError'; }
@@ -105,6 +146,10 @@ export class ForjaNestAdapter {
       const result = await this.dispatch(request);
       return this.result(correlationId, result);
     } catch (error: unknown) {
+      if (request.path === '/api/plans' || request.path.startsWith('/api/plans/')) {
+        const status = error instanceof PlanningError ? ({ PLANNING_INVALID_INPUT: 400, PLANNING_NOT_FOUND: 404, PLANNING_DENIED: 403, PLANNING_CONFLICT: 409, PLANNING_STALE: 409, PLANNING_INVALID_SCOPE: 409, PLANNING_INVALID_REVIEW: 409, PLANNING_REVIEWER_UNAVAILABLE: 503 } as Readonly<Record<string, number>>)[error.code] ?? 500 : 500;
+        return { status, headers: { 'content-type': 'application/json; charset=utf-8', 'x-correlation-id': correlationId }, body: { error: { code: status === 500 ? 'PLANNING_UNAVAILABLE' : (error as PlanningError).code, message: status === 500 ? 'Planning service unavailable' : (error as PlanningError).message } }, correlationId };
+      }
       return this.error(correlationId, error instanceof Error ? error.message : 'Unknown HTTP adapter error');
     }
   }
@@ -129,11 +174,20 @@ export class ForjaNestAdapter {
 
   modules(): readonly NestModuleDefinition[] { return FORJA_NEST_MODULES; }
   openApi(): OpenApiDocument {
-    const paths = Object.fromEntries(FORJA_NEST_MODULES.flatMap((module) => module.routes.map((route) => [route, { description: `${module.name} route` }]))) as Readonly<Record<string, Readonly<Record<string, unknown>>>>;
+    const paths = { ...Object.fromEntries(FORJA_NEST_MODULES.filter((module) => module.name !== 'PlanningModule').flatMap((module) => module.routes.map((route) => [route, { description: `${module.name} route` }]))), ...planningOpenApiPaths() };
     return { openapi: '3.1.0', info: { title: 'ForjaJS 2.0 API', version: '2.0.0' }, paths };
   }
 
   private async dispatch(request: HttpRequest): Promise<unknown> {
+    if (request.method === 'POST' && request.path === '/api/plans') {
+      if (typeof request.body !== 'object' || request.body === null || Array.isArray(request.body)) throw new PlanningError('PLANNING_INVALID_INPUT', 'Planning body must be an object');
+      const body = request.body as Record<string, unknown>;
+      return this.requireControlPlane().planPropose?.({ ...body, correlationId: request.correlationId ?? request.headers['x-correlation-id'] ?? body.correlationId }) ?? this.missing('planPropose');
+    }
+    const planRoute = /^\/api\/plans\/([^/]+)(\/review)?$/.exec(request.path);
+    if (planRoute !== null && request.method === 'GET' && planRoute[2] === undefined) return this.requireControlPlane().planGet?.(planRoute[1]) ?? this.missing('planGet');
+    if (planRoute !== null && request.method === 'POST' && planRoute[2] !== undefined) return this.requireControlPlane().planReview?.(planRoute[1], request.body) ?? this.missing('planReview');
+    if (request.path === '/api/plans' || request.path.startsWith('/api/plans/')) throw new PlanningError('PLANNING_NOT_FOUND', 'Planning route not found');
     if (request.method === 'GET' && request.path === '/health') return { status: 'ok', service: 'forja-server', offline: true };
     if (request.method === 'GET' && request.path === '/api/workspace/status') return this.call('forja_workspace_status', {});
     if (request.method === 'GET' && request.path === '/api/capabilities') return this.call('forja_capabilities_list', {});

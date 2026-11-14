@@ -268,18 +268,26 @@ export class GraphLoop {
 
   contextRecords(objective: string): readonly GraphContextRecord[] {
     const terms = objective.toLowerCase().split(/[^a-z0-9_./-]+/).filter((term) => term.length > 1);
-    const records: Array<GraphContextRecord | undefined> = this.activeEdges()
+    const at = new Date().toISOString() as ISO8601;
+    const records: Array<GraphContextRecord | undefined> = this.activeEdges(at)
       .map((edge) => {
         const from = this.store.getNode(edge.from);
         const to = this.store.getNode(edge.to);
         if (from === undefined || to === undefined) return undefined;
-        const content = `${from.label} ${edge.type} ${to.label}`;
-        const haystack = content.toLowerCase();
+        if ([from, to].some((node) => node.status === 'contradicted' || !this.active(node.validFrom, node.validTo, at))) return undefined;
+        const relation = `${from.label} ${edge.type} ${to.label}`;
+        const haystack = relation.toLowerCase();
         const matches = terms.filter((term) => haystack.includes(term)).length;
         if (matches === 0) return undefined;
         const evidence = edge.evidenceIds.map((id) => this.store.getEvidence(id)).filter((item): item is Evidence => item !== undefined);
-        if (evidence.length === 0) return undefined;
-        return { id: edge.id, locator: `graph:${edge.id}`, content, relevance: matches / Math.max(1, terms.length), status: edge.status, evidence: evidence as readonly Evidence[], checksum: createHash('sha256').update(`${edge.id}:${edge.updatedAt}:${content}`).digest('hex') };
+        if (evidence.length !== edge.evidenceIds.length || evidence.length === 0 || evidence.some((item) => item.status === 'contradicted')) return undefined;
+        evidence.sort((left, right) => left.id.localeCompare(right.id));
+        const content = from.type === 'Execution' || to.type === 'Execution'
+          ? `${relation} [Execution memory: handler attempt/result, not independent acceptance of the task.]`
+          : relation;
+        const statuses = [edge.status, from.status, to.status, ...evidence.map((item) => item.status)];
+        const status = (['unknown', 'hypothesis', 'inferred'] as const).find((value) => statuses.includes(value)) ?? 'verified';
+        return { id: edge.id, locator: `graph:${edge.id}`, content, relevance: matches / Math.max(1, terms.length), status, evidence, checksum: createHash('sha256').update(`${edge.id}:${edge.updatedAt}:${content}`).digest('hex') };
       });
     return records
       .filter((record): record is GraphContextRecord => record !== undefined)
