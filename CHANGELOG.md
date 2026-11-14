@@ -13,6 +13,52 @@ GitHub reusa esse bloco. O README também é reconciliado na mesma entrega — v
 
 ---
 
+## [5.3.0] — 2026-11-14 — Supervisão, execução vinculada e qualidade verificável
+
+### O que melhorou
+
+- **Supervisão num painel de leitura.** Cinco abas reúnem próxima ação, rastreabilidade dos
+  critérios, custos observados, gates e operação. O painel usa as capacidades de leitura
+  declaradas pelo servidor, exige autenticação e não inventa custo quando não há uso medido.
+- **Planejamento conectado ao contexto real.** A composição do servidor pode produzir propostas
+  revisáveis a partir de tarefas, handoffs e memória, com orçamento e proveniência. A revisão
+  fica persistida e verifica mudanças nas fontes; aprovar um plano não dispara execução nem
+  substitui a autorização das capacidades.
+- **Tarefas acompanham a execução supervisionada.** Runtime, tarefa e handoff mantêm vínculos e
+  recuperação persistente. Conclusão exige validação independente; falha ou ausência de checks
+  não libera dependências. Uma sprint pausada impede novos pedidos de execução ou retomada,
+  sem impedir cancelamento nem reconciliação de resultados terminais.
+- **Contexto mais enxuto e qualidade mensurável.** Trechos FTS5, sincronização incremental e
+  orçamento no contexto de código reduzem conteúdo desnecessário. A documentação de comandos
+  é derivada do registro; o diagnóstico detecta divergências e a cobertura tem piso versionado.
+- **Quem vem da 5.1.0 também recebe as melhorias descritas na seção 5.2.0:** checkpoints de
+  sessão, critérios de aceite ligados a testes, avaliação de agentes e isolamento da auditoria
+  durante a suíte de testes.
+
+### Segurança e correções
+
+- A autorização de capacidades usa categorias registradas pelo host, não a classificação
+  fornecida pelo cliente. A correção protege o caminho de execução supervisionada contra
+  autorização incorreta de operações de escrita.
+- Aprovações ficam vinculadas à operação, entrada validada e escopo. Mudanças incompatíveis
+  com uma aprovação anterior exigem nova aprovação; evidências contraditórias não sustentam aceite.
+- Falhas do CLI preservam o diagnóstico e não são convertidas em sucesso do runtime.
+- Caminhos e leitura de documentos toleram diferenças de separadores e CRLF; a saída JSON
+  extensa não é truncada ao encerrar o processo.
+
+### Uso e limites conhecidos
+
+- Integrações que registram capacidades podem declarar `CapabilityRegistration.categories`;
+  quando ausente, a classificação usa `definition.permissions`. `categories` enviado numa
+  requisição não altera a autorização. Preserve as categorias específicas no registro do host.
+- O servidor padrão continua somente leitura. Planejamento com escrita, revisão e conclusão
+  validada exigem política, revisor confiável e validator configurados na composição do host.
+- O dashboard é opcional e operado a partir do checkout; a instalação npm continua CLI-first.
+- Pausar uma sprint não interrompe um handler já em andamento nem torna atômicas pausas
+  concorrentes com um pedido de execução.
+- O inventário Windows de runtime de agentes, `simulate` e jornada `spec:trace` permanece
+  aberto em `specs/v6-quality-gates/spec.md`; esta versão não declara portabilidade completa.
+
 ## [5.2.0] — 2026-10-22 — Memória de sessão, critérios ligados a testes e avaliação de agentes
 
 ### O que melhorou
