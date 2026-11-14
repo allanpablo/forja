@@ -12,6 +12,7 @@ import {
 } from '../../../packages/contracts/src/index.ts';
 import {
   CapabilityRegistry,
+  CapabilityExecutionFailure,
   type CapabilityRegistration,
 } from '../../../packages/core/src/index.ts';
 import { PolicyEngine, type PolicyCategory } from '../../../packages/policy/src/index.ts';
@@ -399,7 +400,7 @@ export async function executeCliCapability(
 ): Promise<ExecutionResult> {
   const definition = runtime.registry.describe(capabilityId);
   const categories = categoriesFor(definition.id);
-  const result = await runtime.registry.execute({
+  return runtime.registry.execute({
     input: { capabilityId, payload },
     agent: runtime.agent,
     policy: runtime.policy,
@@ -408,22 +409,6 @@ export async function executeCliCapability(
     categories,
     files: [],
   });
-  return normalizeCliResult(result);
-}
-
-export function normalizeCliResult(result: ExecutionResult): ExecutionResult {
-  if (result.status !== 'succeeded' || result.output === undefined || !isRecord(result.output.payload)) return result;
-  const exitCode = result.output.payload.exitCode;
-  if (typeof exitCode !== 'number' || exitCode === 0) return result;
-  return {
-    ...result,
-    status: 'failed',
-    error: {
-      code: 'LEGACY_COMMAND_FAILED',
-      message: `Legacy command exited with status ${exitCode}`,
-      retryable: false,
-    },
-  };
 }
 
 function registerCliCapability(
@@ -465,11 +450,15 @@ function registerCliCapability(
         capturedAt,
         status: result.exitCode === 0 ? 'verified' : 'contradicted',
       };
-      return {
+      const output = {
         capabilityId: spec.id,
         payload: { command: spec.command, args, ...result },
         evidence: [evidence],
       };
+      if (result.exitCode !== 0) {
+        throw new CapabilityExecutionFailure({ code: 'LEGACY_COMMAND_FAILED', message: `Legacy command exited with status ${result.exitCode}`, retryable: false }, output);
+      }
+      return output;
     },
   };
   registry.register(registration);

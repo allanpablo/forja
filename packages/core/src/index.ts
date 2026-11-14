@@ -34,6 +34,7 @@ export interface CapabilityAuthorizationRequest {
   readonly input: CapabilityInput;
   readonly agent: AgentIdentity;
   readonly correlationId?: string;
+  readonly operationId?: string;
   readonly projectId?: string;
   readonly environment: string;
   readonly categories: readonly string[];
@@ -64,6 +65,7 @@ export interface CapabilityExecutionRequest {
   readonly agent: AgentIdentity;
   readonly policy: CapabilityPolicy;
   readonly correlationId?: string;
+  readonly operationId?: string;
   readonly projectId?: string;
   readonly environment?: string;
   readonly categories?: readonly string[];
@@ -86,6 +88,18 @@ export class CapabilityRegistryError extends Error {
   constructor(message: string) {
     super(message);
     this.name = 'CapabilityRegistryError';
+  }
+}
+
+export class CapabilityExecutionFailure extends Error {
+  readonly executionError: ExecutionError;
+  readonly output?: CapabilityOutput;
+
+  constructor(error: ExecutionError, output?: CapabilityOutput) {
+    super(error.message);
+    this.name = 'CapabilityExecutionFailure';
+    this.executionError = error;
+    this.output = output;
   }
 }
 
@@ -135,7 +149,7 @@ export class CapabilityRegistry {
 
   async execute(request: CapabilityExecutionRequest): Promise<ExecutionResult> {
     const runId = this.createRunId();
-    const timestamps = this.auditFields(request.correlationId ?? runId);
+    const timestamps = { ...this.auditFields(request.correlationId ?? runId), operationId: request.operationId ?? request.correlationId ?? runId };
     const resolved = this.tryResolve(request.input.capabilityId);
     if (resolved.error !== undefined) {
       return this.failure(runId, timestamps, resolved.error);
@@ -153,9 +167,10 @@ export class CapabilityRegistry {
     try {
       decision = request.policy.authorize({
         definition: registration.definition,
-        input: request.input,
+        input: { capabilityId: registration.definition.id, payload: input },
         agent: request.agent,
         correlationId: request.correlationId ?? runId,
+        operationId: timestamps.operationId,
         projectId: request.projectId,
         environment: request.environment ?? 'local',
         categories: request.categories ?? [],
@@ -195,6 +210,17 @@ export class CapabilityRegistry {
       if (output.capabilityId !== registration.definition.id) throw new Error('Handler output capabilityId does not match definition');
       return { ...timestamps, runId, status: 'succeeded', output, evidence: output.evidence };
     } catch (error: unknown) {
+      if (error instanceof CapabilityExecutionFailure) {
+        if (error.output !== undefined) {
+          try {
+            registration.validateOutput(error.output.payload);
+            if (error.output.capabilityId !== registration.definition.id) throw new Error('Handler output capabilityId does not match definition');
+          } catch (invalidOutput: unknown) {
+            return this.failure(runId, timestamps, this.toExecutionError('HANDLER_FAILED', invalidOutput, false));
+          }
+        }
+        return { ...timestamps, runId, status: 'failed', error: error.executionError, output: error.output, evidence: error.output?.evidence ?? [] };
+      }
       return this.failure(runId, timestamps, this.toExecutionError('HANDLER_FAILED', error, true));
     }
   }
