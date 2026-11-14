@@ -462,6 +462,21 @@ output, code, and ADRs are readable regardless of language.
 The throughline: **turn knowledge that lives as convention into an executable invariant.** Each item
 below either closes a framework frontier with a gate, or carries that pattern into generated projects.
 
+**Shipped** (v5.3.0 — Supervised execution)
+
+- [x] **Read-only supervision dashboard** — overview, acceptance-criteria traceability, observed
+  costs, gates and operations share the server's capability registry; optional, token-gated,
+  runs from the checkout (CLI-first install unchanged).
+- [x] **Context-backed planning & linked execution** — tasks, handoffs, memory and budgets connect
+  to persisted, reviewable proposals; plan review does not authorize execution; completion requires
+  independent checks. Default server remains read-only.
+- [x] **Host-owned authorization** — registered capability categories determine policy, not
+  request-supplied categories; custom registrations declare `CapabilityRegistration.categories`.
+- [x] **Paused-sprint guards** — linked runs reject execute/resume while the sprint is paused;
+  cancellation and terminal reconciliation remain available.
+- [x] **Compact context & measurable quality** — FTS5 snippets, incremental memory indexing,
+  generated command documentation and a versioned coverage floor.
+
 **Shipped** (v3.0.0 — Engineering Control Plane, ADR-0078)
 
 - [x] **Engineering Graph** — ADRs/SPECs as first-class, queryable nodes (`adr:list/show/impact/graph`),

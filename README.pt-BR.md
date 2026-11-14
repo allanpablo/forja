@@ -381,6 +381,21 @@ O fio condutor: **converter conhecimento que vive em convenção em invariante e
 item abaixo ou fecha uma fronteira do framework por um gate, ou leva esse padrão para os projetos
 gerados.
 
+**Entregue** (v5.3.0 — Execução supervisionada)
+
+- [x] **Painel de supervisão somente leitura** — visão, rastreabilidade de critérios, custos
+  observados, gates e operação usam o registro de capacidades do servidor; opcional, com token,
+  roda pelo checkout (instalação CLI-first inalterada).
+- [x] **Planejamento com contexto e execução vinculada** — tarefas, handoffs, memória e orçamento
+  conectam-se a propostas persistidas e revisáveis; revisar plano não autoriza execução; concluir
+  exige checks independentes. Servidor padrão continua somente leitura.
+- [x] **Autorização pertence ao host** — categorias registradas da capacidade determinam a política,
+  não as categorias da requisição; registros próprios declaram `CapabilityRegistration.categories`.
+- [x] **Guardas de sprint pausada** — runs vinculados recusam execute/resume com a sprint pausada;
+  cancelamento e reconciliação terminal permanecem disponíveis.
+- [x] **Contexto compacto e qualidade mensurável** — trechos FTS5, indexação incremental de memória,
+  documentação de comandos gerada e piso de cobertura versionado.
+
 **Entregue** (v3.0.0 — Engineering Control Plane, ADR-0078)
 
 - [x] **Engineering Graph** — ADRs/SPECs como nós de primeira classe consultáveis
