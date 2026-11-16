@@ -146,9 +146,9 @@ process followed?", the answer is a file, not a promise.
   command documentation and a versioned coverage floor. Upgrading from 5.1.0 also includes session
   checkpoints, acceptance-criteria tracing and agent evaluations documented in the changelog.
 
-Windows still has open agent-runtime, worktree simulation and `spec:trace` journey limitations;
-see the [quality-gates inventory](specs/v6-quality-gates/spec.md). Full Windows portability is not
-claimed. Details and upgrade notes: [CHANGELOG](CHANGELOG.md).
+Windows is fully supported since 5.3.1: `llm:run`, `llm:doctor`, `eval:agents`, `simulate` and
+`spec:trace` work without WSL. The CI matrix blocks on all three OSes.
+Details and upgrade notes: [CHANGELOG](CHANGELOG.md).
 
 ## ⚡ Quick start
 

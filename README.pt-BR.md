@@ -113,9 +113,9 @@ E cada comando acima ficou gravado em `.context/forja-runs.jsonl` — quando a g
   documentação de comandos gerada e piso de cobertura versionado. Quem atualiza da 5.1.0 também
   recebe checkpoints de sessão, rastreabilidade de critérios e avaliação de agentes descritos no changelog.
 
-O Windows ainda tem limitações abertas no runtime de agentes, na simulação por worktree e na
-jornada `spec:trace`; veja o [inventário de qualidade](specs/v6-quality-gates/spec.md). Não há
-promessa de portabilidade completa. Detalhes e notas de atualização: [CHANGELOG](CHANGELOG.md).
+O Windows é suportado desde a 5.3.1: `llm:run`, `llm:doctor`, `eval:agents`, `simulate` e
+`spec:trace` funcionam sem WSL. O CI bloqueia nos três SOs.
+Detalhes e notas de atualização: [CHANGELOG](CHANGELOG.md).
 
 ## ⚡ Quick start
 

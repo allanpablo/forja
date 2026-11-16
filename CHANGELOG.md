@@ -13,6 +13,38 @@ GitHub reusa esse bloco. O README também é reconciliado na mesma entrega — v
 
 ---
 
+## [5.3.1] — 2026-11-16 — Windows funcional
+
+### O que melhorou
+
+- **`llm:run`, `llm:doctor` e `eval:agents` funcionam no Windows.** O Forja encontra e executa
+  os CLIs de agente instalados pelo npm (`codex.cmd`, `claude.cmd`, `gemini.cmd`) sem WSL.
+  O timeout derruba a árvore inteira do processo — um agente estourado para de queimar token.
+- **`forja simulate` funciona no Windows.** O worktree Git é criado, o comando roda e a
+  limpeza fecha sem EPERM. O npm é resolvido pelo shim `.cmd` correto.
+- **`spec:trace` conta critérios em checkouts CRLF.** Projetos clonados no Windows não
+  reportam mais 0/0 critérios por causa do separador de linha.
+- **O CI bloqueia em toda célula.** Windows deixou de ser tolerância informacional e agora
+  segura o merge como ubuntu e macOS. Regressões de plataforma não chegam ao release.
+
+### Corrigido
+
+- Spawn de `.cmd`/`.bat` sem `shell: true` (CVE-2024-27980) resolvido por launcher próprio
+  com quoting de cmd.exe testado contra injeção de argumentos (#86).
+- `resolveCommand` prefere extensão executável (`.cmd`/`.exe`) sobre scripts sem extensão
+  que o `where` lista primeiro (#86).
+- `sandboxEnvironment` inclui `APPDATA`, `LOCALAPPDATA`, `COMSPEC`, `PATHEXT` — npm e git
+  funcionam dentro do worktree sem herdar secrets (#86).
+- Caminhos 8.3 (`RUNNER~1`) canonicalizados com `realpathSync` antes de comparação (#86).
+- `parseCriteria` aceita CRLF (`\r?\n`) no checklist de specs (#86).
+
+### Adicionado
+
+- `lib/exec.ts`: módulo portável de subprocesso — `resolveCommand`, `spawnAgent`, `runShell`,
+  `killTree`. Sem dependência nova. 14 testes incluindo roundtrip de argumentos hostis (#86).
+
+---
+
 ## [5.3.0] — 2026-11-14 — Supervisão, execução vinculada e qualidade verificável
 
 ### O que melhorou
