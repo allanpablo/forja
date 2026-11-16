@@ -1,4 +1,4 @@
-import { spawn } from 'node:child_process';
+import { spawnAgent, killTree } from '../../../lib/exec.ts';
 
 export const LLM_PROFILE_VERSION = 1;
 
@@ -79,7 +79,7 @@ export function buildLlmExecution(profile: LlmProfile, prompt: string, options: 
   const base = [...(profile.commandArgs ?? [])];
   if (profile.provider === 'codex') return {
     executable: profile.command,
-    args: ['exec', ...base, '--sandbox', 'read-only', '-c', 'approval_policy="never"',
+    args: [...base, 'exec', '--sandbox', 'read-only', '-c', 'approval_policy="never"',
       ...(options.resume ? ['resume', '-c', 'sandbox_mode="read-only"', '-c', 'approval_policy="never"'] : []),
       ...(profile.model === 'default' ? [] : ['--model', profile.model]),
       ...(profile.reasoningEffort ? ['-c', `model_reasoning_effort="${profile.reasoningEffort}"`] : []),
@@ -118,35 +118,21 @@ export async function runLlm(execution: LlmExecution, cwd: string, timeoutMs = 1
       settled = true;
       resolve({ ...result, durationMs: Date.now() - started });
     };
-    // detached so the child leads its own process group: a negative pid targets the whole group,
-    // reaching grandchildren the CLI tool itself spawned (not just the immediate child).
-    const child = spawn(execution.executable, execution.args, { cwd, shell: false, stdio: ['pipe', 'pipe', 'pipe'], detached: true });
+    const child = spawnAgent(execution.executable, execution.args, { cwd, stdio: ['pipe', 'pipe', 'pipe'] });
     // A provider can close stdin early (e.g. invalid configuration). Its exit status is authoritative.
-    child.stdin.on('error', () => {});
-    child.stdin.end(execution.stdin);
-    child.stdout.setEncoding('utf8');
-    child.stderr.setEncoding('utf8');
-    child.stdout.on('data', (chunk: string) => { stdout += chunk; });
-    child.stderr.on('data', (chunk: string) => { stderr += chunk; });
+    child.stdin!.on('error', () => {});
+    child.stdin!.end(execution.stdin);
+    child.stdout!.setEncoding('utf8');
+    child.stderr!.setEncoding('utf8');
+    child.stdout!.on('data', (chunk: string) => { stdout += chunk; });
+    child.stderr!.on('data', (chunk: string) => { stderr += chunk; });
 
-    const killGroup = (signal: NodeJS.Signals) => {
-      if (child.pid === undefined) return;
-      try {
-        process.kill(-child.pid, signal);
-      } catch {
-        // no process group (platform didn't support detached, or it's already gone) — fall back to the child alone
-        try { child.kill(signal); } catch { /* already dead */ }
-      }
-    };
-
-    let killTimer: NodeJS.Timeout | undefined;
     const timer = setTimeout(() => {
-      killGroup('SIGTERM');
-      killTimer = setTimeout(() => killGroup('SIGKILL'), SIGTERM_GRACE_MS);
+      if (child.pid !== undefined) killTree(child.pid, SIGTERM_GRACE_MS);
       finish({ exitCode: 124, stdout, stderr, errorCode: 'TIMEOUT' });
     }, timeoutMs);
-    child.on('error', (error) => { clearTimeout(timer); clearTimeout(killTimer); finish({ exitCode: 127, stdout, stderr: `${stderr}${error.message}`, errorCode: 'SPAWN_FAILED' }); });
-    child.on('close', (code) => { clearTimeout(timer); clearTimeout(killTimer); finish({ exitCode: code ?? 1, stdout, stderr, ...(code === 0 ? {} : { errorCode: 'COMMAND_FAILED' }) }); });
+    child.on('error', (error) => { clearTimeout(timer); finish({ exitCode: 127, stdout, stderr: `${stderr}${error.message}`, errorCode: 'SPAWN_FAILED' }); });
+    child.on('close', (code) => { clearTimeout(timer); finish({ exitCode: code ?? 1, stdout, stderr, ...(code === 0 ? {} : { errorCode: 'COMMAND_FAILED' }) }); });
   });
 }
 

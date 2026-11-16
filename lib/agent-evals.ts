@@ -13,6 +13,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { traceSpecs } from './spec-trace.ts';
+import { resolveCommand, runShell, quoteCmdArg } from './exec.ts';
 
 // ─── Casos e checks ────────────────────────────────────────────────────────────
 
@@ -174,13 +175,21 @@ export function parseCodexJson(stdout: string): Omit<AgentRun, 'durationMs' | 'e
 
 function timed(bin: string, args: string[], ctx: AgentContext) {
   const t0 = Date.now();
-  const r = spawnSync(bin, args, { cwd: ctx.projectDir, env: ctx.env, encoding: 'utf8', timeout: ctx.timeoutMs, input: '', maxBuffer: 256 * 1024 * 1024 });
+  const resolved = resolveCommand(bin) ?? bin;
+  const isCmd = process.platform === 'win32' && /\.(cmd|bat)$/i.test(resolved);
+  const r = isCmd
+    ? spawnSync(process.env.ComSpec ?? 'cmd.exe', ['/d', '/s', '/c', `""${resolved}" ${args.map(quoteCmdArg).join(' ')}"`], { cwd: ctx.projectDir, env: ctx.env, encoding: 'utf8', timeout: ctx.timeoutMs, input: '', maxBuffer: 256 * 1024 * 1024, windowsVerbatimArguments: true })
+    : spawnSync(resolved, args, { cwd: ctx.projectDir, env: ctx.env, encoding: 'utf8', timeout: ctx.timeoutMs, input: '', maxBuffer: 256 * 1024 * 1024 });
   const timedOut = r.error && (r.error as any).code === 'ETIMEDOUT';
   return { r, durationMs: Date.now() - t0, timedOut: Boolean(timedOut) };
 }
 
 function cliVersion(bin: string): string | null {
-  const r = spawnSync(bin, ['--version'], { encoding: 'utf8', timeout: 15_000 });
+  const resolved = resolveCommand(bin) ?? bin;
+  const isCmd = process.platform === 'win32' && /\.(cmd|bat)$/i.test(resolved);
+  const r = isCmd
+    ? spawnSync(process.env.ComSpec ?? 'cmd.exe', ['/d', '/s', '/c', `""${resolved}" --version"`], { encoding: 'utf8', timeout: 15_000, windowsVerbatimArguments: true })
+    : spawnSync(resolved, ['--version'], { encoding: 'utf8', timeout: 15_000 });
   return r.status === 0 ? (r.stdout || '').trim().split('\n')[0] : null;
 }
 
@@ -251,7 +260,7 @@ export function grade(check: Check, projectDir: string, run: AgentRun, before: M
       return c.tests.length ? res(true, c.tests.map((t) => `${t.file}:${t.line}`).join(', ')) : res(false, 'nenhum teste cita o critério');
     }
     case 'command': {
-      const r = spawnSync('sh', ['-c', check.run], { cwd: projectDir, env, encoding: 'utf8', timeout: 120_000 });
+      const r = runShell(check.run, { cwd: projectDir, env, timeoutMs: 120_000 });
       const want = check.expectExit ?? 0;
       const tail = `${r.stdout || ''}${r.stderr || ''}`.trim().split('\n').slice(-2).join(' | ').slice(0, 200);
       return r.status === want ? res(true, `exit ${r.status}`) : res(false, `exit ${r.status} (esperado ${want}): ${tail}`);
@@ -295,10 +304,15 @@ export interface SuiteOptions {
 export function prepareProject(baseDir: string, name: string, forjaBin: string): { ws: string; proj: string; env: NodeJS.ProcessEnv } {
   const bin = path.join(baseDir, 'bin');
   fs.mkdirSync(bin, { recursive: true });
-  const shim = path.join(bin, 'forja');
-  if (!fs.existsSync(shim)) {
-    fs.writeFileSync(shim, `#!/bin/sh\nexec ${JSON.stringify(process.execPath)} ${JSON.stringify(forjaBin)} "$@"\n`);
-    fs.chmodSync(shim, 0o755);
+  if (process.platform === 'win32') {
+    const shim = path.join(bin, 'forja.cmd');
+    if (!fs.existsSync(shim)) fs.writeFileSync(shim, `@echo off\r\n"${process.execPath}" "${forjaBin}" %*\r\n`);
+  } else {
+    const shim = path.join(bin, 'forja');
+    if (!fs.existsSync(shim)) {
+      fs.writeFileSync(shim, `#!/bin/sh\nexec ${JSON.stringify(process.execPath)} ${JSON.stringify(forjaBin)} "$@"\n`);
+      fs.chmodSync(shim, 0o755);
+    }
   }
   const ws = path.join(baseDir, 'ws');
   const env: NodeJS.ProcessEnv = { ...process.env, FORJA_WORKSPACE: ws, PATH: `${bin}${path.delimiter}${process.env.PATH ?? ''}` };

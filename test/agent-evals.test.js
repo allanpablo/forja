@@ -10,6 +10,7 @@ import {
   validateCase, loadCases, globToRegExp, parseClaudeStream, parseCodexJson, grade, snapshot,
   runSuite, compareRuns, CLAUDE_ALLOWED_TOOLS, claudeAdapter, codexAdapter,
 } from '../lib/agent-evals.ts';
+import { runShell } from '../lib/exec.ts';
 
 // SPEC-054 (avaliacoes-de-agentes). Nenhum teste aqui chama um provedor real (SPEC-054 AC-7): os agentes são
 // falsos, e o CLI roda com FORJA_EVAL_CLAUDE_BIN apontando para um script local.
@@ -76,9 +77,16 @@ test('parseCodexJson: desembrulha bash -lc, última mensagem, tokens', () => {
 
 test('SPEC-054 AC-4: escrita confinada — sandbox do Codex e lista fechada do Claude', () => {
   let seen;
-  const fake = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'forja-evalbin-')), 'agent');
-  fs.writeFileSync(fake, '#!/bin/sh\necho "$@" > "$ARGS_OUT"\n');
-  fs.chmodSync(fake, 0o755);
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'forja-evalbin-'));
+  const isWin = process.platform === 'win32';
+  const fake = path.join(dir, isWin ? 'agent.cmd' : 'agent');
+  if (isWin) {
+    fs.writeFileSync(path.join(dir, 'agent.cjs'), `require('fs').writeFileSync(process.env.ARGS_OUT, process.argv.slice(2).join(' '));\n`);
+    fs.writeFileSync(fake, `@echo off\r\nnode "%~dp0agent.cjs" %*\r\n`);
+  } else {
+    fs.writeFileSync(fake, '#!/bin/sh\necho "$@" > "$ARGS_OUT"\n');
+    fs.chmodSync(fake, 0o755);
+  }
   const out = `${fake}.args`;
   const ctx = { projectDir: os.tmpdir(), workspaceDir: '/ws', prompt: 'p', env: { ...process.env, ARGS_OUT: out }, budgetUsd: 0.5, timeoutMs: 10_000 };
   codexAdapter(fake).run(ctx);
@@ -124,7 +132,7 @@ const diligent = {
   name: 'diligente',
   version: () => 'fake 1',
   run(ctx) {
-    const sh = (cmd) => spawnSync('sh', ['-c', cmd], { cwd: ctx.projectDir, env: ctx.env, encoding: 'utf8' });
+    const sh = (cmd) => runShell(cmd, { cwd: ctx.projectDir, env: ctx.env });
     const w = (rel, text) => { fs.mkdirSync(path.dirname(path.join(ctx.projectDir, rel)), { recursive: true }); fs.writeFileSync(path.join(ctx.projectDir, rel), text); };
     const p = ctx.prompt;
     if (/PostgreSQL/.test(p)) w('memory/90-decisions/0001-postgres.md', '# ADR-0001: PostgreSQL\n\n## Contexto\nTransações e JSONB.\n\n## Decisão\nUsar PostgreSQL.\n');
@@ -198,9 +206,15 @@ test('SPEC-054 AC-6: sem --agent, agente ausente ou caso inexistente → exit 1 
 /** `claude` falso: imprime um stream-json válido e não faz nada (o caso reprova). */
 function fakeClaude() {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'forja-fakeclaude-'));
-  const bin = path.join(dir, 'claude');
-  fs.writeFileSync(bin, `#!/bin/sh\nif [ "$1" = "--version" ]; then echo "9.9.9 (fake)"; exit 0; fi\necho '{"type":"result","subtype":"success","is_error":false,"result":"Feito!","total_cost_usd":0.01}'\n`);
-  fs.chmodSync(bin, 0o755);
+  const isWin = process.platform === 'win32';
+  const bin = path.join(dir, isWin ? 'claude.cmd' : 'claude');
+  if (isWin) {
+    fs.writeFileSync(path.join(dir, 'claude.cjs'), `if (process.argv[2] === '--version') { console.log('9.9.9 (fake)'); process.exit(0); }\nconsole.log(JSON.stringify({type:'result',subtype:'success',is_error:false,result:'Feito!',total_cost_usd:0.01}));\n`);
+    fs.writeFileSync(bin, `@echo off\r\nnode "%~dp0claude.cjs" %*\r\n`);
+  } else {
+    fs.writeFileSync(bin, `#!/bin/sh\nif [ "$1" = "--version" ]; then echo "9.9.9 (fake)"; exit 0; fi\necho '{"type":"result","subtype":"success","is_error":false,"result":"Feito!","total_cost_usd":0.01}'\n`);
+    fs.chmodSync(bin, 0o755);
+  }
   return bin;
 }
 

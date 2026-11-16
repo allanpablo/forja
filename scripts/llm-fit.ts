@@ -2,6 +2,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { spawnSync } from 'node:child_process';
+import { resolveCommand, quoteCmdArg } from '../lib/exec.ts';
 import Database from 'better-sqlite3';
 import { createHash, randomUUID } from 'node:crypto';
 import { DEFAULT_LLM_PROFILES, buildLlmExecution, recommendProfile, runLlm, validateProfiles, type LlmProfile, type LlmProfiles } from '../packages/llm/src/index.ts';
@@ -16,6 +17,14 @@ import { normalizeClaudeResult } from '../lib/llm/claude-output.ts';
 import { LlmSessionStore, RESUME_PROVIDERS, validSessionId } from '../lib/llm/session.ts';
 import { normalizeGeminiResult, normalizeCursorResult } from '../lib/llm/json-output.ts';
 import { prepareValidation, validateLlmResponse } from '../lib/llm/validation.ts';
+
+function probeSync(bin: string, args: string[]) {
+  const resolved = resolveCommand(bin) ?? bin;
+  const isCmd = process.platform === 'win32' && /\.(cmd|bat)$/i.test(resolved);
+  return isCmd
+    ? spawnSync(process.env.ComSpec ?? 'cmd.exe', ['/d', '/s', '/c', `""${resolved}" ${args.map(quoteCmdArg).join(' ')}"`], { encoding: 'utf8', timeout: 10_000, windowsVerbatimArguments: true })
+    : spawnSync(resolved, args, { encoding: 'utf8', timeout: 10_000 });
+}
 
 const profilePath = () => path.join(getWorkspaceContextDir(), 'llm-profiles.json');
 
@@ -73,7 +82,8 @@ function doctor(name?: string): void {
   const configured = profiles().profiles;
   if (name && !configured[name]) throw new Error(`Perfil não encontrado: ${name}`);
   const result = Object.entries(configured).filter(([profileName]) => name === undefined || profileName === name).map(([profileName, value]) => {
-    const probe = spawnSync(value.command, ['--version'], { encoding: 'utf8', timeout: 10_000, shell: false });
+    const prefix = value.commandArgs ?? [];
+    const probe = probeSync(value.command, [...prefix, '--version']);
     const errorCode = (probe.error as NodeJS.ErrnoException | undefined)?.code;
     const model = `${value.provider}:${value.model}`;
     const pricing = pricingInfo(model);
@@ -81,14 +91,14 @@ function doctor(name?: string): void {
     let compatible: boolean | null = null;
     let features: { resume: boolean; outputSchema: boolean } | undefined;
     if (available && value.provider === 'codex') {
-      const help = spawnSync(value.command, ['exec', '--help'], { encoding: 'utf8', timeout: 10_000, shell: false });
+      const help = probeSync(value.command, [...prefix, 'exec', '--help']);
       compatible = !help.error && help.status === 0 && ['--json', '--sandbox', '--config'].every((flag) => help.stdout.includes(flag));
-      const resumeHelp = spawnSync(value.command, ['exec', 'resume', '--help'], { encoding: 'utf8', timeout: 10_000, shell: false });
+      const resumeHelp = probeSync(value.command, [...prefix, 'exec', 'resume', '--help']);
       features = { outputSchema: !help.error && help.status === 0 && help.stdout.includes('--output-schema'),
         resume: !resumeHelp.error && resumeHelp.status === 0 && ['--json', '--config'].every((flag) => resumeHelp.stdout.includes(flag)) };
     } else if (available && value.provider === 'claude') {
       // SPEC-050 — o `claude` CLI oferece --resume nativo; schema não (validação é local, Ajv).
-      const help = spawnSync(value.command, ['--help'], { encoding: 'utf8', timeout: 10_000, shell: false });
+      const help = probeSync(value.command, [...prefix, '--help']);
       const helpOk = !help.error && help.status === 0;
       compatible = helpOk && ['--output-format', '--print'].every((flag) => help.stdout.includes(flag));
       features = { resume: helpOk && help.stdout.includes('--resume'), outputSchema: false };
@@ -101,11 +111,11 @@ function doctor(name?: string): void {
       copilot: ['--prompt', '--silent'],
     };
     if (available && compatible === null && HELP_FLAGS[value.provider]) {
-      const help = spawnSync(value.command, ['--help'], { encoding: 'utf8', timeout: 10_000, shell: false });
+      const help = probeSync(value.command, [...prefix, '--help']);
       compatible = !help.error && help.status === 0 && HELP_FLAGS[value.provider].every((flag) => help.stdout.includes(flag));
       features = { resume: false, outputSchema: false };
     } else if (available && compatible === null && value.provider === 'opencode') {
-      const help = spawnSync(value.command, ['run', '--help'], { encoding: 'utf8', timeout: 10_000, shell: false });
+      const help = probeSync(value.command, [...prefix, 'run', '--help']);
       compatible = !help.error && help.status === 0 && help.stdout.includes('--agent');
       features = { resume: false, outputSchema: false };
     }

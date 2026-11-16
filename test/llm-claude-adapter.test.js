@@ -78,15 +78,21 @@ test('SPEC-050: llm:probe reporta features.resume=true, outputSchema=false para 
   const root = path.resolve(import.meta.dirname, '..');
   const forja = (args) => spawnSync(process.execPath, [path.join(root, 'bin', 'forja.ts'), ...args], { cwd: root, encoding: 'utf8', env: { ...process.env, FORJA_WORKSPACE: ws } });
   // fixture executável: --version → disponível; --help → menciona --resume (schema NÃO).
-  const fakeClaude = path.join(ws, 'fake-claude');
-  fs.writeFileSync(fakeClaude, `#!/bin/sh
+  const isWin = process.platform === 'win32';
+  const fakeClaude = path.join(ws, isWin ? 'fake-claude.cmd' : 'fake-claude');
+  if (isWin) {
+    fs.writeFileSync(path.join(ws, 'fake-claude.cjs'), `const a = process.argv[2];\nif (a === '--version') { console.log('9.9.9 (fake claude)'); process.exit(0); }\nif (a === '--help') { console.log('--print\\n--output-format <format>\\n--resume [sessionId]'); process.exit(0); }\nprocess.exit(0);\n`);
+    fs.writeFileSync(fakeClaude, `@echo off\r\nnode "%~dp0fake-claude.cjs" %*\r\n`);
+  } else {
+    fs.writeFileSync(fakeClaude, `#!/bin/sh
 case "$1" in
   --version) echo "9.9.9 (fake claude)"; exit 0 ;;
   --help) printf -- "--print\\n--output-format <format>\\n--resume [sessionId]\\n"; exit 0 ;;
 esac
 exit 0
 `);
-  fs.chmodSync(fakeClaude, 0o755);
+    fs.chmodSync(fakeClaude, 0o755);
+  }
   try {
     assert.equal(forja(['workspace:init']).status, 0);
     assert.equal(forja(['llm:profiles:init']).status, 0);

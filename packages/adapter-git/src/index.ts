@@ -6,6 +6,7 @@ import { graphDocumentId } from '../../graph/src/index.ts';
 import { isPathWithinRoot, type ISO8601 } from '../../contracts/src/index.ts';
 import type { SandboxBackend, SandboxCommandResult, SandboxDiffData, SandboxValidation } from '../../sandbox/src/index.ts';
 import type { SandboxCommand, SandboxSession } from '../../contracts/src/index.ts';
+import { resolveCommand, quoteCmdArg } from '../../../lib/exec.ts';
 
 export interface CommandRunner {
   run(command: SandboxCommand): SandboxCommandResult | Promise<SandboxCommandResult>;
@@ -14,7 +15,11 @@ export interface CommandRunner {
 export class SpawnCommandRunner implements CommandRunner {
   run(command: SandboxCommand): SandboxCommandResult {
     const started = Date.now();
-    const result = spawnSync(command.executable, [...command.args], { cwd: command.cwd, env: sandboxEnvironment(command.env), encoding: 'utf8' });
+    const resolved = resolveCommand(command.executable) ?? command.executable;
+    const isCmd = process.platform === 'win32' && /\.(cmd|bat)$/i.test(resolved);
+    const result = isCmd
+      ? spawnSync(process.env.ComSpec ?? 'cmd.exe', ['/d', '/s', '/c', `""${resolved}" ${command.args.map(quoteCmdArg).join(' ')}"`], { cwd: command.cwd, env: sandboxEnvironment(command.env), encoding: 'utf8', windowsVerbatimArguments: true })
+      : spawnSync(resolved, [...command.args], { cwd: command.cwd, env: sandboxEnvironment(command.env), encoding: 'utf8' });
     return { exitCode: result.status ?? 1, stdout: result.stdout ?? '', stderr: [result.stderr ?? '', result.error?.message ?? ''].filter(Boolean).join('\n'), durationMs: Date.now() - started };
   }
 }
@@ -63,7 +68,7 @@ function isIndexable(relative: string): boolean {
  */
 function sandboxEnvironment(overrides?: Readonly<Record<string, string>>): NodeJS.ProcessEnv {
   const inherited = {} as NodeJS.ProcessEnv;
-  for (const key of ['PATH', 'NODE_PATH', 'SystemRoot', 'TMPDIR', 'TMP', 'TEMP', 'HOME', 'USERPROFILE']) {
+  for (const key of ['PATH', 'NODE_PATH', 'SystemRoot', 'TMPDIR', 'TMP', 'TEMP', 'HOME', 'USERPROFILE', 'APPDATA', 'LOCALAPPDATA', 'COMSPEC', 'PATHEXT']) {
     const value = process.env[key];
     if (value !== undefined) inherited[key] = value;
   }
@@ -134,11 +139,13 @@ export class GitWorktreeBackend implements SandboxBackend {
   }
 
   async reject(session: SandboxSession): Promise<void> {
-    await this.runGit(['-C', this.options.repositoryRoot, 'worktree', 'remove', '--force', session.root]);
+    const r = await this.runGit(['-C', this.options.repositoryRoot, 'worktree', 'remove', '--force', session.root]);
+    if (r.exitCode !== 0) await this.runGit(['-C', this.options.repositoryRoot, 'worktree', 'prune']);
   }
 
   async destroy(session: SandboxSession): Promise<void> {
-    await this.runGit(['-C', this.options.repositoryRoot, 'worktree', 'remove', '--force', session.root]);
+    const r = await this.runGit(['-C', this.options.repositoryRoot, 'worktree', 'remove', '--force', session.root]);
+    if (r.exitCode !== 0) await this.runGit(['-C', this.options.repositoryRoot, 'worktree', 'prune']);
   }
 
   private async runGit(args: readonly string[]): Promise<SandboxCommandResult> {

@@ -59,16 +59,9 @@ test('AC-1: fail-fast desligado — uma célula vermelha não esconde as outras'
   assert.match(TEST, /strategy:\n\s+fail-fast: false/);
 });
 
-test('AC-1: falha bloqueia em toda célula, e a única tolerada é a Windows com a regra de saída ao lado', () => {
+test('AC-1: falha bloqueia em toda célula — nenhuma tolerância continue-on-error', () => {
   const tolerancias = [...TEST.matchAll(/continue-on-error: (.+)/g)];
-  assert.equal(tolerancias.length, 1, 'nenuma outra célula pode falhar em silêncio');
-  assert.equal(tolerancias[0][1].trim(), "${{ matrix.os == 'windows-latest' }}");
-
-  // A célula existe para caçar defeito de plataforma e achou 23 (SPEC-056 AC-4). Ela só deixa de
-  // segurar o merge enquanto o inventário do spec estiver aberto — e a linha que diz isso tem que
-  // continuar no arquivo, senão a tolerância vira mobília e ninguém lembra de tirar.
-  assert.match(TEST, /Tirar esta linha é o gate de que o inventário zerou/);
-  assert.match(TEST, /specs\/v6-quality-gates\/spec\.md/, 'o comentário aponta para onde o inventário vive');
+  assert.equal(tolerancias.length, 0, 'inventário SPEC-056 AC-4 zerou; toda célula bloqueia');
 });
 
 // --- AC-5: as réguas não somam tempo ao CI ----------------------------------

@@ -83,12 +83,14 @@ test('contexto é deduplicado em ordem e falha antes de iniciar o provedor', () 
 test('CLI integra contexto, metadados Codex, falhas e doctor sem rede', () => {
   const workspace = fs.mkdtempSync(path.join(os.tmpdir(), 'forja-llm-integration-'));
   const captured = path.join(workspace, 'captured.json');
-  const fixture = path.join(workspace, 'codex-fixture.mjs');
+  const isWin = process.platform === 'win32';
+  const fixtureScript = path.join(workspace, 'codex-fixture.mjs');
+  const fixture = isWin ? path.join(workspace, 'codex-fixture.cmd') : fixtureScript;
   const run = (args) => spawnSync(process.execPath, [path.join(root, 'bin/forja.ts'), ...args], {
     cwd: root, encoding: 'utf8', env: { ...process.env, FORJA_WORKSPACE: workspace, FORJA_FIXTURE_CAPTURE: captured },
   });
   try {
-    fs.writeFileSync(fixture, `#!${process.execPath}\nimport fs from 'node:fs';
+    const scriptBody = `import fs from 'node:fs';
 const args = process.argv.slice(2);
 if (args.includes('--version')) { console.log('codex fixture'); process.exit(0); }
 if (args.includes('--help')) { console.log('--json --sandbox --config'); process.exit(0); }
@@ -99,11 +101,13 @@ for (const event of [
   { type: 'item.completed', item: { type: 'agent_message', text: 'resposta privada fixture' } },
   { type: 'turn.completed', usage: { input_tokens: 900, output_tokens: 25, cached_input_tokens: 700 } }
 ]) console.log(JSON.stringify(event));
-`);
-    fs.chmodSync(fixture, 0o755);
+`;
+    fs.writeFileSync(fixtureScript, isWin ? scriptBody : `#!${process.execPath}\n${scriptBody}`);
+    if (isWin) fs.writeFileSync(fixture, `@echo off\r\nnode "%~dp0codex-fixture.mjs" %*\r\n`);
+    else fs.chmodSync(fixtureScript, 0o755);
     assert.equal(run(['workspace:init']).status, 0);
     const profilesFile = path.join(workspace, '.context/llm-profiles.json');
-    fs.writeFileSync(profilesFile, JSON.stringify({ version: 1, profiles: { codex: { ...codex, command: fixture } } }));
+    fs.writeFileSync(profilesFile, JSON.stringify({ version: 1, profiles: { codex: { ...codex, ...(isWin ? { command: process.execPath, commandArgs: [fixtureScript] } : { command: fixture }) } } }));
     const contextFile = path.join(workspace, 'brief.md');
     fs.writeFileSync(contextFile, 'desejo privado do produto');
 
@@ -139,19 +143,19 @@ for (const event of [
       for (const content of ['instrução privada', 'desejo privado do produto', 'resposta privada fixture']) assert.ok(!persisted.includes(content));
     } finally { db.close(); }
 
-    fs.writeFileSync(fixture, `#!${process.execPath}\nconsole.log(JSON.stringify({ type: 'turn.failed' }));\n`);
+    fs.writeFileSync(isWin ? fixtureScript : fixture, isWin ? `console.log(JSON.stringify({ type: 'turn.failed' }));\n` : `#!${process.execPath}\nconsole.log(JSON.stringify({ type: 'turn.failed' }));\n`);
     const failed = run(['llm:run', '--profile', 'codex', '--prompt', 'tarefa']);
     assert.notEqual(failed.status, 0);
     assert.equal(JSON.parse(failed.stdout).errorCode, 'PROVIDER_FAILED');
     assert.equal(JSON.parse(failed.stdout).executionStatus, 'failed');
 
-    fs.writeFileSync(fixture, `#!${process.execPath}\nsetInterval(() => {}, 1000);\n`);
-    fs.writeFileSync(profilesFile, JSON.stringify({ version: 1, profiles: { codex: { ...codex, command: fixture, timeoutMs: 100 } } }));
+    fs.writeFileSync(fixtureScript, isWin ? `setInterval(() => {}, 1000);\n` : `#!${process.execPath}\nsetInterval(() => {}, 1000);\n`);
+    fs.writeFileSync(profilesFile, JSON.stringify({ version: 1, profiles: { codex: { ...codex, ...(isWin ? { command: process.execPath, commandArgs: [fixtureScript] } : { command: fixture }), timeoutMs: 100 } } }));
     const timeout = run(['llm:run', '--profile', 'codex', '--prompt', 'tarefa']);
     assert.equal(timeout.status, 124);
     assert.equal(JSON.parse(timeout.stdout).errorCode, 'TIMEOUT');
 
-    fs.writeFileSync(fixture, `#!${process.execPath}\nconsole.log('old codex fixture');\n`);
+    fs.writeFileSync(isWin ? fixtureScript : fixture, isWin ? `console.log('old codex fixture');\n` : `#!${process.execPath}\nconsole.log('old codex fixture');\n`);
     const incompatible = run(['llm:doctor', 'codex']);
     assert.notEqual(incompatible.status, 0);
     assert.equal(JSON.parse(incompatible.stdout).profiles[0].compatible, false);
