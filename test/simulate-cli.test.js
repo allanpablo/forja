@@ -56,8 +56,11 @@ function worktreeList(graphRoot) {
 }
 
 function cleanup(graphRoot, workspace) {
-  fs.rmSync(graphRoot, { recursive: true, force: true });
-  fs.rmSync(workspace, { recursive: true, force: true });
+  for (const dir of [graphRoot, workspace]) {
+    for (let i = 0; i < 3; i++) {
+      try { fs.rmSync(dir, { recursive: true, force: true }); break; } catch { if (i === 2) throw new Error(`cleanup falhou: ${dir}`); }
+    }
+  }
 }
 
 test('simulate: teste passa → recommendation promote, worktree destruído (git worktree list idêntico antes/depois)', () => {

@@ -36,6 +36,12 @@ import type { RunId } from '../packages/contracts/src/index.ts';
 
 const CONSTITUTION_PATH = '.context/architecture/constitution.json';
 
+function rmWithRetry(target: string, attempts = 3): void {
+  for (let i = 0; i < attempts; i++) {
+    try { fs.rmSync(target, { recursive: true, force: true }); return; } catch { if (i === attempts - 1) throw new Error(`rmWithRetry: falhou após ${attempts} tentativas: ${target}`); }
+  }
+}
+
 function repoRoot(): string {
   return process.env.FORJA_GRAPH_ROOT ?? process.cwd();
 }
@@ -52,7 +58,7 @@ interface SimulationReport {
 
 /** Roda `buildRiskInput`/`checkConstitution` contra `worktreeRoot`, isolado do workspace real (D3). */
 async function assessWorktree(worktreeRoot: string, paths: readonly string[]): Promise<{ architectureCheck: ArchitectureCheckReport | { note: string }; risk: ChangeRiskAssessment }> {
-  const tempBase = fs.mkdtempSync(path.join(os.tmpdir(), 'forja-simulate-db-'));
+  const tempBase = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'forja-simulate-db-')));
   const database = new Database(path.join(tempBase, 'simulate.db'));
   new SqliteMigrationRunner(database).apply();
   const previousGraphRoot = process.env.FORJA_GRAPH_ROOT;
@@ -84,7 +90,7 @@ async function assessWorktree(worktreeRoot: string, paths: readonly string[]): P
   } finally {
     process.env.FORJA_GRAPH_ROOT = previousGraphRoot;
     database.close();
-    fs.rmSync(tempBase, { recursive: true, force: true });
+    rmWithRetry(tempBase);
   }
 }
 
@@ -114,7 +120,7 @@ async function cmdSimulate(args: string[]): Promise<void> {
   const patchApplier = { apply: () => { throw new Error('simulate nunca promove — patchApplier.apply não deveria ser chamado'); }, revert: () => { /* nunca chamado — reject() não usa revert */ } };
   const sandbox = new SandboxEngine(new InMemorySandboxStore(), new GitWorktreeBackend(runner, { repositoryRoot: repoRoot(), sourceRef: ref, patchApplier }));
 
-  const tempBase = fs.mkdtempSync(path.join(os.tmpdir(), 'forja-simulate-'));
+  const tempBase = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'forja-simulate-')));
   const worktreeRoot = path.join(tempBase, 'worktree');
   const runId = randomUUID() as RunId;
   const session = await sandbox.create({ runId, root: worktreeRoot });
@@ -136,7 +142,7 @@ async function cmdSimulate(args: string[]): Promise<void> {
     // órfão na árvore real — algo que vale saber, mesmo sem abortar a simulação por causa disso.
     await sandbox.reject(session.id).catch((error) => { console.error(`simulate: aviso — reject do sandbox falhou: ${error instanceof Error ? error.message : String(error)}`); });
     await sandbox.destroy(session.id).catch((error) => { console.error(`simulate: aviso — destroy do sandbox falhou: ${error instanceof Error ? error.message : String(error)}`); });
-    fs.rmSync(tempBase, { recursive: true, force: true });
+    rmWithRetry(tempBase);
   }
 
   // Fora do try/finally: o cleanup do sandbox já rodou, então as saídas que terminam o processo

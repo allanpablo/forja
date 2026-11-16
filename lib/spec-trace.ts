@@ -54,7 +54,7 @@ const AC_TOKEN = /\bAC-\d+\b/g;
 
 export function parseCriteria(specText: string): Criterion[] {
   const out: Criterion[] = [];
-  for (const line of specText.split('\n')) {
+  for (const line of specText.split(/\r?\n/)) {
     const m = line.match(AC_LINE);
     if (m && !out.some((c) => c.id === m[1])) out.push({ id: m[1], text: m[2].trim() });
   }

@@ -83,12 +83,14 @@ test('contexto é deduplicado em ordem e falha antes de iniciar o provedor', () 
 test('CLI integra contexto, metadados Codex, falhas e doctor sem rede', () => {
   const workspace = fs.mkdtempSync(path.join(os.tmpdir(), 'forja-llm-integration-'));
   const captured = path.join(workspace, 'captured.json');
-  const fixture = path.join(workspace, 'codex-fixture.mjs');
+  const isWin = process.platform === 'win32';
+  const fixtureScript = path.join(workspace, 'codex-fixture.mjs');
+  const fixture = isWin ? path.join(workspace, 'codex-fixture.cmd') : fixtureScript;
   const run = (args) => spawnSync(process.execPath, [path.join(root, 'bin/forja.ts'), ...args], {
     cwd: root, encoding: 'utf8', env: { ...process.env, FORJA_WORKSPACE: workspace, FORJA_FIXTURE_CAPTURE: captured },
   });
   try {
-    fs.writeFileSync(fixture, `#!${process.execPath}\nimport fs from 'node:fs';
+    const scriptBody = `import fs from 'node:fs';
 const args = process.argv.slice(2);
 if (args.includes('--version')) { console.log('codex fixture'); process.exit(0); }
 if (args.includes('--help')) { console.log('--json --sandbox --config'); process.exit(0); }
@@ -99,8 +101,10 @@ for (const event of [
   { type: 'item.completed', item: { type: 'agent_message', text: 'resposta privada fixture' } },
   { type: 'turn.completed', usage: { input_tokens: 900, output_tokens: 25, cached_input_tokens: 700 } }
 ]) console.log(JSON.stringify(event));
-`);
-    fs.chmodSync(fixture, 0o755);
+`;
+    fs.writeFileSync(fixtureScript, isWin ? scriptBody : `#!${process.execPath}\n${scriptBody}`);
+    if (isWin) fs.writeFileSync(fixture, `@echo off\r\nnode "%~dp0codex-fixture.mjs" %*\r\n`);
+    else fs.chmodSync(fixtureScript, 0o755);
     assert.equal(run(['workspace:init']).status, 0);
     const profilesFile = path.join(workspace, '.context/llm-profiles.json');
     fs.writeFileSync(profilesFile, JSON.stringify({ version: 1, profiles: { codex: { ...codex, command: fixture } } }));

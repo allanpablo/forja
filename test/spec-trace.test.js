@@ -90,6 +90,17 @@ test('parseCriteria: aceita [ ], [x], negrito, travessão e (RF-NN); ignora AC c
 });
 // spec-trace:on
 
+// SPEC-056 AC-4: checkout Windows (CRLF) não pode zerar os critérios — a jornada spec:trace
+// devolvia 0/0 porque AC_LINE terminava em (.+)$ e o \r residual impedia o match.
+test('SPEC-056 AC-4: parseCriteria tolera CRLF (checkout Windows)', () => {
+  const lf = '- [ ] AC-1: cobra no cartão\n- [x] **AC-2** — estorna\n* AC-3: emite recibo\n';
+  const crlf = lf.replace(/\n/g, '\r\n');
+  const expected = ['AC-1', 'AC-2', 'AC-3'];
+  assert.deepEqual(parseCriteria(lf).map((c) => c.id), expected);
+  assert.deepEqual(parseCriteria(crlf).map((c) => c.id), expected, 'CRLF deve produzir os mesmos critérios que LF');
+  assert.deepEqual(parseCriteria(crlf).map((c) => c.text), parseCriteria(lf).map((c) => c.text));
+});
+
 function cli(dir, args) {
   return spawnSync(process.execPath, [forja, 'spec:trace', ...args], { cwd: dir, encoding: 'utf8' });
 }

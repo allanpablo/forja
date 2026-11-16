@@ -106,7 +106,9 @@ test('checks consomem a resposta como dados, registram hashes e respeitam falha 
 
 test('CLI retoma sem replay e persiste evidências independentes sem conteúdo', () => {
   const tmp = workspace();
-  const fixture = path.join(tmp, 'codex.mjs');
+  const isWin = process.platform === 'win32';
+  const fixtureScript = path.join(tmp, 'codex.mjs');
+  const fixture = isWin ? path.join(tmp, 'codex.cmd') : fixtureScript;
   const calls = path.join(tmp, 'calls.jsonl');
   const manifestFile = path.join(tmp, 'checks.json');
   const schemaFile = path.join(tmp, 'schema.json');
@@ -115,15 +117,17 @@ test('CLI retoma sem replay e persiste evidências independentes sem conteúdo',
     cwd, encoding: 'utf8', env: { ...process.env, FORJA_WORKSPACE: tmp, FORJA_FIXTURE_CALLS: calls },
   });
   try {
-    fs.writeFileSync(fixture, `#!${process.execPath}\nimport fs from 'node:fs';
+    const scriptBody = `import fs from 'node:fs';
 const prompt=fs.readFileSync(0,'utf8');
 fs.appendFileSync(process.env.FORJA_FIXTURE_CALLS,JSON.stringify({args:process.argv.slice(2),prompt})+'\\n');
 const response=prompt.includes('bad-type') ? {result:7} : {result:prompt.includes('bad-requirement') ? 'wrong' : 'ok'};
 for(const event of [{type:'thread.started',thread_id:'session-1'},
 {type:'item.completed',item:{type:'agent_message',text:JSON.stringify(response)}},
 {type:'turn.completed',usage:{input_tokens:10,output_tokens:5}}]) console.log(JSON.stringify(event));
-`);
-    fs.chmodSync(fixture, 0o755);
+`;
+    fs.writeFileSync(fixtureScript, isWin ? scriptBody : `#!${process.execPath}\n${scriptBody}`);
+    if (isWin) fs.writeFileSync(fixture, `@echo off\r\nnode "%~dp0codex.mjs" %*\r\n`);
+    else fs.chmodSync(fixtureScript, 0o755);
     assert.equal(invoke(['workspace:init']).status, 0);
     const configured = { version: 1, profiles: { codex: { ...profile, command: fixture } } };
     fs.writeFileSync(profilesFile, JSON.stringify(configured));
