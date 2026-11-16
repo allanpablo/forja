@@ -66,7 +66,7 @@ test('SPEC-059 AC-2: roundtrip via cmd.exe — argumentos hostis chegam byte a b
 
     for (const [, arg] of HOSTILE_ARGS) {
       if (arg.length === 0) continue; // cmd.exe não passa arg vazio via %*
-      const r = spawnSync(process.env.ComSpec ?? 'cmd.exe', ['/d', '/s', '/c', `"${shim}" ${quoteCmdArg(arg)}`], {
+      const r = spawnSync(process.env.ComSpec ?? 'cmd.exe', ['/d', '/s', '/c', `""${shim}" ${quoteCmdArg(arg)}"`], {
         encoding: 'utf8',
         timeout: 10_000,
         windowsVerbatimArguments: true,

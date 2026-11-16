@@ -22,7 +22,7 @@ function probeSync(bin: string, args: string[]) {
   const resolved = resolveCommand(bin) ?? bin;
   const isCmd = process.platform === 'win32' && /\.(cmd|bat)$/i.test(resolved);
   return isCmd
-    ? spawnSync(process.env.ComSpec ?? 'cmd.exe', ['/d', '/s', '/c', `"${resolved}" ${args.map(quoteCmdArg).join(' ')}`], { encoding: 'utf8', timeout: 10_000, windowsVerbatimArguments: true })
+    ? spawnSync(process.env.ComSpec ?? 'cmd.exe', ['/d', '/s', '/c', `""${resolved}" ${args.map(quoteCmdArg).join(' ')}"`], { encoding: 'utf8', timeout: 10_000, windowsVerbatimArguments: true })
     : spawnSync(resolved, args, { encoding: 'utf8', timeout: 10_000 });
 }
 

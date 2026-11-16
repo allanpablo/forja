@@ -18,7 +18,7 @@ export class SpawnCommandRunner implements CommandRunner {
     const resolved = resolveCommand(command.executable) ?? command.executable;
     const isCmd = process.platform === 'win32' && /\.(cmd|bat)$/i.test(resolved);
     const result = isCmd
-      ? spawnSync(process.env.ComSpec ?? 'cmd.exe', ['/d', '/s', '/c', `"${resolved}" ${command.args.map(quoteCmdArg).join(' ')}`], { cwd: command.cwd, env: sandboxEnvironment(command.env), encoding: 'utf8', windowsVerbatimArguments: true })
+      ? spawnSync(process.env.ComSpec ?? 'cmd.exe', ['/d', '/s', '/c', `""${resolved}" ${command.args.map(quoteCmdArg).join(' ')}"`], { cwd: command.cwd, env: sandboxEnvironment(command.env), encoding: 'utf8', windowsVerbatimArguments: true })
       : spawnSync(resolved, [...command.args], { cwd: command.cwd, env: sandboxEnvironment(command.env), encoding: 'utf8' });
     return { exitCode: result.status ?? 1, stdout: result.stdout ?? '', stderr: [result.stderr ?? '', result.error?.message ?? ''].filter(Boolean).join('\n'), durationMs: Date.now() - started };
   }

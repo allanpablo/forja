@@ -178,7 +178,7 @@ function timed(bin: string, args: string[], ctx: AgentContext) {
   const resolved = resolveCommand(bin) ?? bin;
   const isCmd = process.platform === 'win32' && /\.(cmd|bat)$/i.test(resolved);
   const r = isCmd
-    ? spawnSync(process.env.ComSpec ?? 'cmd.exe', ['/d', '/s', '/c', `"${resolved}" ${args.map(quoteCmdArg).join(' ')}`], { cwd: ctx.projectDir, env: ctx.env, encoding: 'utf8', timeout: ctx.timeoutMs, input: '', maxBuffer: 256 * 1024 * 1024, windowsVerbatimArguments: true })
+    ? spawnSync(process.env.ComSpec ?? 'cmd.exe', ['/d', '/s', '/c', `""${resolved}" ${args.map(quoteCmdArg).join(' ')}"`], { cwd: ctx.projectDir, env: ctx.env, encoding: 'utf8', timeout: ctx.timeoutMs, input: '', maxBuffer: 256 * 1024 * 1024, windowsVerbatimArguments: true })
     : spawnSync(resolved, args, { cwd: ctx.projectDir, env: ctx.env, encoding: 'utf8', timeout: ctx.timeoutMs, input: '', maxBuffer: 256 * 1024 * 1024 });
   const timedOut = r.error && (r.error as any).code === 'ETIMEDOUT';
   return { r, durationMs: Date.now() - t0, timedOut: Boolean(timedOut) };
@@ -188,7 +188,7 @@ function cliVersion(bin: string): string | null {
   const resolved = resolveCommand(bin) ?? bin;
   const isCmd = process.platform === 'win32' && /\.(cmd|bat)$/i.test(resolved);
   const r = isCmd
-    ? spawnSync(process.env.ComSpec ?? 'cmd.exe', ['/d', '/s', '/c', `"${resolved}" --version`], { encoding: 'utf8', timeout: 15_000, windowsVerbatimArguments: true })
+    ? spawnSync(process.env.ComSpec ?? 'cmd.exe', ['/d', '/s', '/c', `""${resolved}" --version"`], { encoding: 'utf8', timeout: 15_000, windowsVerbatimArguments: true })
     : spawnSync(resolved, ['--version'], { encoding: 'utf8', timeout: 15_000 });
   return r.status === 0 ? (r.stdout || '').trim().split('\n')[0] : null;
 }

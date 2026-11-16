@@ -79,7 +79,7 @@ export function spawnAgent(executable: string, args: readonly string[], opts: Sp
   if (isCmd) {
     const comspec = process.env.ComSpec ?? 'cmd.exe';
     const commandLine = `"${resolved}" ${args.map(quoteCmdArg).join(' ')}`;
-    return spawn(comspec, ['/d', '/s', '/c', commandLine], {
+    return spawn(comspec, ['/d', '/s', '/c', `"${commandLine}"`], {
       ...opts,
       shell: false,
       detached: false,
