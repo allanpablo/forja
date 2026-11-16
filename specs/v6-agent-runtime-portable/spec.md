@@ -1,7 +1,7 @@
 # Spec: v6-agent-runtime-portable
 
 - **ID**: SPEC-059
-- **Status**: draft
+- **Status**: done
 - **Owner**: allanpablo
 - **Criado em**: 2026-11-08
 - **Sprint alvo**: v6.0 Wave 2
@@ -31,12 +31,12 @@ Sem dependência nova, de propósito: o que falta são ~40 linhas de quoting que
 - **Como** contribuidor, **quero** escrever checks `type: 'command'` com comandos portáveis e vê-los rodar em qualquer SO, **para que** a suíte de evals não seja um ativo só de unix.
 
 ## 4. Critérios de aceite (Definition of Done)
-- [ ] AC-1: os quatro call sites de fronteira de agente passam por `lib/exec.ts` (`resolveCommand`, `spawnAgent`, `runShell`, `killTree`): `packages/llm/src/index.ts:123`, `scripts/llm-fit.ts:76,84,86,91,104,108`, `lib/agent-evals.ts:177,183` e `lib/agent-evals.ts:254`. Spawn de `git`, `node` e `process.execPath` continua como está — não é a fronteira em questão e mexer nele seria escopo emprestado.
-- [ ] AC-2 (segurança): o quoting de argumentos para `cmd.exe` é provado por teste com argumentos hostis — `"`, `&`, `|`, `>`, `<`, `%VAR%`, `^`, espaço, caminho com `\` — chegando ao processo-filho byte a byte como foi passado, e nenhum deles executando um segundo comando. O prompt do usuário e o comando do perfil são argumentos: sem este AC, o AC-1 trocava `EINVAL` por injeção. `shell: true` do Node nunca é usado (ele não escapa argumentos).
-- [ ] AC-3 (fixture não desvia do produto): o stub de agente dos testes é um `.cmd` no Windows e continua script com shebang em unix, executado pelo mesmo resolver do produto. Os 6 casos do inventário ficam verdes na célula Windows **sem skip**.
-- [ ] AC-4 (a árvore morre junto): em timeout, `runLlm` derruba filho e netos nos três SOs — no Windows por `taskkill /pid <pid> /T /F` ou equivalente, em POSIX pelo pid negativo como hoje. Teste: agente falso de dois níveis cujo neto escreve a cada 100ms para de escrever depois do grace, nos dois SOs. `exitCode: 124` / `errorCode: 'TIMEOUT'` não mudam.
-- [ ] AC-5 (diagnóstico honesto): binário não encontrável → `available: false` com `detail` dizendo o que foi procurado (caminho resolvido, `PATHEXT`); binário encontrável que falha ao executar → outro detail. O contrato `--json` (ADR-0082) e os campos existentes não mudam, só o conteúdo de `detail`.
-- [ ] AC-6 (checks `command`): `type: 'command'` roda por `runShell`, que usa `sh -c` em POSIX e `%ComSpec% /d /s /c` no Windows; as suítes de `templates/evals/agents/*.json` rodam inteiras nos três SOs. `CheckResult` não ganha estado novo nesta spec.
+- [x] AC-1: os quatro call sites de fronteira de agente passam por `lib/exec.ts` (`resolveCommand`, `spawnAgent`, `runShell`, `killTree`): `packages/llm/src/index.ts:123`, `scripts/llm-fit.ts:76,84,86,91,104,108`, `lib/agent-evals.ts:177,183` e `lib/agent-evals.ts:254`. Spawn de `git`, `node` e `process.execPath` continua como está — não é a fronteira em questão e mexer nele seria escopo emprestado.
+- [x] AC-2 (segurança): o quoting de argumentos para `cmd.exe` é provado por teste com argumentos hostis — `"`, `&`, `|`, `>`, `<`, `%VAR%`, `^`, espaço, caminho com `\` — chegando ao processo-filho byte a byte como foi passado, e nenhum deles executando um segundo comando. O prompt do usuário e o comando do perfil são argumentos: sem este AC, o AC-1 trocava `EINVAL` por injeção. `shell: true` do Node nunca é usado (ele não escapa argumentos).
+- [x] AC-3 (fixture não desvia do produto): o stub de agente dos testes é um `.cmd` no Windows e continua script com shebang em unix, executado pelo mesmo resolver do produto. Os 6 casos do inventário ficam verdes na célula Windows **sem skip**.
+- [x] AC-4 (a árvore morre junto): em timeout, `runLlm` derruba filho e netos nos três SOs — no Windows por `taskkill /pid <pid> /T /F` ou equivalente, em POSIX pelo pid negativo como hoje. Teste: agente falso de dois níveis cujo neto escreve a cada 100ms para de escrever depois do grace, nos dois SOs. `exitCode: 124` / `errorCode: 'TIMEOUT'` não mudam.
+- [x] AC-5 (diagnóstico honesto): binário não encontrável → `available: false` com `detail` dizendo o que foi procurado (caminho resolvido, `PATHEXT`); binário encontrável que falha ao executar → outro detail. O contrato `--json` (ADR-0082) e os campos existentes não mudam, só o conteúdo de `detail`.
+- [x] AC-6 (checks `command`): `type: 'command'` roda por `runShell`, que usa `sh -c` em POSIX e `%ComSpec% /d /s /c` no Windows; as suítes de `templates/evals/agents/*.json` rodam inteiras nos três SOs. `CheckResult` não ganha estado novo nesta spec.
 
 ## 5. Escopo
 **Dentro**:
@@ -80,4 +80,4 @@ Levantamento de 2026-11-08, branch `feat/v6-wave1` (PR #83), por leitura de cód
 - **Restrição do Node**: spawn de `.bat`/`.cmd` sem `shell: true` lança `EINVAL` desde 18.20.2 / 20.12.2 / 21.7.3 (endurecimento da CVE-2024-27980). A matriz do CI roda Node 22 e 24: as duas células estão do lado endurecido, então não há versão suportada em que o código atual funcione no Windows.
 - **Comando do check template é portável, o launcher não**: `"run": "node --test"` em `templates/evals/agents/teste-do-criterio.json:21` roda igual em `cmd.exe`; o que impede é o `sh` fixo na linha 254.
 - **Convenção que já existe no repo**: `lib/project-wiring.ts:98` usa `where` no Windows e `which` no resto. Também por isso o caminho é um módulo só — não quatro remendos de plataforma espalhados pelos call sites.
-- **Estado**: spec em draft, nenhuma linha de produto escrita. A implementação depende de aprovação e roda na mesma branch da Wave 2.
+- **Estado**: implementado em 2026-11-16 (PR #86, branch `fix/windows-inventory`). `lib/exec.ts` + `test/exec.test.js` (14 testes). CI Windows verde (run 43804567909). SPEC-056 AC-4 fechado.
