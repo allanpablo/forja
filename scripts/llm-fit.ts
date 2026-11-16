@@ -82,7 +82,8 @@ function doctor(name?: string): void {
   const configured = profiles().profiles;
   if (name && !configured[name]) throw new Error(`Perfil não encontrado: ${name}`);
   const result = Object.entries(configured).filter(([profileName]) => name === undefined || profileName === name).map(([profileName, value]) => {
-    const probe = probeSync(value.command, ['--version']);
+    const prefix = value.commandArgs ?? [];
+    const probe = probeSync(value.command, [...prefix, '--version']);
     const errorCode = (probe.error as NodeJS.ErrnoException | undefined)?.code;
     const model = `${value.provider}:${value.model}`;
     const pricing = pricingInfo(model);
@@ -90,14 +91,14 @@ function doctor(name?: string): void {
     let compatible: boolean | null = null;
     let features: { resume: boolean; outputSchema: boolean } | undefined;
     if (available && value.provider === 'codex') {
-      const help = probeSync(value.command, ['exec', '--help']);
+      const help = probeSync(value.command, [...prefix, 'exec', '--help']);
       compatible = !help.error && help.status === 0 && ['--json', '--sandbox', '--config'].every((flag) => help.stdout.includes(flag));
-      const resumeHelp = probeSync(value.command, ['exec', 'resume', '--help']);
+      const resumeHelp = probeSync(value.command, [...prefix, 'exec', 'resume', '--help']);
       features = { outputSchema: !help.error && help.status === 0 && help.stdout.includes('--output-schema'),
         resume: !resumeHelp.error && resumeHelp.status === 0 && ['--json', '--config'].every((flag) => resumeHelp.stdout.includes(flag)) };
     } else if (available && value.provider === 'claude') {
       // SPEC-050 — o `claude` CLI oferece --resume nativo; schema não (validação é local, Ajv).
-      const help = probeSync(value.command, ['--help']);
+      const help = probeSync(value.command, [...prefix, '--help']);
       const helpOk = !help.error && help.status === 0;
       compatible = helpOk && ['--output-format', '--print'].every((flag) => help.stdout.includes(flag));
       features = { resume: helpOk && help.stdout.includes('--resume'), outputSchema: false };
@@ -110,11 +111,11 @@ function doctor(name?: string): void {
       copilot: ['--prompt', '--silent'],
     };
     if (available && compatible === null && HELP_FLAGS[value.provider]) {
-      const help = probeSync(value.command, ['--help']);
+      const help = probeSync(value.command, [...prefix, '--help']);
       compatible = !help.error && help.status === 0 && HELP_FLAGS[value.provider].every((flag) => help.stdout.includes(flag));
       features = { resume: false, outputSchema: false };
     } else if (available && compatible === null && value.provider === 'opencode') {
-      const help = probeSync(value.command, ['run', '--help']);
+      const help = probeSync(value.command, [...prefix, 'run', '--help']);
       compatible = !help.error && help.status === 0 && help.stdout.includes('--agent');
       features = { resume: false, outputSchema: false };
     }

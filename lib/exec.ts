@@ -22,8 +22,12 @@ export function resolveCommand(bin: string): string | null {
   const finder = IS_WIN ? 'where' : 'which';
   const r = spawnSync(finder, [bin], { encoding: 'utf8', timeout: 5_000 });
   if (r.status === 0 && r.stdout) {
-    const first = r.stdout.trim().split(/\r?\n/)[0];
-    if (first) return first;
+    const lines = r.stdout.trim().split(/\r?\n/).filter(Boolean);
+    if (IS_WIN) {
+      const exec = lines.find((l) => /\.(cmd|bat|exe|com)$/i.test(l));
+      if (exec) return exec;
+    }
+    if (lines[0]) return lines[0];
   }
   if (IS_WIN) {
     const exts = (process.env.PATHEXT ?? '.COM;.EXE;.BAT;.CMD').split(';').filter(Boolean);
