@@ -191,7 +191,7 @@ for(const event of [{type:'thread.started',thread_id:'session-1'},
     } finally { db.close(); }
 
     // A provider returning a new session during resume must not silently replace the selected session.
-    fs.writeFileSync(fixture, `#!${process.execPath}\nfor(const event of [{type:'thread.started',thread_id:'different-session'}, {type:'turn.completed'}]) console.log(JSON.stringify(event));\n`);
+    fs.writeFileSync(isWin ? fixtureScript : fixture, isWin ? `for(const event of [{type:'thread.started',thread_id:'different-session'}, {type:'turn.completed'}]) console.log(JSON.stringify(event));\n` : `#!${process.execPath}\nfor(const event of [{type:'thread.started',thread_id:'different-session'}, {type:'turn.completed'}]) console.log(JSON.stringify(event));\n`);
     const mismatch = invoke([...common, '--resume', 'session-1', '--prompt', 'continue']);
     assert.notEqual(mismatch.status, 0);
     assert.equal(JSON.parse(mismatch.stdout).errorCode, 'SESSION_MISMATCH');

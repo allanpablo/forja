@@ -143,7 +143,7 @@ for (const event of [
       for (const content of ['instrução privada', 'desejo privado do produto', 'resposta privada fixture']) assert.ok(!persisted.includes(content));
     } finally { db.close(); }
 
-    fs.writeFileSync(fixture, `#!${process.execPath}\nconsole.log(JSON.stringify({ type: 'turn.failed' }));\n`);
+    fs.writeFileSync(isWin ? fixtureScript : fixture, isWin ? `console.log(JSON.stringify({ type: 'turn.failed' }));\n` : `#!${process.execPath}\nconsole.log(JSON.stringify({ type: 'turn.failed' }));\n`);
     const failed = run(['llm:run', '--profile', 'codex', '--prompt', 'tarefa']);
     assert.notEqual(failed.status, 0);
     assert.equal(JSON.parse(failed.stdout).errorCode, 'PROVIDER_FAILED');
@@ -155,7 +155,7 @@ for (const event of [
     assert.equal(timeout.status, 124);
     assert.equal(JSON.parse(timeout.stdout).errorCode, 'TIMEOUT');
 
-    fs.writeFileSync(fixture, `#!${process.execPath}\nconsole.log('old codex fixture');\n`);
+    fs.writeFileSync(isWin ? fixtureScript : fixture, isWin ? `console.log('old codex fixture');\n` : `#!${process.execPath}\nconsole.log('old codex fixture');\n`);
     const incompatible = run(['llm:doctor', 'codex']);
     assert.notEqual(incompatible.status, 0);
     assert.equal(JSON.parse(incompatible.stdout).profiles[0].compatible, false);
