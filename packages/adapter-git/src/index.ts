@@ -68,7 +68,7 @@ function isIndexable(relative: string): boolean {
  */
 function sandboxEnvironment(overrides?: Readonly<Record<string, string>>): NodeJS.ProcessEnv {
   const inherited = {} as NodeJS.ProcessEnv;
-  for (const key of ['PATH', 'NODE_PATH', 'SystemRoot', 'TMPDIR', 'TMP', 'TEMP', 'HOME', 'USERPROFILE']) {
+  for (const key of ['PATH', 'NODE_PATH', 'SystemRoot', 'TMPDIR', 'TMP', 'TEMP', 'HOME', 'USERPROFILE', 'APPDATA', 'LOCALAPPDATA', 'COMSPEC', 'PATHEXT']) {
     const value = process.env[key];
     if (value !== undefined) inherited[key] = value;
   }

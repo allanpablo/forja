@@ -107,7 +107,7 @@ for (const event of [
     else fs.chmodSync(fixtureScript, 0o755);
     assert.equal(run(['workspace:init']).status, 0);
     const profilesFile = path.join(workspace, '.context/llm-profiles.json');
-    fs.writeFileSync(profilesFile, JSON.stringify({ version: 1, profiles: { codex: { ...codex, command: fixture } } }));
+    fs.writeFileSync(profilesFile, JSON.stringify({ version: 1, profiles: { codex: { ...codex, ...(isWin ? { command: process.execPath, commandArgs: [fixtureScript] } : { command: fixture }) } } }));
     const contextFile = path.join(workspace, 'brief.md');
     fs.writeFileSync(contextFile, 'desejo privado do produto');
 
@@ -149,8 +149,8 @@ for (const event of [
     assert.equal(JSON.parse(failed.stdout).errorCode, 'PROVIDER_FAILED');
     assert.equal(JSON.parse(failed.stdout).executionStatus, 'failed');
 
-    fs.writeFileSync(fixture, `#!${process.execPath}\nsetInterval(() => {}, 1000);\n`);
-    fs.writeFileSync(profilesFile, JSON.stringify({ version: 1, profiles: { codex: { ...codex, command: fixture, timeoutMs: 100 } } }));
+    fs.writeFileSync(fixtureScript, isWin ? `setInterval(() => {}, 1000);\n` : `#!${process.execPath}\nsetInterval(() => {}, 1000);\n`);
+    fs.writeFileSync(profilesFile, JSON.stringify({ version: 1, profiles: { codex: { ...codex, ...(isWin ? { command: process.execPath, commandArgs: [fixtureScript] } : { command: fixture }), timeoutMs: 100 } } }));
     const timeout = run(['llm:run', '--profile', 'codex', '--prompt', 'tarefa']);
     assert.equal(timeout.status, 124);
     assert.equal(JSON.parse(timeout.stdout).errorCode, 'TIMEOUT');

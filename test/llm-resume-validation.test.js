@@ -129,7 +129,7 @@ for(const event of [{type:'thread.started',thread_id:'session-1'},
     if (isWin) fs.writeFileSync(fixture, `@echo off\r\nnode "%~dp0codex.mjs" %*\r\n`);
     else fs.chmodSync(fixtureScript, 0o755);
     assert.equal(invoke(['workspace:init']).status, 0);
-    const configured = { version: 1, profiles: { codex: { ...profile, command: fixture } } };
+    const configured = { version: 1, profiles: { codex: { ...profile, ...(isWin ? { command: process.execPath, commandArgs: [fixtureScript] } : { command: fixture }) } } };
     fs.writeFileSync(profilesFile, JSON.stringify(configured));
     fs.writeFileSync(schemaFile, JSON.stringify(schema));
     fs.writeFileSync(manifestFile, JSON.stringify({ version: 1, checks: [{ name: 'result-is-ok', command: process.execPath,

@@ -10,6 +10,7 @@ import {
   validateCase, loadCases, globToRegExp, parseClaudeStream, parseCodexJson, grade, snapshot,
   runSuite, compareRuns, CLAUDE_ALLOWED_TOOLS, claudeAdapter, codexAdapter,
 } from '../lib/agent-evals.ts';
+import { runShell } from '../lib/exec.ts';
 
 // SPEC-054 (avaliacoes-de-agentes). Nenhum teste aqui chama um provedor real (SPEC-054 AC-7): os agentes são
 // falsos, e o CLI roda com FORJA_EVAL_CLAUDE_BIN apontando para um script local.
@@ -131,7 +132,7 @@ const diligent = {
   name: 'diligente',
   version: () => 'fake 1',
   run(ctx) {
-    const sh = (cmd) => spawnSync('sh', ['-c', cmd], { cwd: ctx.projectDir, env: ctx.env, encoding: 'utf8' });
+    const sh = (cmd) => runShell(cmd, { cwd: ctx.projectDir, env: ctx.env });
     const w = (rel, text) => { fs.mkdirSync(path.dirname(path.join(ctx.projectDir, rel)), { recursive: true }); fs.writeFileSync(path.join(ctx.projectDir, rel), text); };
     const p = ctx.prompt;
     if (/PostgreSQL/.test(p)) w('memory/90-decisions/0001-postgres.md', '# ADR-0001: PostgreSQL\n\n## Contexto\nTransações e JSONB.\n\n## Decisão\nUsar PostgreSQL.\n');
