@@ -79,7 +79,7 @@ export function buildLlmExecution(profile: LlmProfile, prompt: string, options: 
   const base = [...(profile.commandArgs ?? [])];
   if (profile.provider === 'codex') return {
     executable: profile.command,
-    args: ['exec', ...base, '--sandbox', 'read-only', '-c', 'approval_policy="never"',
+    args: [...base, 'exec', '--sandbox', 'read-only', '-c', 'approval_policy="never"',
       ...(options.resume ? ['resume', '-c', 'sandbox_mode="read-only"', '-c', 'approval_policy="never"'] : []),
       ...(profile.model === 'default' ? [] : ['--model', profile.model]),
       ...(profile.reasoningEffort ? ['-c', `model_reasoning_effort="${profile.reasoningEffort}"`] : []),
